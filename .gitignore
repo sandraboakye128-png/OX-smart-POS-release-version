@@ -30,4 +30,4 @@ Thumbs.db
 
 *.log
 project_files.txt
-pull_users_from_cloud.py
+pull_users_from_cloud.py*.bak
