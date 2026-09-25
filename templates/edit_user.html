@@ -1,0 +1,468 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Offline banner -->
+<div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
+    ⚠️ You are offline – showing cached user data. Changes will be saved when you reconnect.
+</div>
+
+<div class="flex items-center gap-2 mb-6">
+    <a href="/admin/users" class="text-indigo-600 hover:text-indigo-800 hover:underline">← Back to Users</a>
+    <h1 class="text-3xl font-bold text-gray-800 ml-4">✏️ Edit User</h1>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6 max-w-2xl">
+    <!-- User Info -->
+    <div id="userInfo" class="mb-6">
+        <div class="flex items-center gap-3 mb-3">
+            <span class="text-lg font-semibold text-gray-700">User:</span>
+            <span id="userName" class="text-lg font-bold text-indigo-700"></span>
+            <span id="userRoleBadge" class="px-2 py-1 text-xs font-semibold rounded-full"></span>
+            {% if is_oxbee %}
+            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">🔒 System Protected</span>
+            {% endif %}
+        </div>
+        <p class="text-sm text-gray-500">Joined: <span id="userCreated"></span></p>
+        <p class="text-sm text-gray-500">User ID: <span id="userIdDisplay"></span></p>
+    </div>
+
+    <!-- Role Change -->
+    <div class="border-t pt-4 mt-4">
+        <h3 class="font-semibold text-gray-700 mb-3">👤 Change Role</h3>
+        <div class="flex flex-wrap gap-3 items-center">
+            <select id="roleSelect" class="border rounded-lg px-3 py-2 bg-white" {% if is_oxbee %}disabled{% endif %}>
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+            </select>
+            <button id="updateRoleBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition {% if is_oxbee %}opacity-50 cursor-not-allowed{% endif %}" 
+                    {% if is_oxbee %}disabled{% endif %}>
+                Update Role
+            </button>
+            {% if is_oxbee %}
+            <span class="text-red-500 text-sm">🔒 Cannot modify system administrator</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Password Reset -->
+    <div class="border-t pt-4 mt-4">
+        <h3 class="font-semibold text-gray-700 mb-3">🔑 Reset Password</h3>
+        <div class="flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-sm text-gray-600 mb-1">New Password</label>
+                <input type="password" id="newPassword" class="w-full border rounded-lg px-3 py-2" 
+                       placeholder="Enter new password" {% if is_oxbee %}disabled{% endif %}>
+            </div>
+            <button id="resetPasswordBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition {% if is_oxbee %}opacity-50 cursor-not-allowed{% endif %}"
+                    {% if is_oxbee %}disabled{% endif %}>
+                Reset Password
+            </button>
+            {% if is_oxbee %}
+            <span class="text-red-500 text-sm">🔒 Cannot modify system administrator</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Password Hash (Admin Only) -->
+    <div class="border-t pt-4 mt-4">
+        <h3 class="font-semibold text-gray-700 mb-3">👁️ Password Hash</h3>
+        <div class="flex flex-wrap gap-3 items-center">
+            <button id="viewPasswordBtn" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition">
+                Show Password Hash
+            </button>
+            <span id="passwordHashDisplay" class="text-xs text-gray-500 font-mono hidden break-all"></span>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">⚠️ This shows the SHA-256 hash, not the actual password</p>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="border-t pt-4 mt-4 border-red-200">
+        <h3 class="font-semibold text-red-600 mb-3">⚠️ Danger Zone</h3>
+        <div class="flex flex-wrap gap-3 items-center">
+            <button id="deleteUserBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition {% if is_oxbee %}opacity-50 cursor-not-allowed{% endif %}"
+                    {% if is_oxbee %}disabled{% endif %}>
+                🗑️ Delete User
+            </button>
+            {% if is_oxbee %}
+            <span class="text-red-500 text-sm">🔒 Cannot delete system administrator</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="actionMessage" class="mt-4 text-sm"></div>
+</div>
+
+<!-- ========== ERROR MODAL ========== -->
+<div id="errorModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-96 max-w-lg p-6">
+        <div class="flex items-start gap-3">
+            <div class="text-3xl text-red-500">❌</div>
+            <div class="flex-1">
+                <h3 class="text-lg font-bold text-gray-800">Cannot Delete User</h3>
+                <p id="errorModalMessage" class="text-sm text-gray-700 mt-1"></p>
+                <div id="errorModalDetails" class="text-xs text-gray-500 mt-2 border-t pt-2 hidden">
+                    <strong>Details:</strong> <span id="errorModalDetailsText"></span>
+                </div>
+            </div>
+        </div>
+        <div class="flex justify-end mt-4">
+            <button onclick="closeErrorModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded">
+                OK
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Data attributes for JavaScript -->
+<div id="editUserData" 
+     data-user-id="{{ user_id }}" 
+     data-is-oxbee="{{ 'true' if is_oxbee else 'false' }}">
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM loaded – initializing Edit User with Dexie");
+
+        // ---------- Offline banner ----------
+        function updateOfflineBanner() {
+            const banner = document.getElementById('offlineBanner');
+            if (!navigator.onLine) {
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+            // Disable action buttons when offline
+            const actions = ['updateRoleBtn', 'resetPasswordBtn', 'deleteUserBtn'];
+            actions.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    if (!navigator.onLine) {
+                        btn.disabled = true;
+                        btn.classList.add('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                }
+            });
+        }
+        window.addEventListener('online', updateOfflineBanner);
+        window.addEventListener('offline', updateOfflineBanner);
+
+        // ========== DEXIE HELPERS (using cache table) ==========
+        const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+        async function getCacheEntry(key) {
+            if (!db) {
+                // Fallback to localStorage
+                try {
+                    const raw = localStorage.getItem(key);
+                    if (!raw) return null;
+                    const parsed = JSON.parse(raw);
+                    if (Date.now() - (parsed.timestamp || 0) > CACHE_MAX_AGE_MS) {
+                        localStorage.removeItem(key);
+                        return null;
+                    }
+                    return parsed.data;
+                } catch(e) { return null; }
+            }
+            try {
+                let cacheTable = db.cache || db.table('cache');
+                const entry = await cacheTable.get(key);
+                if (entry && entry.value) {
+                    const age = Date.now() - (entry.timestamp || 0);
+                    if (age < CACHE_MAX_AGE_MS) {
+                        return entry.value;
+                    } else {
+                        // Stale – remove
+                        await cacheTable.delete(key);
+                        return null;
+                    }
+                }
+                return null;
+            } catch (e) {
+                console.warn('Dexie cache read failed, using localStorage fallback', e);
+                try {
+                    const raw = localStorage.getItem(key);
+                    if (!raw) return null;
+                    const parsed = JSON.parse(raw);
+                    if (Date.now() - (parsed.timestamp || 0) > CACHE_MAX_AGE_MS) {
+                        localStorage.removeItem(key);
+                        return null;
+                    }
+                    return parsed.data;
+                } catch(e2) { return null; }
+            }
+        }
+
+        async function putCacheEntry(key, value) {
+            if (!db) {
+                // localStorage fallback
+                try {
+                    localStorage.setItem(key, JSON.stringify({ data: value, timestamp: Date.now() }));
+                } catch(e) {}
+                return;
+            }
+            try {
+                let cacheTable = db.cache || db.table('cache');
+                await cacheTable.put({ key, value, timestamp: Date.now() });
+                console.log(`✅ Cache entry ${key} stored in Dexie`);
+            } catch (e) {
+                console.warn('Dexie cache write failed, using localStorage fallback', e);
+                try {
+                    localStorage.setItem(key, JSON.stringify({ data: value, timestamp: Date.now() }));
+                } catch(e2) {}
+            }
+        }
+
+        // Get data from data attributes
+        const userId = parseInt(document.getElementById('editUserData').dataset.userId);
+        const isOxbee = document.getElementById('editUserData').dataset.isOxbee === 'true';
+        const USER_CACHE_KEY = `edit_user_${userId}`;
+
+        // ---------- Error Modal ----------
+        function showErrorModal(message, details) {
+            const modal = document.getElementById('errorModal');
+            const msgEl = document.getElementById('errorModalMessage');
+            const detailsEl = document.getElementById('errorModalDetails');
+            const detailsText = document.getElementById('errorModalDetailsText');
+
+            msgEl.textContent = message;
+            if (details) {
+                detailsText.textContent = details;
+                detailsEl.classList.remove('hidden');
+            } else {
+                detailsEl.classList.add('hidden');
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function closeErrorModal() {
+            document.getElementById('errorModal').classList.add('hidden');
+        }
+        document.getElementById('errorModal').addEventListener('click', function(e) {
+            if (e.target === this) closeErrorModal();
+        });
+
+        // ---------- Load user data (with Dexie cache) ----------
+        async function loadUser() {
+            updateOfflineBanner();
+            let user = null;
+            let fromCache = false;
+
+            // Try network first (if online)
+            if (navigator.onLine) {
+                try {
+                    const res = await fetch(`/api/admin/users/${userId}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.success) {
+                            user = data.user;
+                            await putCacheEntry(USER_CACHE_KEY, user);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Network request failed, using cache if available:', e);
+                }
+            }
+
+            // If no user from network, try cache
+            if (!user) {
+                user = await getCacheEntry(USER_CACHE_KEY);
+                if (user) {
+                    fromCache = true;
+                    // Show note that we're using cached data
+                    const msg = document.getElementById('actionMessage');
+                    msg.textContent = '📦 Showing cached user data (offline)';
+                    msg.className = 'text-sm text-orange-500 mt-4';
+                    setTimeout(() => { msg.textContent = ''; }, 5000);
+                }
+            }
+
+            if (!user) {
+                // No data at all
+                document.getElementById('userName').textContent = 'User not found';
+                document.getElementById('userIdDisplay').textContent = userId;
+                document.getElementById('userCreated').textContent = 'N/A';
+                document.getElementById('userRoleBadge').textContent = 'Unknown';
+                showMessage('Could not load user data. Please connect to the internet and refresh.', 'red');
+                return;
+            }
+
+            // Display user data
+            document.getElementById('userName').textContent = user.username;
+            document.getElementById('userIdDisplay').textContent = user.id;
+            document.getElementById('userCreated').textContent = user.created_at ? new Date(user.created_at).toLocaleString() : 'N/A';
+
+            const badge = document.getElementById('userRoleBadge');
+            if (user.role === 'admin') {
+                badge.textContent = 'Admin';
+                badge.className = 'px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800';
+            } else {
+                badge.textContent = 'User';
+                badge.className = 'px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800';
+            }
+            document.getElementById('roleSelect').value = user.role;
+
+            if (fromCache) {
+                // Add a small note in the user info area
+                const note = document.createElement('p');
+                note.className = 'text-xs text-orange-400 mt-1';
+                note.textContent = '⚠️ Data may be outdated (offline)';
+                document.getElementById('userInfo').appendChild(note);
+            }
+        }
+
+        // ---------- Show inline message ----------
+        function showMessage(msg, color) {
+            const el = document.getElementById('actionMessage');
+            el.textContent = msg;
+            el.className = `mt-4 text-sm text-${color}-500`;
+            setTimeout(() => { el.textContent = ''; }, 5000);
+        }
+
+        // ---------- Update role ----------
+        document.getElementById('updateRoleBtn').addEventListener('click', async function() {
+            if (isOxbee) {
+                showMessage('Cannot modify the system administrator!', 'red');
+                return;
+            }
+            if (!navigator.onLine) {
+                showMessage('You are offline. Please connect to the internet to change roles.', 'red');
+                return;
+            }
+
+            const newRole = document.getElementById('roleSelect').value;
+            if (!confirm(`Change this user's role to "${newRole}"?`)) return;
+
+            try {
+                const res = await fetch(`/api/admin/users/${userId}/role`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: newRole })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showMessage('✅ Role updated successfully!', 'green');
+                    // Invalidate cache
+                    await putCacheEntry(USER_CACHE_KEY, { ...(await getCacheEntry(USER_CACHE_KEY)), role: newRole });
+                    loadUser();
+                } else {
+                    showMessage('❌ Error: ' + data.error, 'red');
+                }
+            } catch (error) {
+                showMessage('❌ Failed to update role: ' + error.message, 'red');
+            }
+        });
+
+        // ---------- Reset password ----------
+        document.getElementById('resetPasswordBtn').addEventListener('click', async function() {
+            if (isOxbee) {
+                showMessage('Cannot modify the system administrator!', 'red');
+                return;
+            }
+            if (!navigator.onLine) {
+                showMessage('You are offline. Please connect to the internet to reset passwords.', 'red');
+                return;
+            }
+
+            const newPassword = document.getElementById('newPassword').value;
+            if (!newPassword || newPassword.length < 4) {
+                showMessage('Password must be at least 4 characters.', 'red');
+                return;
+            }
+
+            if (!confirm(`Reset password for this user to "${newPassword}"?`)) return;
+
+            try {
+                const res = await fetch(`/api/admin/users/${userId}/password`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: newPassword })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showMessage('✅ Password reset successfully!', 'green');
+                    document.getElementById('newPassword').value = '';
+                } else {
+                    showMessage('❌ Error: ' + data.error, 'red');
+                }
+            } catch (error) {
+                showMessage('❌ Failed to reset password: ' + error.message, 'red');
+            }
+        });
+
+        // ---------- View password hash ----------
+        document.getElementById('viewPasswordBtn').addEventListener('click', async function() {
+            const display = document.getElementById('passwordHashDisplay');
+            if (display.classList.contains('hidden')) {
+                if (!navigator.onLine) {
+                    showMessage('Cannot fetch password hash offline.', 'red');
+                    return;
+                }
+                try {
+                    const res = await fetch(`/api/admin/users/${userId}`);
+                    const data = await res.json();
+                    if (data.success) {
+                        // For security, we don't expose the hash directly
+                        display.textContent = '🔒 Password hash is not exposed for security reasons.';
+                        display.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    showMessage('Failed to load data: ' + error.message, 'red');
+                }
+            } else {
+                display.classList.add('hidden');
+            }
+        });
+
+        // ---------- Delete user ----------
+        document.getElementById('deleteUserBtn').addEventListener('click', async function() {
+            if (isOxbee) {
+                showMessage('Cannot delete the system administrator!', 'red');
+                return;
+            }
+            if (!navigator.onLine) {
+                showMessage('You are offline. Please connect to the internet to delete users.', 'red');
+                return;
+            }
+
+            if (!confirm('⚠️ Are you sure you want to delete this user? This cannot be undone!')) return;
+            if (!confirm('Really? This will permanently delete the user and all their data.')) return;
+
+            try {
+                const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showMessage('✅ User deleted successfully!', 'green');
+                    // Remove from cache
+                    await putCacheEntry(USER_CACHE_KEY, null);
+                    setTimeout(() => {
+                        window.location.href = '/admin/users';
+                    }, 1000);
+                } else {
+                    showErrorModal('Cannot delete user', data.error || 'Unknown error');
+                }
+            } catch (error) {
+                showErrorModal('Network error', error.message);
+            }
+        });
+
+        // ---------- Enter key on password field triggers reset ----------
+        document.getElementById('newPassword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('resetPasswordBtn').click();
+            }
+        });
+
+        // ---------- Initial load ----------
+        updateOfflineBanner();
+        loadUser();
+
+        // Refresh when back online
+        window.addEventListener('online', function() {
+            loadUser();
+        });
+    });
+</script>
+{% endblock %}

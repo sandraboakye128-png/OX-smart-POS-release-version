@@ -1,0 +1,1459 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Offline banner -->
+<div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
+    ⚠️ You are offline – showing cached accessories. Sales will be saved and synced when you reconnect.
+</div>
+
+<!-- One-time notice: Sales page revived -->
+<div id="salesReviveNotice" class="notice-banner" style="display: none;">
+    <div class="notice-content">
+        <span>🔄 <strong>Sales page revived!</strong> Further updates will continue later.</span>
+        <button id="dismissNotice" class="notice-close">&times;</button>
+    </div>
+</div>
+
+<!-- ✅ NEW: Gentle Loading Products Prompt -->
+<div id="loadingProductsPrompt" class="mb-4 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg flex items-center gap-3">
+    <div class="flex-shrink-0">
+        <div class="spinner-border" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+    </div>
+    <div class="flex-1">
+        <div class="font-semibold">⏳ Loading accessories...</div>
+        <div class="text-xs text-blue-600 mt-0.5" id="loadingProductsMessage">
+            Fetching products and batches from server
+        </div>
+    </div>
+    <div class="text-xs text-blue-500 font-mono" id="loadingProductsElapsed">0.0s</div>
+</div>
+
+<!-- ✅ NEW: Success Prompt (hidden by default) -->
+<div id="loadingSuccessPrompt" class="mb-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg hidden">
+    <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <i class="fas fa-check-circle text-green-600 text-xl"></i>
+            <div>
+                <div class="font-semibold" id="loadingSuccessTitle">✅ Accessories loaded</div>
+                <div class="text-xs text-green-600 mt-0.5" id="loadingSuccessDetail"></div>
+            </div>
+        </div>
+        <button onclick="hideSuccessPrompt()" class="text-green-600 hover:text-green-800 text-xl leading-none">&times;</button>
+    </div>
+</div>
+
+<!-- No accessories banner -->
+<div id="noProductsBanner" class="mb-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded hidden">
+    <strong>⚠️ No accessories found.</strong><br>
+    Please ensure your inventory imports are correctly categorised as <strong>Accessories</strong> (not Screens).
+    <br><br>
+    <a href="/inventory/import" class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded inline-block">
+        📥 Go to Import Page
+    </a>
+    <button onclick="refreshProducts()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded ml-2">
+        🔄 Refresh
+    </button>
+</div>
+
+<!-- Two-column layout -->
+<div class="flex flex-wrap -mx-4">
+    <!-- LEFT PANEL: Products & Form -->
+    <div class="w-full lg:w-1/2 px-4 mb-6">
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="flex items-center gap-2 mb-2">
+                <h2 class="text-xl font-bold text-indigo-600">🛒 Sales Terminal</h2>
+                <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">Accessories</span>
+                <span id="productCountBadge" class="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2.5 py-0.5 rounded hidden"></span>
+            </div>
+            
+            <input type="text" id="searchProduct" placeholder="🔍 Search accessory..." 
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3">
+            
+            <div id="productList" class="max-h-80 overflow-y-auto border rounded-lg p-2 mb-4"></div>
+            
+            <div id="selectedProductInfo" class="text-gray-600 text-sm mb-2">No accessory selected</div>
+            
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <input type="number" id="quantity" placeholder="Quantity" class="border rounded-lg px-3 py-2">
+                <input type="number" step="0.01" id="discount" placeholder="Discount (₵)" class="border rounded-lg px-3 py-2">
+            </div>
+            
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-gray-700">Sale Date</label>
+                <input type="date" id="saleDate" class="border rounded-lg px-3 py-2 w-full">
+            </div>
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-gray-700">Sale Time (HH:MM with AM/PM or 24h)</label>
+                <input type="text" id="saleTime" placeholder="e.g. 2:30 PM or 14:30" 
+                       class="border rounded-lg px-3 py-2 w-full">
+            </div>
+            
+            <button id="addToCartBtn" class="w-full bg-teal-500 hover:bg-teal-600 text-white py-2 rounded-lg">
+                ➕ Add to Cart
+            </button>
+        </div>
+    </div>
+    
+    <!-- RIGHT PANEL: Cart & Receipt -->
+    <div class="w-full lg:w-1/2 px-4">
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <h2 class="text-xl font-bold text-indigo-600 mb-3">🧾 Cart</h2>
+            <div id="cartItems" class="max-h-96 overflow-y-auto border rounded-lg p-2 mb-4 space-y-3"></div>
+            <div class="mb-3 text-right">
+                <span class="text-lg font-bold">Grand Total: </span>
+                <span id="grandTotal" class="text-2xl font-bold text-green-600">₵0.00</span>
+            </div>
+            <button id="completeSaleBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg mb-3">
+                💳 Complete Sale
+            </button>
+            <button id="printReceiptBtn" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg mb-3" disabled>
+                🖨 Print Receipt
+            </button>
+            <div id="receiptPreview" class="border rounded-lg p-3 bg-gray-50 font-mono text-sm max-h-60 overflow-y-auto"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Batch Selection Modal -->
+<div id="batchModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-11/12 max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div class="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
+            <h3 class="text-xl font-bold" id="batchModalTitle">Select Batches</h3>
+            <button onclick="closeBatchModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+        </div>
+        <div id="batchList" class="p-4 space-y-3"></div>
+        <div class="sticky bottom-0 bg-white p-4 border-t flex justify-between">
+            <div>
+                <button onclick="selectAllBatches()" class="bg-blue-500 text-white px-3 py-1 rounded mr-2">Select All</button>
+                <button onclick="deselectAllBatches()" class="bg-orange-500 text-white px-3 py-1 rounded">Deselect All</button>
+            </div>
+            <div>
+                <span id="assignedQty" class="mr-4 text-sm font-bold">Assigned: 0</span>
+                <span id="remainingQty" class="mr-4 text-sm font-bold">Remaining: 0</span>
+                <button onclick="confirmBatchSelection()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">✓ Confirm</button>
+                <button onclick="closeBatchModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded ml-2">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Modal -->
+<div id="paymentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-96 p-6">
+        <h3 class="text-xl font-bold mb-4">Select Payment Method</h3>
+        <div class="space-y-3">
+            <button onclick="selectPayment('cash', event)" class="payment-option w-full text-left px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
+                <span class="font-bold text-green-600">💵 Cash</span>
+                <span class="text-sm text-gray-500 block">Pay with cash</span>
+            </button>
+            <button onclick="selectPayment('momo', event)" class="payment-option w-full text-left px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
+                <span class="font-bold text-blue-600">📱 Mobile Money</span>
+                <span class="text-sm text-gray-500 block">Pay with MoMo (MTN, Vodafone, AirtelTigo)</span>
+            </button>
+            <button onclick="showChequeInput(event)" class="payment-option w-full text-left px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
+                <span class="font-bold text-purple-600">📝 Cheque</span>
+                <span class="text-sm text-gray-500 block">Pay with cheque</span>
+            </button>
+        </div>
+        <div id="chequeInputContainer" class="hidden mt-4">
+            <label class="block text-sm font-medium text-gray-700">Cheque Number</label>
+            <input type="text" id="chequeNumber" placeholder="Enter cheque number" class="w-full border rounded-lg px-3 py-2 mt-1">
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+            <button id="cancelPaymentBtn" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded">Cancel</button>
+            <button id="confirmPaymentBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Confirm Sale</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .stock-breakdown {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+        gap: 0.25rem;
+    }
+    .stock-item {
+        padding: 0.125rem 0.25rem;
+        border-radius: 0.25rem;
+        text-align: center;
+        font-size: 0.65rem;
+    }
+    .stock-total { background: #f3f4f6; }
+    .stock-sold { background: #dbeafe; }
+    .stock-claimed { background: #fee2e2; }
+    .stock-good { background: #d1fae5; }
+    .batch-faulty { border-left: 3px solid #ef4444; background: #fef2f2; }
+    .batch-good { border-left: 3px solid #22c55e; background: #f0fdf4; }
+    .batch-warning { border-left: 3px solid #f59e0b; background: #fffbeb; }
+
+    /* ✅ Loading spinner animation */
+    .spinner-border {
+        display: inline-block;
+        width: 1.25rem;
+        height: 1.25rem;
+        vertical-align: text-bottom;
+        border: 0.2em solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spinner-border 0.75s linear infinite;
+        color: #2563eb;
+    }
+    @keyframes spinner-border {
+        to { transform: rotate(360deg); }
+    }
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+</style>
+
+<script>
+    // ---------- Sales JS (Accessories – excludes Screen) ----------
+    let products = [];
+    let currentProduct = null;
+    let cart = [];
+    let lastSale = null;
+    let currentBatches = [];
+    let currentProductForBatch = null;
+    let neededQty = 0;
+    let batchSelection = [];
+
+    let selectedPaymentMethod = null;
+    let selectedChequeNumber = null;
+    let pendingSaleCallback = null;
+
+    function formatMoney(amount) {
+        return '₵' + amount.toFixed(2);
+    }
+
+    // =============================================================
+    //  ✅ NEW: Loading prompt helpers
+    // =============================================================
+    let loadingTimerInterval = null;
+    let loadingStartTime = null;
+
+    function showLoadingPrompt(message = 'Fetching products and batches from server') {
+        const prompt = document.getElementById('loadingProductsPrompt');
+        const msgEl = document.getElementById('loadingProductsMessage');
+        const elapsedEl = document.getElementById('loadingProductsElapsed');
+        const successPrompt = document.getElementById('loadingSuccessPrompt');
+        
+        if (!prompt) return;
+        
+        // Hide success prompt if visible
+        if (successPrompt) successPrompt.classList.add('hidden');
+        
+        prompt.classList.remove('hidden');
+        if (msgEl) msgEl.textContent = message;
+        
+        loadingStartTime = Date.now();
+        if (elapsedEl) elapsedEl.textContent = '0.0s';
+        
+        // Update elapsed time every 100ms
+        if (loadingTimerInterval) clearInterval(loadingTimerInterval);
+        loadingTimerInterval = setInterval(() => {
+            if (loadingStartTime && elapsedEl) {
+                const elapsed = (Date.now() - loadingStartTime) / 1000;
+                elapsedEl.textContent = elapsed.toFixed(1) + 's';
+            }
+        }, 100);
+    }
+
+    function updateLoadingMessage(message) {
+        const msgEl = document.getElementById('loadingProductsMessage');
+        if (msgEl) msgEl.textContent = message;
+    }
+
+    function hideLoadingPrompt() {
+        const prompt = document.getElementById('loadingProductsPrompt');
+        if (prompt) prompt.classList.add('hidden');
+        if (loadingTimerInterval) {
+            clearInterval(loadingTimerInterval);
+            loadingTimerInterval = null;
+        }
+    }
+
+    function showSuccessPrompt(title, detail) {
+        const successPrompt = document.getElementById('loadingSuccessPrompt');
+        const titleEl = document.getElementById('loadingSuccessTitle');
+        const detailEl = document.getElementById('loadingSuccessDetail');
+        if (!successPrompt) return;
+        
+        // Hide loading prompt
+        hideLoadingPrompt();
+        
+        if (titleEl) titleEl.textContent = title;
+        if (detailEl) detailEl.textContent = detail;
+        successPrompt.classList.remove('hidden');
+        
+        // Auto-hide after 4 seconds
+        setTimeout(() => {
+            successPrompt.classList.add('hidden');
+        }, 4000);
+    }
+
+    function hideSuccessPrompt() {
+        const successPrompt = document.getElementById('loadingSuccessPrompt');
+        if (successPrompt) successPrompt.classList.add('hidden');
+    }
+
+    // ---------- Offline banner ----------
+    function updateOfflineBanner() {
+        const banner = document.getElementById('offlineBanner');
+        if (!navigator.onLine) {
+            banner.classList.remove('hidden');
+        } else {
+            banner.classList.add('hidden');
+        }
+    }
+    window.addEventListener('online', updateOfflineBanner);
+    window.addEventListener('offline', updateOfflineBanner);
+
+    // ---------- Clear Offline Data (with Dexie) ----------
+    function clearOfflineData() {
+        const keys = [
+            'pending_sales',
+            'offline_sales', 
+            'sales_products_cache_accessories',
+            'sales_license_cache',
+        ];
+        keys.forEach(key => {
+            try {
+                localStorage.removeItem(key);
+                console.log('🗑️ Cleared:', key);
+            } catch(e) {}
+        });
+        // Remove any leftover batch caches (legacy)
+        const allKeys = Object.keys(localStorage);
+        allKeys.forEach(key => {
+            if (key.startsWith('batches_')) {
+                localStorage.removeItem(key);
+                console.log('🗑️ Cleared batch cache:', key);
+            }
+        });
+        // Clear Dexie products/batches
+        if (db) {
+            db.products.clear();
+            db.batches.clear();
+            console.log('🗑️ Dexie products & batches cleared');
+        }
+        document.getElementById('receiptPreview').innerHTML = '';
+        document.getElementById('printReceiptBtn').disabled = true;
+        alert('✅ Offline data cleared. Please refresh the page.');
+        location.reload();
+    }
+    window.clearOfflineData = clearOfflineData;
+
+    // =============================================================
+    //  API-FIRST PRODUCT LOADING
+    //  ✅ With loading prompt, elapsed timer, and product count
+    // =============================================================
+    async function loadProducts() {
+        updateOfflineBanner();
+        const noProductsBanner = document.getElementById('noProductsBanner');
+        noProductsBanner.classList.add('hidden');
+
+        if (!db) {
+            console.warn('Dexie not available');
+            return;
+        }
+
+        // ✅ Show loading prompt
+        showLoadingPrompt('Connecting to server...');
+
+        let prods = [];
+        let apiSuccess = false;
+        let sourceLabel = '';
+        let batchCount = 0;
+
+        // 1. Try API first (if online)
+        if (navigator.onLine) {
+            try {
+                updateLoadingMessage('Fetching accessories from server...');
+                const res = await fetch('/api/sales/products?exclude_category=Screen');
+                if (res.ok) {
+                    updateLoadingMessage('Parsing product data...');
+                    const apiProds = await res.json();
+                    if (apiProds.length > 0) {
+                        // Store in Dexie
+                        updateLoadingMessage(`Caching ${apiProds.length} products locally...`);
+                        await storeProductsInDexie(apiProds);
+                        // Build product list from API data directly
+                        prods = apiProds.map(p => ({
+                            ...p,
+                            stock: p.batches ? p.batches.reduce((s, b) => s + b.remaining_quantity, 0) : 0,
+                            batches: p.batches || []
+                        }));
+                        apiSuccess = true;
+                        sourceLabel = 'server';
+                        console.log('📦 Loaded products from API:', prods.length);
+                    }
+                }
+            } catch (e) {
+                console.warn('API failed, using Dexie fallback');
+                updateLoadingMessage('Server unavailable, loading cached data...');
+            }
+        } else {
+            updateLoadingMessage('Offline – loading cached accessories...');
+        }
+
+        // 2. If API failed or offline, read from Dexie
+        if (!apiSuccess || !navigator.onLine) {
+            try {
+                updateLoadingMessage('Reading from local cache...');
+                let cached = await db.products.where('category').notEqual('Screen').toArray();
+                const uncategorized = await db.products.where('category').equals('').toArray();
+                cached = cached.concat(uncategorized);
+                for (const p of cached) {
+                    const batches = await db.batches.where('product_id').equals(p.id).toArray();
+                    p.batches = batches;
+                    p.stock = batches.reduce((sum, b) => sum + (b.remaining_quantity || 0), 0);
+                }
+                prods = cached;
+                sourceLabel = 'cache';
+                console.log('📦 Loaded products from Dexie:', prods.length);
+            } catch (e) {
+                console.warn('Failed to read from Dexie:', e);
+            }
+        }
+
+        // 3. Render
+        updateLoadingMessage('Rendering product list...');
+
+        if (prods.length > 0) {
+            // Group products by name+brand (deduplicate)
+            const grouped = {};
+            prods.forEach(p => {
+                const key = `${p.name}|${p.brand}`;
+                if (!grouped[key]) {
+                    grouped[key] = {
+                        ...p,
+                        stock: 0,
+                        batches: []
+                    };
+                }
+                grouped[key].stock += p.stock || 0;
+                if (p.batches && p.batches.length > 0) {
+                    grouped[key].batches = grouped[key].batches.concat(p.batches);
+                }
+            });
+            products = Object.values(grouped);
+            renderProductList(products);
+
+            // ✅ Count unique products and total batches
+            const totalProducts = products.length;
+            const totalBatches = products.reduce((sum, p) => sum + (p.batches ? p.batches.length : 0), 0);
+            const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0);
+
+            // Update product count badge in header
+            const badge = document.getElementById('productCountBadge');
+            if (badge) {
+                badge.textContent = `${totalProducts} products`;
+                badge.classList.remove('hidden');
+            }
+
+            // ✅ Show success prompt with details
+            const elapsed = ((Date.now() - loadingStartTime) / 1000).toFixed(1);
+            const sourceText = sourceLabel === 'server' 
+                ? 'from server' 
+                : sourceLabel === 'cache' 
+                    ? 'from offline cache' 
+                    : '';
+            const detailText = `${totalProducts} product${totalProducts !== 1 ? 's' : ''} · ${totalBatches} batch${totalBatches !== 1 ? 'es' : ''} · ${totalStock} units ${sourceText} in ${elapsed}s`;
+            showSuccessPrompt('✅ Accessories loaded', detailText);
+        } else {
+            // No products found
+            hideLoadingPrompt();
+            document.getElementById('productList').innerHTML = '';
+            noProductsBanner.classList.remove('hidden');
+            if (!navigator.onLine) {
+                document.getElementById('productList').innerHTML = 
+                    '<div class="text-gray-500 p-2">No cached accessories – connect to refresh</div>';
+            }
+            // Hide product count badge
+            const badge = document.getElementById('productCountBadge');
+            if (badge) badge.classList.add('hidden');
+            products = [];
+        }
+    }
+
+    // ---------- Store products in Dexie ----------
+    async function storeProductsInDexie(apiProds) {
+        if (!db) return;
+        try {
+            for (const p of apiProds) {
+                if (!p.product_id) {
+                    p.product_id = Date.now() + '_' + Math.random().toString(36).substr(2,6);
+                }
+                await db.products.put({
+                    id: p.product_id,
+                    name: p.name,
+                    brand: p.brand,
+                    category: p.category || '',
+                    cost_price: p.cost_price,
+                    selling_price: p.selling_price,
+                    stock: p.stock,
+                    discount: p.discount || 0
+                });
+                if (p.batches && p.batches.length > 0) {
+                    for (const b of p.batches) {
+                        await db.batches.put({
+                            id: b.batch_id,
+                            product_id: p.product_id,
+                            quantity: b.batch_quantity || b.remaining_quantity,
+                            remaining_quantity: b.remaining_quantity,
+                            cost_price: b.cost_price,
+                            selling_price: b.selling_price,
+                            discount: b.discount || 0,
+                            claimed_quantity: b.claimed_quantity || 0,
+                            date: b.date,
+                            action: b.action || '',
+                            source: b.source || '',
+                            is_faulty: b.is_faulty || false
+                        });
+                    }
+                }
+            }
+            console.log('✅ Stored products in Dexie');
+        } catch (e) {
+            console.warn('Failed to store in Dexie:', e);
+        }
+    }
+
+    // ---------- Render product list ----------
+    function renderProductList(prods) {
+        const container = document.getElementById('productList');
+        if (!prods.length) {
+            container.innerHTML = '<div class="text-gray-400 p-2">No accessories available</div>';
+            return;
+        }
+        container.innerHTML = '';
+        prods.forEach(p => {
+            const btn = document.createElement('button');
+            btn.className = 'w-full text-left px-3 py-2 hover:bg-gray-100 rounded-lg border-b';
+            
+            let hasFaulty = false;
+            let faultyCount = 0;
+            let goodStock = 0;
+            let totalStock = 0;
+            
+            if (p.batches && p.batches.length > 0) {
+                p.batches.forEach(batch => {
+                    const claimed = batch.claimed_quantity || 0;
+                    const remaining = batch.remaining_quantity || 0;
+                    totalStock += remaining;
+                    if (claimed > 0 || batch.is_faulty) {
+                        hasFaulty = true;
+                        faultyCount += claimed;
+                    }
+                    goodStock += remaining - claimed;
+                });
+            }
+            
+            const batchCount = p.batches ? p.batches.length : 0;
+            const batchLabel = batchCount > 0 ? ` (${batchCount} batches)` : '';
+            const faultyLabel = hasFaulty ? ` ⚠️ ${faultyCount} claimed` : '';
+            const goodLabel = goodStock > 0 ? ` ✅ ${goodStock} good` : '';
+            
+            btn.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span>${p.name} (${p.brand})</span>
+                    <span class="text-xs ${hasFaulty ? 'text-red-500' : 'text-green-500'}">
+                        ${hasFaulty ? '⚠️' : '✅'} ${goodStock}/${totalStock}
+                    </span>
+                </div>
+                <div class="text-xs text-gray-400">Stock: ${p.stock}${batchLabel}${faultyLabel}${goodLabel}</div>
+            `;
+            btn.title = hasFaulty ? `⚠️ ${faultyCount} units claimed as faulty for this product` : `Click to select ${p.name}`;
+            btn.onclick = () => selectProduct(p);
+            
+            if (hasFaulty) {
+                btn.style.borderLeft = '3px solid #ef4444';
+            }
+            
+            container.appendChild(btn);
+        });
+    }
+
+    function refreshProducts() {
+        loadProducts();
+    }
+    window.refreshProducts = refreshProducts;
+
+    // ---------- Select product ----------
+    function selectProduct(product) {
+        currentProduct = product;
+        const batchCount = product.batches ? product.batches.length : 0;
+        
+        let hasFaulty = false;
+        let faultyCount = 0;
+        let faultyBatches = [];
+        let goodStock = 0;
+        let totalStock = 0;
+        
+        if (product.batches && product.batches.length > 0) {
+            product.batches.forEach(batch => {
+                const claimed = batch.claimed_quantity || 0;
+                const remaining = batch.remaining_quantity || 0;
+                totalStock += remaining;
+                if (claimed > 0 || batch.is_faulty) {
+                    hasFaulty = true;
+                    faultyCount += claimed;
+                    const batchId = batch.batch_id || batch.id;
+                    faultyBatches.push(batchId);
+                }
+                goodStock += remaining - claimed;
+            });
+        }
+        
+        let statusHtml = `<strong>Selected:</strong> ${product.name} (${product.brand}) - ₵${product.selling_price.toFixed(2)} - Stock: ${product.stock} (${batchCount} batches)`;
+        statusHtml += `<br><span class="text-xs">📦 ${goodStock} good units available</span>`;
+        if (hasFaulty) {
+            statusHtml += `<br><span class="text-red-500 text-xs">⚠️ ${faultyCount} units claimed as faulty in batches: #${faultyBatches.join(', #')}</span>`;
+        }
+        document.getElementById('selectedProductInfo').innerHTML = statusHtml;
+        document.getElementById('quantity').value = '';
+        document.getElementById('discount').value = '';
+    }
+
+    // ---------- Search ----------
+    document.getElementById('searchProduct').addEventListener('input', function(e) {
+        const keyword = e.target.value.toLowerCase();
+        const filtered = products.filter(p => 
+            p.name.toLowerCase().includes(keyword) || 
+            p.brand.toLowerCase().includes(keyword)
+        );
+        renderProductList(filtered);
+    });
+
+    // ========== BATCH SELECTOR – NO FALLBACK, FIXED BATCH ID ==========
+    async function openBatchSelector(product, qty) {
+        currentProductForBatch = product;
+        neededQty = qty;
+        let batches = [];
+
+        console.log('🔍 Opening batch selector for:', product.name);
+        console.log('📦 Product stock:', product.stock);
+
+        // 1. Attempt to get batches from the product object (already attached)
+        if (product.batches && product.batches.length > 0) {
+            batches = product.batches;
+            console.log('📦 Using batches from product object:', batches.length);
+        } else {
+            // 2. If not attached, read from Dexie directly
+            if (db) {
+                try {
+                    const cachedBatches = await db.batches.where('product_id').equals(product.id).toArray();
+                    if (cachedBatches && cachedBatches.length > 0) {
+                        batches = cachedBatches;
+                        console.log('📦 Loaded batches from Dexie:', batches.length);
+                    }
+                } catch (e) {
+                    console.warn('Failed to read batches from Dexie:', e);
+                }
+            }
+        }
+
+        // ✅ No fallback – if no batches, show error and abort
+        if (batches.length === 0) {
+            alert(`❌ No stock batches available for "${product.name}".\n\nPlease add a purchase for this product first.`);
+            return false;
+        }
+
+        // Filter only batches with remaining stock
+        let filteredBatches = batches.filter(b => b.remaining_quantity > 0);
+        console.log(`📊 ${filteredBatches.length} batches with stock available`);
+
+        if (filteredBatches.length === 0) {
+            alert(`❌ No available stock for ${product.name}. Please check inventory.`);
+            return false;
+        }
+
+        currentBatches = filteredBatches;
+
+        // Build the batch selection UI with stock breakdown
+        const container = document.getElementById('batchList');
+        container.innerHTML = '';
+        batchSelection = [];
+        
+        // Header row
+        const header = document.createElement('div');
+        header.className = 'grid grid-cols-8 gap-2 bg-gray-100 p-2 font-bold sticky top-0 border-b-2 border-gray-300 text-xs';
+        header.innerHTML = `
+            <div>Select</div>
+            <div>Batch ID</div>
+            <div>Stock</div>
+            <div>Sold</div>
+            <div>Claimed</div>
+            <div>Good</div>
+            <div>Price</div>
+            <div>Qty to Sell</div>
+        `;
+        container.appendChild(header);
+        
+        let totalAvailableStock = 0;
+        let totalGoodStock = 0;
+        let isFallback = false;
+        
+        for (const batch of currentBatches) {
+            const remaining = batch.remaining_quantity || 0;
+            const claimed = batch.claimed_quantity || 0;
+            const totalQty = batch.quantity || batch.batch_quantity || remaining + claimed;
+            const sold = totalQty - remaining;
+            const good = remaining - claimed;
+            
+            totalAvailableStock += remaining;
+            totalGoodStock += good;
+            if (batch.is_fallback) isFallback = true;
+            
+            const row = document.createElement('div');
+            const isFaulty = batch.is_faulty || claimed > 0;
+            row.className = `grid grid-cols-8 gap-2 items-center border-b py-2 hover:bg-gray-50 ${isFaulty ? 'batch-faulty' : 'batch-good'}`;
+            
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'w-5 h-5 cursor-pointer';
+            
+            const batchIdSpan = document.createElement('span');
+            const batchId = batch.batch_id || batch.id;
+            batchIdSpan.innerText = batch.is_fallback ? '⚠️ FALLBACK' : batchId;
+            batchIdSpan.className = 'text-sm';
+            if (batch.is_fallback) {
+                batchIdSpan.classList.add('text-orange-600', 'font-bold');
+            }
+            
+            const stockSpan = document.createElement('span');
+            stockSpan.innerText = remaining;
+            stockSpan.className = 'font-medium';
+            
+            const soldSpan = document.createElement('span');
+            soldSpan.innerText = sold;
+            soldSpan.className = 'text-blue-600';
+            
+            const claimedSpan = document.createElement('span');
+            claimedSpan.innerText = claimed;
+            claimedSpan.className = claimed > 0 ? 'text-red-600 font-bold' : 'text-gray-400';
+            
+            const goodSpan = document.createElement('span');
+            goodSpan.innerText = Math.max(good, 0);
+            goodSpan.className = good > 0 ? 'text-green-600 font-bold' : 'text-red-400';
+            
+            const priceSpan = document.createElement('span');
+            priceSpan.innerText = `₵${batch.selling_price.toFixed(2)}`;
+            priceSpan.className = 'text-green-600';
+            
+            const qtyInput = document.createElement('input');
+            qtyInput.type = 'number';
+            qtyInput.className = 'border rounded px-1 py-1 w-16 text-center text-sm';
+            qtyInput.value = '0';
+            qtyInput.min = 0;
+            qtyInput.max = Math.max(good, 0);
+            qtyInput.disabled = true;
+            
+            row.appendChild(cb);
+            row.appendChild(batchIdSpan);
+            row.appendChild(stockSpan);
+            row.appendChild(soldSpan);
+            row.appendChild(claimedSpan);
+            row.appendChild(goodSpan);
+            row.appendChild(priceSpan);
+            row.appendChild(qtyInput);
+            container.appendChild(row);
+            
+            batchSelection.push({ 
+                batch, 
+                checkbox: cb, 
+                qtyInput, 
+                batchId: batch.batch_id || batch.id,
+                isFaulty: isFaulty,
+                goodStock: good
+            });
+            
+            cb.addEventListener('change', () => {
+                qtyInput.disabled = !cb.checked;
+                if (cb.checked && qtyInput.value === '0') {
+                    qtyInput.value = '1';
+                } else if (!cb.checked) {
+                    qtyInput.value = '0';
+                }
+                updateBatchTotals();
+            });
+            
+            qtyInput.addEventListener('input', updateBatchTotals);
+            qtyInput.addEventListener('blur', function() {
+                let val = parseInt(this.value) || 0;
+                const maxStock = parseInt(this.max) || 0;
+                if (val > maxStock) {
+                    this.value = maxStock;
+                    val = maxStock;
+                } else if (val < 0) {
+                    this.value = 0;
+                }
+                updateBatchTotals();
+            });
+        }
+        
+        // Show total available stock info with breakdown
+        const faultyBatchesCount = currentBatches.filter(b => b.is_faulty || (b.claimed_quantity && b.claimed_quantity > 0)).length;
+        const infoRow = document.createElement('div');
+        infoRow.className = `grid grid-cols-8 gap-2 ${isFallback || faultyBatchesCount > 0 ? 'bg-orange-50' : 'bg-blue-50'} p-2 mt-2 rounded`;
+        infoRow.innerHTML = `
+            <div class="col-span-8 text-sm ${isFallback || faultyBatchesCount > 0 ? 'text-orange-700' : 'text-blue-700'}">
+                ${isFallback ? '⚠️ ' : ''}
+                ${faultyBatchesCount > 0 ? `⚠️ ${faultyBatchesCount} batch(es) have claimed/faulty items. ` : ''}
+                <span class="font-bold">${totalAvailableStock}</span> units available (${totalGoodStock} good, ${totalAvailableStock - totalGoodStock} claimed)
+                ${neededQty > totalAvailableStock ? `<span class="text-red-600 ml-2">⚠️ Need ${neededQty} units, only ${totalAvailableStock} available</span>` : ''}
+                ${isFallback ? `<br><span class="text-xs text-orange-500">⚠️ FALLBACK BATCH: Stock will NOT be deducted from real inventory.</span>` : ''}
+            </div>
+        `;
+        container.appendChild(infoRow);
+        
+        function updateBatchTotals() {
+            let assigned = 0;
+            batchSelection.forEach(sel => {
+                if (sel.checkbox.checked) {
+                    let val = parseInt(sel.qtyInput.value) || 0;
+                    const maxStock = Math.max(sel.goodStock, 0);
+                    if (val > maxStock) { 
+                        sel.qtyInput.value = maxStock; 
+                        val = maxStock; 
+                    }
+                    assigned += val;
+                }
+            });
+            document.getElementById('assignedQty').innerText = `Assigned: ${assigned}`;
+            const remaining = neededQty - assigned;
+            document.getElementById('remainingQty').innerText = `Remaining: ${remaining}`;
+            const remSpan = document.getElementById('remainingQty');
+            if (remaining < 0) {
+                remSpan.classList.add('text-red-600');
+                remSpan.classList.remove('text-green-600');
+            } else {
+                remSpan.classList.remove('text-red-600');
+                if (remaining === 0) {
+                    remSpan.classList.add('text-green-600');
+                } else {
+                    remSpan.classList.remove('text-green-600');
+                }
+            }
+        }
+        
+        document.getElementById('batchModalTitle').innerHTML = 
+            `Select batches for <strong>${product.name}</strong> (need ${qty} units, ${totalAvailableStock} available, ${totalGoodStock} good) ${faultyBatchesCount > 0 ? '⚠️ Contains faulty batches' : ''}`;
+        document.getElementById('assignedQty').innerText = 'Assigned: 0';
+        document.getElementById('remainingQty').innerText = `Remaining: ${neededQty}`;
+        document.getElementById('batchModal').classList.remove('hidden');
+        
+        return true;
+    }
+
+    window.selectAllBatches = function() {
+        let remaining = neededQty;
+        batchSelection.forEach(sel => {
+            if (remaining <= 0) {
+                sel.checkbox.checked = false;
+                sel.qtyInput.disabled = true;
+                sel.qtyInput.value = '0';
+                return;
+            }
+            sel.checkbox.checked = true;
+            sel.qtyInput.disabled = false;
+            const maxAvailable = Math.max(sel.goodStock, 0);
+            const toAssign = Math.min(maxAvailable, remaining);
+            sel.qtyInput.value = toAssign;
+            remaining -= toAssign;
+        });
+        updateBatchTotals();
+    };
+    
+    window.deselectAllBatches = function() {
+        batchSelection.forEach(sel => {
+            sel.checkbox.checked = false;
+            sel.qtyInput.disabled = true;
+            sel.qtyInput.value = '0';
+        });
+        updateBatchTotals();
+    };
+
+    function updateBatchTotals() {
+        let assigned = 0;
+        batchSelection.forEach(sel => {
+            if (sel.checkbox.checked) {
+                let val = parseInt(sel.qtyInput.value) || 0;
+                const maxStock = Math.max(sel.goodStock, 0);
+                if (val > maxStock) { 
+                    sel.qtyInput.value = maxStock; 
+                    val = maxStock; 
+                }
+                assigned += val;
+            }
+        });
+        document.getElementById('assignedQty').innerText = `Assigned: ${assigned}`;
+        const remaining = neededQty - assigned;
+        document.getElementById('remainingQty').innerText = `Remaining: ${remaining}`;
+        const remSpan = document.getElementById('remainingQty');
+        if (remaining < 0) {
+            remSpan.classList.add('text-red-600');
+            remSpan.classList.remove('text-green-600');
+        } else {
+            remSpan.classList.remove('text-red-600');
+            if (remaining === 0) {
+                remSpan.classList.add('text-green-600');
+            } else {
+                remSpan.classList.remove('text-green-600');
+            }
+        }
+    }
+
+    window.closeBatchModal = function() {
+        document.getElementById('batchModal').classList.add('hidden');
+        currentProductForBatch = null;
+        neededQty = 0;
+    };
+
+    // ========== confirmBatchSelection with stock validation ==========
+    window.confirmBatchSelection = function() {
+        let assigned = 0;
+        let selected = [];
+        let faultySelected = false;
+        let totalCost = 0;
+        
+        for (const sel of batchSelection) {
+            if (sel.checkbox.checked) {
+                let qty = parseInt(sel.qtyInput.value) || 0;
+                if (qty > 0) {
+                    assigned += qty;
+                    selected.push({ 
+                        batch_id: sel.batchId, 
+                        qty: qty, 
+                        batch: sel.batch,
+                        is_fallback: sel.batch.is_fallback || false,
+                        is_faulty: sel.isFaulty || false,
+                        good_stock: sel.goodStock || 0
+                    });
+                    if (sel.isFaulty) faultySelected = true;
+                    totalCost += qty * (sel.batch.cost_price || 0);
+                }
+            }
+        }
+        
+        if (assigned !== neededQty) {
+            alert(`Please assign exactly ${neededQty} units. Currently assigned: ${assigned}`);
+            return;
+        }
+        if (selected.length === 0) {
+            alert('Please select at least one batch.');
+            return;
+        }
+        
+        // Warning for faulty batches
+        if (faultySelected) {
+            if (!confirm('⚠️ You are selecting batches that have claimed/faulty items.\n\nSelling faulty items may affect customer satisfaction and inventory tracking.\n\nContinue with sale?')) {
+                return;
+            }
+        }
+        
+        // Check if using fallback batch – this should never happen now, but keep safety check
+        const hasFallback = selected.some(s => s.is_fallback);
+        if (hasFallback) {
+            if (!confirm('⚠️ This product has stock but no specific batch. Selling from fallback will NOT deduct from real inventory. Continue?')) {
+                return;
+            }
+        }
+        
+        const discount = parseFloat(document.getElementById('discount').value) || 0;
+        let subtotal = 0;
+        for (const s of selected) {
+            subtotal += s.qty * s.batch.selling_price;
+        }
+        const finalTotal = Math.max(subtotal - discount, 0);
+        
+        // Create a product copy with the CORRECT cost price from batches
+        const productWithCorrectCost = {
+            ...currentProductForBatch,
+            cost_price: totalCost / neededQty
+        };
+        
+        cart.push({
+            product: productWithCorrectCost,
+            qty: neededQty,
+            discount,
+            selectedBatches: selected,
+            subtotal,
+            final: finalTotal,
+            isFallback: hasFallback,
+            totalCost: totalCost,
+            hasFaulty: faultySelected
+        });
+        updateCart();
+        closeBatchModal();
+        document.getElementById('quantity').value = '';
+        document.getElementById('discount').value = '';
+    };
+
+    // ---------- Cart management with stock breakdown ----------
+    function updateCart() {
+        const container = document.getElementById('cartItems');
+        if (!cart.length) {
+            container.innerHTML = '<div class="text-gray-400 p-4 text-center">Cart is empty</div>';
+            document.getElementById('grandTotal').innerText = formatMoney(0);
+            return;
+        }
+        let grandTotal = 0;
+        container.innerHTML = '';
+        cart.forEach((item, idx) => {
+            grandTotal += item.final;
+            const card = document.createElement('div');
+            card.className = 'border rounded-lg p-3 bg-gray-50';
+            const fallbackWarning = item.isFallback ? 
+                '<span class="text-orange-500 text-xs font-bold ml-2">⚠️ FALLBACK</span>' : '';
+            const faultyWarning = item.hasFaulty ? 
+                '<span class="text-red-500 text-xs font-bold ml-2">⚠️ FAULTY</span>' : '';
+            
+            // Calculate stock breakdown for display
+            let totalGood = 0;
+            let totalClaimed = 0;
+            item.selectedBatches.forEach(b => {
+                totalGood += b.good_stock || 0;
+                if (b.is_faulty) totalClaimed += b.qty;
+            });
+            
+            card.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div>
+                            <strong>${item.product.name} (${item.product.brand})</strong>
+                            ${fallbackWarning}
+                            ${faultyWarning}
+                        </div>
+                        <div class="text-sm text-gray-600">Qty: ${item.qty} | Discount: ${formatMoney(item.discount)}</div>
+                        <div class="text-xs text-gray-500 mt-1">Batches:</div>
+                        <div class="text-xs">${item.selectedBatches.map(b => 
+                            `Batch #${b.batch_id}: ${b.qty} @ ${formatMoney(b.batch.selling_price)}${b.is_faulty ? ' ⚠️' : ''}`
+                        ).join('<br>')}</div>
+                        <div class="text-xs text-gray-400 mt-1">
+                            ${item.isFallback ? '⚠️ Fallback batch (no real inventory deduction)' : ''}
+                            ${item.hasFaulty ? '⚠️ Contains faulty/claimed items' : ''}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-bold">${formatMoney(item.final)}</div>
+                        <button onclick="removeCartItem(${idx})" class="text-red-500 text-sm">Remove</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+        document.getElementById('grandTotal').innerText = formatMoney(grandTotal);
+    }
+    
+    window.removeCartItem = function(index) {
+        cart.splice(index, 1);
+        updateCart();
+    };
+
+    document.getElementById('addToCartBtn').addEventListener('click', async () => {
+        if (!currentProduct) { alert('Please select a product first.'); return; }
+        const qty = parseInt(document.getElementById('quantity').value);
+        if (isNaN(qty) || qty <= 0) { alert('Please enter a valid quantity.'); return; }
+        if (qty > currentProduct.stock) { alert(`Only ${currentProduct.stock} units available in stock.`); return; }
+        await openBatchSelector(currentProduct, qty);
+    });
+
+    // ---------- Payment Modal Functions ----------
+    function selectPayment(method, event) {
+        console.log("✅ Payment method selected:", method);
+        selectedPaymentMethod = method;
+        selectedChequeNumber = null;
+        document.getElementById('chequeInputContainer').classList.add('hidden');
+        
+        document.querySelectorAll('.payment-option').forEach(btn => {
+            btn.classList.remove('bg-indigo-50', 'border-indigo-500');
+        });
+        if (event && event.target) {
+            const clickedBtn = event.target.closest('.payment-option');
+            if (clickedBtn) clickedBtn.classList.add('bg-indigo-50', 'border-indigo-500');
+        }
+    }
+    window.selectPayment = selectPayment;
+
+    function showChequeInput(event) {
+        console.log("✅ Cheque payment selected");
+        selectedPaymentMethod = 'cheque';
+        document.getElementById('chequeInputContainer').classList.remove('hidden');
+        
+        document.querySelectorAll('.payment-option').forEach(btn => {
+            btn.classList.remove('bg-indigo-50', 'border-indigo-500');
+        });
+        if (event && event.target) {
+            const clickedBtn = event.target.closest('.payment-option');
+            if (clickedBtn) clickedBtn.classList.add('bg-indigo-50', 'border-indigo-500');
+        }
+    }
+    window.showChequeInput = showChequeInput;
+
+    function closePaymentModal() {
+        document.getElementById('paymentModal').classList.add('hidden');
+        document.getElementById('chequeNumber').value = '';
+        document.querySelectorAll('.payment-option').forEach(btn => {
+            btn.classList.remove('bg-indigo-50', 'border-indigo-500');
+        });
+    }
+
+    // ✅ Fixed date/time parsing
+    function getSaleDateTime() {
+        const dateVal = document.getElementById('saleDate').value;
+        const timeVal = document.getElementById('saleTime').value;
+        
+        if (dateVal && timeVal) {
+            try {
+                let hours = 0, minutes = 0;
+                let timeStr = timeVal.trim();
+                
+                const isPM = timeStr.toLowerCase().includes('pm');
+                const isAM = timeStr.toLowerCase().includes('am');
+                
+                let cleanTime = timeStr.replace(/[ap]m\s*/gi, '').trim();
+                let parts = cleanTime.split(':');
+                if (parts.length === 2) {
+                    hours = parseInt(parts[0]);
+                    minutes = parseInt(parts[1]);
+                    
+                    if (isPM && hours < 12) hours += 12;
+                    if (isAM && hours === 12) hours = 0;
+                    
+                    if (isNaN(hours) || isNaN(minutes) || hours > 23 || minutes > 59) {
+                        throw new Error('Invalid time');
+                    }
+                } else {
+                    if (parts.length === 2) {
+                        hours = parseInt(parts[0]);
+                        minutes = parseInt(parts[1]);
+                        if (isNaN(hours) || isNaN(minutes) || hours > 23 || minutes > 59) {
+                            throw new Error('Invalid time');
+                        }
+                    } else {
+                        throw new Error('Invalid time format');
+                    }
+                }
+                
+                const time24 = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+                const result = `${dateVal} ${time24}`;
+                console.log(`📅 Formatted date/time: ${result}`);
+                return result;
+                
+            } catch(e) {
+                console.warn('⚠️ Date/time parsing failed:', e.message);
+                try {
+                    const now = new Date();
+                    const hours = now.getHours().toString().padStart(2, '0');
+                    const minutes = now.getMinutes().toString().padStart(2, '0');
+                    const fallback = `${dateVal} ${hours}:${minutes}:00`;
+                    console.log(`🔄 Using fallback date/time: ${fallback}`);
+                    return fallback;
+                } catch {
+                    const now = new Date();
+                    const date = now.toISOString().split('T')[0];
+                    const time = now.toTimeString().split(' ')[0];
+                    console.log(`🔄 Using current date/time as fallback: ${date} ${time}`);
+                    return `${date} ${time}`;
+                }
+            }
+        }
+        
+        const now = new Date();
+        const date = now.toISOString().split('T')[0];
+        const time = now.toTimeString().split(' ')[0];
+        console.log(`📅 No date/time selected, using current: ${date} ${time}`);
+        return `${date} ${time}`;
+    }
+
+    // ========== FIXED: Execute Sale with BOTH IDs for compatibility ==========
+    async function executeSaleWithPayment(paymentMethod, chequeNum) {
+        if (!pendingSaleCallback) return;
+        
+        console.log("🚀 Executing sale with payment method:", paymentMethod);
+        console.log("🚀 Cheque number:", chequeNum);
+        
+        const cartItems = pendingSaleCallback.cart.map(item => ({ 
+            product: item.product, 
+            qty: item.qty, 
+            discount: item.discount 
+        }));
+        
+        const selectedBatches = [];
+        pendingSaleCallback.cart.forEach(item => {
+            // ✅ FIX: Get the product ID correctly
+            const productId = item.product.product_id || item.product.id;
+            
+            if (!productId) {
+                console.warn('⚠️ Missing product_id for item:', item.product);
+                return;
+            }
+            
+            item.selectedBatches.forEach(b => {
+                selectedBatches.push({ 
+                    batch_id: b.batch_id, 
+                    qty: b.qty, 
+                    product_id: productId,
+                    // ✅ Also send as 'id' for backward compatibility with backend
+                    id: productId
+                });
+            });
+        });
+        
+        const payload = { 
+            cart_items: cartItems, 
+            sale_datetime: pendingSaleCallback.saleDatetime, 
+            selected_batches: selectedBatches,
+            payment_method: paymentMethod,
+            cheque_number: chequeNum
+        };
+        
+        console.log("📅 Sale datetime from form:", pendingSaleCallback.saleDatetime);
+        console.log("📦 Sending payload:", JSON.stringify(payload, null, 2));
+        
+        try {
+            const res = await fetch('/api/sales/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',  // ✅ Ensure cookie is sent
+                body: JSON.stringify(payload)
+            });
+            
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+            }
+            
+            const data = await res.json();
+            console.log("📥 Response data:", data);
+            
+            if (data.success) {
+                lastSale = data;
+                document.getElementById('receiptPreview').innerHTML = `<pre class="whitespace-pre-wrap">${data.receipt_text}</pre>`;
+                document.getElementById('printReceiptBtn').disabled = false;
+                cart = [];
+                updateCart();
+                loadProducts();
+                alert(`Sale completed! Total: ${formatMoney(data.total)}\nPayment: ${data.payment_method || paymentMethod}${data.cheque_number ? ' #' + data.cheque_number : ''}`);
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (error) {
+            console.warn('Network error, saving sale offline:', error);
+            
+            if (!navigator.onLine) {
+                // Use central pending operation
+                if (typeof savePendingOperation === 'function') {
+                    try {
+                        await savePendingOperation('sales', 'add', 'temp_' + Date.now(), payload);
+                        alert('Sale saved locally. It will be synced when you reconnect.');
+                    } catch (e) {
+                        console.error('Failed to save pending sale:', e);
+                        alert('Could not save sale offline. Please try again.');
+                    }
+                } else {
+                    // Fallback to legacy localStorage (if sync.js not loaded)
+                    console.warn('savePendingOperation not available, using localStorage fallback');
+                    if (typeof savePendingSale === 'function') {
+                        savePendingSale(payload);
+                    }
+                }
+                
+                if (typeof updatePendingBadge === 'function') {
+                    updatePendingBadge();
+                }
+                
+                cart = [];
+                updateCart();
+                
+                document.getElementById('receiptPreview').innerHTML = `
+                    <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 p-3 rounded">
+                        <strong>⚠️ Offline Sale Saved</strong><br>
+                        This sale has been saved locally and will be synced when you reconnect.
+                        <br><br>
+                        <strong>Total:</strong> ${formatMoney(payload.cart_items.reduce((sum, item) => sum + item.qty * item.product.selling_price, 0))}
+                        <br>
+                        <strong>Items:</strong> ${payload.cart_items.length}
+                        <br><br>
+                        <span class="text-xs">Sale ID: pending (${new Date().toLocaleString()})</span>
+                    </div>
+                `;
+                
+                alert('You are offline. Sale saved locally and will be synced later.');
+            } else {
+                alert('❌ Sale failed: ' + error.message);
+            }
+        }
+        
+        pendingSaleCallback = null;
+        selectedPaymentMethod = null;
+        selectedChequeNumber = null;
+    }
+
+    // ---------- Complete Sale Button ----------
+    document.getElementById('completeSaleBtn').addEventListener('click', async () => {
+        if (cart.length === 0) {
+            alert('Cart is empty.');
+            return;
+        }
+        
+        // Check if there are fallback or faulty batches in cart
+        const hasFallback = cart.some(item => item.isFallback);
+        const hasFaulty = cart.some(item => item.hasFaulty);
+        
+        if (hasFallback || hasFaulty) {
+            let warningMsg = '⚠️ ';
+            if (hasFallback) warningMsg += 'One or more items are using FALLBACK batches (no real inventory batch exists). Stock will NOT be deducted. ';
+            if (hasFaulty) warningMsg += 'One or more items are from FAULTY batches (claimed as damaged/defective). ';
+            warningMsg += '\n\nContinue with sale?';
+            if (!confirm(warningMsg)) {
+                return;
+            }
+        }
+        
+        pendingSaleCallback = {
+            cart: [...cart],
+            saleDatetime: getSaleDateTime()
+        };
+        
+        selectedPaymentMethod = null;
+        selectedChequeNumber = null;
+        document.getElementById('chequeNumber').value = '';
+        document.getElementById('chequeInputContainer').classList.add('hidden');
+        
+        document.querySelectorAll('.payment-option').forEach(btn => {
+            btn.classList.remove('bg-indigo-50', 'border-indigo-500');
+        });
+        
+        document.getElementById('paymentModal').classList.remove('hidden');
+    });
+
+    // ---------- Confirm Payment Button (License REMOVED) ----------
+    document.getElementById('confirmPaymentBtn').addEventListener('click', async () => {
+        console.log("🔘 Confirm button clicked. Current payment method:", selectedPaymentMethod);
+        
+        if (!selectedPaymentMethod) {
+            alert('Please select a payment method.');
+            return;
+        }
+        
+        if (selectedPaymentMethod === 'cheque') {
+            const chequeNumber = document.getElementById('chequeNumber').value.trim();
+            console.log("💰 Cheque number entered:", chequeNumber);
+            if (!chequeNumber) {
+                alert('Please enter cheque number.');
+                return;
+            }
+            selectedChequeNumber = chequeNumber;
+        }
+        
+        const paymentMethodToUse = selectedPaymentMethod;
+        const chequeNumberToUse = selectedChequeNumber;
+        
+        console.log("✅ Final payment data - Method:", paymentMethodToUse, "Cheque:", chequeNumberToUse);
+        
+        closePaymentModal();
+        
+        // ✅ License check removed – proceed directly to sale
+        await executeSaleWithPayment(paymentMethodToUse, chequeNumberToUse);
+    });
+
+    document.getElementById('cancelPaymentBtn').addEventListener('click', () => {
+        console.log("❌ Payment cancelled");
+        closePaymentModal();
+        pendingSaleCallback = null;
+    });
+
+    // ---------- Print Receipt ----------
+    document.getElementById('printReceiptBtn').addEventListener('click', () => {
+        if (!lastSale) return;
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+            <head><title>Receipt</title>
+            <style>body { font-family: monospace; padding: 20px; } pre { white-space: pre-wrap; }</style>
+            </head>
+            <body><pre>${lastSale.receipt_text}</pre>
+            <script>window.print();<\/script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    });
+
+    // ---------- Set default date/time ----------
+    function setDefaultDateTime() {
+        const now = new Date();
+        document.getElementById('saleDate').value = now.toISOString().split('T')[0];
+        let hours = now.getHours();
+        const minutes = now.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12 || 12;
+        document.getElementById('saleTime').value = `${hours}:${minutes.toString().padStart(2,'0')} ${ampm}`;
+    }
+
+    // ---------- Online/Offline refresh ----------
+    window.addEventListener('online', function() {
+        loadProducts();
+        // Check for pending sales and prompt sync
+        if (typeof getPendingCount === 'function') {
+            getPendingCount().then(count => {
+                if (count > 0) {
+                    document.getElementById('receiptPreview').innerHTML = `
+                        <div class="bg-blue-100 border border-blue-400 text-blue-700 p-3 rounded">
+                            <strong>🔄 Syncing pending sales...</strong><br>
+                            You have ${count} pending sales. They will be synced automatically.
+                        </div>
+                    `;
+                }
+            });
+        }
+    });
+     
+    // ---------- One-time notice for revived Sales page ----------
+    (function() {
+        const notice = document.getElementById('salesReviveNotice');
+        const dismissBtn = document.getElementById('dismissNotice');
+        const STORAGE_KEY = 'salesReviveNoticeDismissed';
+
+        if (localStorage.getItem(STORAGE_KEY) === 'true') {
+            notice.style.display = 'none';
+            return;
+        }
+
+        notice.style.display = 'flex';
+
+        dismissBtn.addEventListener('click', function() {
+            notice.style.display = 'none';
+            localStorage.setItem(STORAGE_KEY, 'true');
+        });
+    })();
+
+    // ---------- Initialization ----------
+    document.addEventListener('DOMContentLoaded', function() {
+        loadProducts();
+        if (typeof updatePendingBadge === 'function') updatePendingBadge();
+        setDefaultDateTime();
+        
+        // Check for pending sales
+        if (typeof getPendingCount === 'function') {
+            getPendingCount().then(count => {
+                if (count > 0) {
+                    console.log(`📤 Found ${count} pending sales on load`);
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

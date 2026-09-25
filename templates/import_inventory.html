@@ -1,0 +1,676 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Offline banner -->
+<div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
+    ⚠️ You are offline – cannot upload or import. Please connect to the internet to perform imports.
+</div>
+
+<h1 class="text-3xl font-bold text-gray-800 mb-6">📥 Import Data</h1>
+
+<!-- ========== PURCHASE IMPORT CARD ========== -->
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+    <h2 class="text-2xl font-semibold text-gray-700 mb-4">📦 Import Purchases (Inventory)</h2>
+    <p class="text-gray-600 mb-4">
+        Upload an Excel file (.xlsx or .xls) with the following columns:<br>
+        <span class="font-mono text-sm bg-gray-100 px-2 py-1 inline-block mt-1">
+            Name, Brand, Category, Quantity, Cost Price, Selling Price, Discount
+        </span>
+        <br>
+        <span class="text-xs text-gray-500">Discount is optional (default 0).</span>
+        <br>
+        <span class="text-xs text-gray-500">The "Category" column in the file will be overwritten by your selection below.</span>
+    </p>
+
+    <form id="importPurchaseForm" enctype="multipart/form-data">
+        <!-- Target Category -->
+        <div class="flex flex-wrap items-center gap-4 mb-3">
+            <label class="font-medium text-gray-700">Import to:</label>
+            <div class="flex items-center gap-4">
+                <label class="inline-flex items-center">
+                    <input type="radio" name="purchase_target" value="Accessory" checked class="form-radio text-teal-500">
+                    <span class="ml-2">Accessories</span>
+                </label>
+                <label class="inline-flex items-center">
+                    <input type="radio" name="purchase_target" value="Screen" class="form-radio text-teal-500">
+                    <span class="ml-2">Screens</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Import Mode -->
+        <div class="flex flex-wrap items-center gap-4 mb-3">
+            <label class="font-medium text-gray-700">Import mode:</label>
+            <div class="flex items-center gap-4">
+                <label class="inline-flex items-center">
+                    <input type="radio" name="purchase_mode" value="append" checked class="form-radio text-teal-500">
+                    <span class="ml-2">Append (keep old data)</span>
+                </label>
+                <label class="inline-flex items-center">
+                    <input type="radio" name="purchase_mode" value="replace" class="form-radio text-red-500">
+                    <span class="ml-2">Replace (delete old data first)</span>
+                </label>
+            </div>
+            <span class="text-xs text-gray-500 italic">⚠️ Replace will delete all existing purchases and batches for this category before importing.</span>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <input type="file" id="purchaseFileInput" name="file" accept=".xlsx,.xls" required
+                   class="border border-gray-300 rounded-md px-3 py-2 focus:ring focus:ring-indigo-200">
+            <button type="submit" id="purchaseSubmitBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-md">
+                Upload & Import
+            </button>
+        </div>
+        <div id="purchaseProgress" class="mt-4 hidden">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-600" id="purchaseStatusText">Processing...</div>
+                <button id="purchaseCancelBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm hidden">
+                    Cancel
+                </button>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-1">
+                <div id="purchaseProgressBar" class="bg-teal-500 h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+            <div id="purchaseCounter" class="text-xs text-gray-500 mt-1"></div>
+        </div>
+        <div id="purchaseResult" class="mt-4"></div>
+    </form>
+</div>
+
+<!-- ========== SALES IMPORT CARD ========== -->
+<div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-2xl font-semibold text-gray-700 mb-4">💰 Import Sales (Historical)</h2>
+    <p class="text-gray-600 mb-4">
+        Upload an Excel file (.xlsx or .xls) with the following columns:<br>
+        <span class="font-mono text-sm bg-gray-100 px-2 py-1 inline-block mt-1">
+            DATE, DETAILS, CATEGORY, ITEM, QTY, RATE, DISCOUNT
+        </span>
+        <br>
+        <span class="text-xs text-gray-500">(Columns AMOUNT and TOTAL are ignored.)</span>
+        <br>
+        <span class="text-xs text-gray-500">Products must already exist in the system and match the chosen category.</span>
+    </p>
+
+    <form id="importSalesForm" enctype="multipart/form-data">
+        <!-- Target Category -->
+        <div class="flex flex-wrap items-center gap-4 mb-3">
+            <label class="font-medium text-gray-700">Import to:</label>
+            <div class="flex items-center gap-4">
+                <label class="inline-flex items-center">
+                    <input type="radio" name="sales_target" value="Accessory" checked class="form-radio text-purple-500">
+                    <span class="ml-2">Accessories</span>
+                </label>
+                <label class="inline-flex items-center">
+                    <input type="radio" name="sales_target" value="Screen" class="form-radio text-purple-500">
+                    <span class="ml-2">Screens</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Import Mode -->
+        <div class="flex flex-wrap items-center gap-4 mb-3">
+            <label class="font-medium text-gray-700">Import mode:</label>
+            <div class="flex items-center gap-4">
+                <label class="inline-flex items-center">
+                    <input type="radio" name="sales_mode" value="append" checked class="form-radio text-purple-500">
+                    <span class="ml-2">Append (keep old data)</span>
+                </label>
+                <label class="inline-flex items-center">
+                    <input type="radio" name="sales_mode" value="replace" class="form-radio text-red-500">
+                    <span class="ml-2">Replace (delete old data first)</span>
+                </label>
+            </div>
+            <span class="text-xs text-gray-500 italic">⚠️ Replace will delete all existing sales for this category before importing.</span>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <input type="file" id="salesFileInput" name="file" accept=".xlsx,.xls" required
+                   class="border border-gray-300 rounded-md px-3 py-2 focus:ring focus:ring-indigo-200">
+            <button type="submit" id="salesSubmitBtn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-md">
+                Upload & Import
+            </button>
+        </div>
+        <div id="salesProgress" class="mt-4 hidden">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-600" id="salesStatusText">Processing...</div>
+                <button id="salesCancelBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm hidden">
+                    Cancel
+                </button>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-1">
+                <div id="salesProgressBar" class="bg-purple-500 h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+            <div id="salesCounter" class="text-xs text-gray-500 mt-1"></div>
+        </div>
+        <div id="salesResult" class="mt-4"></div>
+    </form>
+</div>
+
+<script>
+    // ---- Dexie helpers for job ID storage ----
+    const JOB_CACHE_KEY_PURCHASE = 'import_job_purchase';
+    const JOB_CACHE_KEY_SALES = 'import_job_sales';
+    const CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+    async function storeJobId(type, jobId) {
+        if (!db) {
+            // Fallback to localStorage
+            try {
+                localStorage.setItem(`job_${type}`, JSON.stringify({ jobId, timestamp: Date.now() }));
+            } catch(e) {}
+            return;
+        }
+        try {
+            const cacheTable = db.cache || db.table('cache');
+            await cacheTable.put({ key: `job_${type}`, value: { jobId, timestamp: Date.now() } });
+        } catch (e) {
+            console.warn('Dexie job store failed, using localStorage fallback', e);
+            try {
+                localStorage.setItem(`job_${type}`, JSON.stringify({ jobId, timestamp: Date.now() }));
+            } catch(e2) {}
+        }
+    }
+
+    async function getJobId(type) {
+        if (!db) {
+            try {
+                const raw = localStorage.getItem(`job_${type}`);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (Date.now() - parsed.timestamp > CACHE_MAX_AGE) {
+                    localStorage.removeItem(`job_${type}`);
+                    return null;
+                }
+                return parsed.jobId;
+            } catch(e) { return null; }
+        }
+        try {
+            const cacheTable = db.cache || db.table('cache');
+            const entry = await cacheTable.get(`job_${type}`);
+            if (entry && entry.value) {
+                const age = Date.now() - (entry.value.timestamp || 0);
+                if (age < CACHE_MAX_AGE) {
+                    return entry.value.jobId;
+                } else {
+                    await cacheTable.delete(`job_${type}`);
+                    return null;
+                }
+            }
+            return null;
+        } catch (e) {
+            console.warn('Dexie job read failed, using localStorage fallback', e);
+            try {
+                const raw = localStorage.getItem(`job_${type}`);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (Date.now() - parsed.timestamp > CACHE_MAX_AGE) {
+                    localStorage.removeItem(`job_${type}`);
+                    return null;
+                }
+                return parsed.jobId;
+            } catch(e2) { return null; }
+        }
+    }
+
+    async function removeJobId(type) {
+        if (!db) {
+            try { localStorage.removeItem(`job_${type}`); } catch(e) {}
+            return;
+        }
+        try {
+            const cacheTable = db.cache || db.table('cache');
+            await cacheTable.delete(`job_${type}`);
+        } catch (e) {
+            try { localStorage.removeItem(`job_${type}`); } catch(e2) {}
+        }
+    }
+
+    // ---- Offline banner and UI control ----
+    function updateOfflineBanner() {
+        const banner = document.getElementById('offlineBanner');
+        const isOnline = navigator.onLine;
+        if (!isOnline) {
+            banner.classList.remove('hidden');
+        } else {
+            banner.classList.add('hidden');
+        }
+        ['purchaseSubmitBtn', 'salesSubmitBtn'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) {
+                btn.disabled = !isOnline;
+                btn.classList.toggle('opacity-50', !isOnline);
+                btn.classList.toggle('cursor-not-allowed', !isOnline);
+            }
+        });
+        ['purchaseFileInput', 'salesFileInput'].forEach(id => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.disabled = !isOnline;
+            }
+        });
+    }
+    window.addEventListener('online', updateOfflineBanner);
+    window.addEventListener('offline', updateOfflineBanner);
+
+    // ---- Utility: start polling for a given job ID ----
+    function startPolling(jobId, type, statusTextId, progressBarId, counterId, resultDivId, cancelBtnId, progressId) {
+        const statusText = document.getElementById(statusTextId);
+        const progressBar = document.getElementById(progressBarId);
+        const counterDiv = document.getElementById(counterId);
+        const resultDiv = document.getElementById(resultDivId);
+        const cancelBtn = document.getElementById(cancelBtnId);
+        const progressContainer = document.getElementById(progressId);
+
+        if (window[`${type}PollInterval`]) {
+            clearInterval(window[`${type}PollInterval`]);
+            window[`${type}PollInterval`] = null;
+        }
+
+        progressContainer.classList.remove('hidden');
+        cancelBtn.classList.remove('hidden');
+        resultDiv.innerHTML = '';
+        progressBar.style.width = '0%';
+        let previousPercent = 0;
+
+        const poll = async () => {
+            if (!navigator.onLine) {
+                statusText.textContent = '⏳ Offline – waiting for connection...';
+                return;
+            }
+            try {
+                const resp = await fetch(`/api/import/progress/${jobId}`);
+                const data = await resp.json();
+                if (!data.success) {
+                    throw new Error(data.error || 'Progress check failed');
+                }
+
+                const status = data.status;
+                const total = data.total || 0;
+                const processed = data.processed || 0;
+                const errors = data.errors || [];
+                const result = data.result || {};
+                const imported = result.imported || 0;
+                const skipped = result.skipped || [];
+                const message = result.message || '';
+
+                const percent = total > 0 ? Math.min((processed / total) * 100, 100) : 0;
+                if (percent - previousPercent >= 0.5) {
+                    progressBar.style.width = percent + '%';
+                    previousPercent = percent;
+                }
+                if (total > 0) {
+                    counterDiv.textContent = `${processed} of ${total} records processed`;
+                } else {
+                    counterDiv.textContent = `Processing ${processed} records...`;
+                }
+
+                if (status === 'done' || status === 'error' || status === 'cancelled') {
+                    clearInterval(window[`${type}PollInterval`]);
+                    window[`${type}PollInterval`] = null;
+                    cancelBtn.classList.add('hidden');
+                    progressBar.style.width = '100%';
+
+                    let statusTextStr = '', colorClass = '';
+                    if (status === 'done') {
+                        statusTextStr = '✅ Import complete!';
+                        colorClass = 'bg-green-500';
+                    } else if (status === 'cancelled') {
+                        statusTextStr = '⛔ Import cancelled';
+                        colorClass = 'bg-gray-500';
+                    } else {
+                        statusTextStr = '❌ Import failed!';
+                        colorClass = 'bg-red-500';
+                    }
+                    statusText.textContent = statusTextStr;
+                    progressBar.className = `${colorClass} h-2.5 rounded-full`;
+                    counterDiv.textContent = '';
+
+                    let html = '';
+                    if (status === 'done') {
+                        html += `<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                            <strong>✅ Import successful!</strong><br>
+                            ${message || `Imported ${imported} records.`}
+                        </div>`;
+                        // verification report...
+                        const verification = result.verification;
+                        if (verification) {
+                            // ... (unchanged verification block)
+                            html += `<div class="mt-4 p-4 border rounded-lg bg-gray-50">`;
+                            html += `<h4 class="font-bold">🔍 Verification Report</h4>`;
+                            html += `<p class="text-sm">${verification.message}</p>`;
+                            html += `<div class="mt-2 text-sm">`;
+                            html += `<span class="text-green-600">✅ Matched: ${verification.matched}</span> | `;
+                            html += `<span class="text-red-600">❌ Mismatches: ${verification.mismatches ? verification.mismatches.length : 0}</span> | `;
+                            html += `<span class="text-yellow-600">⚠️ Skipped: ${verification.skipped ? verification.skipped.length : 0}</span>`;
+                            html += `</div>`;
+                            if (verification.mismatches && verification.mismatches.length > 0) {
+                                html += `<div class="mt-2 max-h-60 overflow-y-auto border rounded p-2 text-xs">`;
+                                html += `<table class="min-w-full"><thead class="bg-gray-100"><tr><th>Row</th><th>Reason</th><th>Expected</th><th>Actual</th></tr></thead><tbody>`;
+                                verification.mismatches.forEach(m => {
+                                    const exp = m.expected ? `Qty:${m.expected.qty}, Cost:${m.expected.cost.toFixed(2)}, Sell:${m.expected.selling.toFixed(2)}, Disc:${m.expected.discount.toFixed(2)}` : 'N/A';
+                                    const act = m.actual ? `Stock:${m.actual.stock}, Cost:${m.actual.cost.toFixed(2)}, Sell:${m.actual.selling.toFixed(2)}, Disc:${m.actual.discount.toFixed(2)}` : 'N/A';
+                                    html += `<tr><td>${m.row}</td><td>${m.reason}</td><td>${exp}</td><td>${act}</td></tr>`;
+                                });
+                                html += `</tbody></table></div>`;
+                            }
+                            html += `</div>`;
+                        } else {
+                            html += `<div class="mt-4">
+                                <button id="verifyBtn_${type}" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md">
+                                    🔍 Verify Import
+                                </button>
+                                <span id="verifyStatus_${type}" class="text-sm ml-2"></span>
+                            </div>
+                            <div id="verifyResult_${type}" class="mt-4 hidden"></div>`;
+                        }
+                    } else if (status === 'cancelled') {
+                        html += `<div class="bg-gray-100 border border-gray-400 text-gray-700 px-4 py-3 rounded">
+                            <strong>⛔ Import cancelled by user.</strong><br>
+                            ${message || 'No data was committed.'}
+                        </div>`;
+                    } else {
+                        html += `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                            <strong>❌ Import failed:</strong> ${message || 'Unknown error'}
+                        </div>`;
+                    }
+
+                    if (skipped && skipped.length > 0) {
+                        html += `<div class="mt-4">
+                            <h4 class="font-semibold text-gray-700">⚠️ Skipped rows (${skipped.length})</h4>
+                            <div class="overflow-x-auto max-h-96 overflow-y-auto border border-gray-300 rounded-md mt-2">
+                                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                    <thead class="bg-gray-50 sticky top-0">
+                                        <tr><th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Row</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name / Item</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Rate</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Reason</th></tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        ${skipped.map(s => `
+                                            <tr>
+                                                <td class="px-3 py-2 whitespace-nowrap">${s.row}</td>
+                                                <td class="px-3 py-2">${s.data?.name || s.data?.item || '-'}</td>
+                                                <td class="px-3 py-2">${s.data?.qty || '-'}</td>
+                                                <td class="px-3 py-2">${s.data?.rate || '-'}</td>
+                                                <td class="px-3 py-2">${s.reason}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="mt-3">
+                                <a href="/api/import/failed-report/${jobId}" target="_blank" 
+                                   class="inline-block bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm">
+                                    📄 Download Failed Report (PDF)
+                                </a>
+                            </div>
+                        </div>`;
+                    } else {
+                        html += `<div class="mt-2 text-sm text-gray-600">No rows were skipped.</div>`;
+                    }
+
+                    if (errors && errors.length > 0) {
+                        html += `<div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mt-2">
+                            <strong>⚠️ Errors (${errors.length})</strong>
+                            <ul class="list-disc list-inside text-sm max-h-40 overflow-y-auto">${errors.map(e => `<li>${e}</li>`).join('')}</ul>
+                        </div>`;
+                    }
+
+                    resultDiv.innerHTML = html;
+
+                    const verifyBtn = document.getElementById(`verifyBtn_${type}`);
+                    if (verifyBtn) {
+                        const fileInputId = (type === 'purchase') ? 'purchaseFileInput' : 'salesFileInput';
+                        const targetRadioName = (type === 'purchase') ? 'purchase_target' : 'sales_target';
+                        verifyBtn.addEventListener('click', function() {
+                            verifyImport(jobId, fileInputId, targetRadioName, verifyBtn);
+                        });
+                    }
+
+                    // Remove job ID from Dexie/localStorage
+                    await removeJobId(type);
+                    // Hide progress container after a delay
+                    setTimeout(() => {
+                        progressContainer.classList.add('hidden');
+                    }, 5000);
+                } else {
+                    statusText.textContent = 'Processing...';
+                }
+            } catch (err) {
+                if (err.message.includes('fetch') || err.message.includes('NetworkError')) {
+                    statusText.textContent = '⏳ Waiting for connection...';
+                } else {
+                    clearInterval(window[`${type}PollInterval`]);
+                    window[`${type}PollInterval`] = null;
+                    cancelBtn.classList.add('hidden');
+                    resultDiv.innerHTML = `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                        <strong>❌ Polling error:</strong> ${err.message}
+                    </div>`;
+                    progressContainer.classList.add('hidden');
+                    await removeJobId(type);
+                }
+            }
+        };
+
+        poll();
+        window[`${type}PollInterval`] = setInterval(poll, 1500);
+    }
+
+    // ---- Manual Verify Import function (unchanged) ----
+    async function verifyImport(jobId, fileInputId, targetRadioName, button) {
+        const fileInput = document.getElementById(fileInputId);
+        if (!fileInput.files.length) {
+            alert('Please select the same Excel file that was imported.');
+            return;
+        }
+        const file = fileInput.files[0];
+        const targetRadio = document.querySelector(`input[name="${targetRadioName}"]:checked`);
+        const targetCategory = targetRadio ? targetRadio.value : 'Accessory';
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('target_category', targetCategory);
+
+        const verifyStatus = document.getElementById(`verifyStatus_${button.id.split('_')[1]}`);
+        if (!verifyStatus) return;
+        verifyStatus.innerText = 'Verifying...';
+        const verifyResultDiv = document.getElementById(`verifyResult_${button.id.split('_')[1]}`);
+        if (!verifyResultDiv) return;
+        verifyResultDiv.classList.add('hidden');
+        verifyResultDiv.innerHTML = '';
+
+        button.disabled = true;
+
+        try {
+            const res = await fetch(`/api/import/verify/${jobId}`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.error || 'Verification failed');
+            }
+            const result = data.result;
+            verifyStatus.innerText = '✅ Verification complete.';
+            let html = `<div class="mt-4 p-4 border rounded-lg bg-gray-50">`;
+            html += `<h4 class="font-bold">Verification Report</h4>`;
+            html += `<p class="text-sm">${result.message}</p>`;
+            html += `<div class="mt-2 text-sm">`;
+            html += `<span class="text-green-600">✅ Matched: ${result.matched}</span> | `;
+            html += `<span class="text-red-600">❌ Mismatches: ${result.mismatches ? result.mismatches.length : 0}</span> | `;
+            html += `<span class="text-yellow-600">⚠️ Skipped: ${result.skipped ? result.skipped.length : 0}</span>`;
+            html += `</div>`;
+            if (result.mismatches && result.mismatches.length > 0) {
+                html += `<div class="mt-2 max-h-60 overflow-y-auto border rounded p-2">`;
+                html += `<table class="min-w-full text-xs"><thead class="bg-gray-100"><tr><th>Row</th><th>Reason</th><th>Expected</th><th>Actual</th></tr></thead><tbody>`;
+                result.mismatches.forEach(m => {
+                    const exp = m.expected ? `Qty:${m.expected.qty}, Cost:${m.expected.cost.toFixed(2)}, Sell:${m.expected.selling.toFixed(2)}, Disc:${m.expected.discount.toFixed(2)}` : 'N/A';
+                    const act = m.actual ? `Stock:${m.actual.stock}, Cost:${m.actual.cost.toFixed(2)}, Sell:${m.actual.selling.toFixed(2)}, Disc:${m.actual.discount.toFixed(2)}` : 'N/A';
+                    html += `<tr><td>${m.row}</td><td>${m.reason}</td><td>${exp}</td><td>${act}</td></tr>`;
+                });
+                html += `</tbody></table></div>`;
+            }
+            if (result.skipped && result.skipped.length > 0) {
+                html += `<div class="mt-2"><strong>Skipped rows:</strong> ${result.skipped.map(s => `Row ${s.row} (${s.reason})`).join(', ')}</div>`;
+            }
+            html += `</div>`;
+            verifyResultDiv.innerHTML = html;
+            verifyResultDiv.classList.remove('hidden');
+        } catch (err) {
+            verifyStatus.innerText = '❌ Verification error: ' + err.message;
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    // ---- Helper: setup import form with Dexie job ID storage ----
+    function setupImportForm(formId, fileInputId, progressId, progressBarId, resultId, endpoint, targetRadioName, statusTextId, counterId, cancelBtnId, type) {
+        const form = document.getElementById(formId);
+        const fileInput = document.getElementById(fileInputId);
+        const progress = document.getElementById(progressId);
+        const progressBar = document.getElementById(progressBarId);
+        const resultDiv = document.getElementById(resultId);
+        const statusText = document.getElementById(statusTextId);
+        const counterDiv = document.getElementById(counterId);
+        const cancelBtn = document.getElementById(cancelBtnId);
+
+        let isCancelling = false;
+        const storageKey = (type === 'purchase') ? JOB_CACHE_KEY_PURCHASE : JOB_CACHE_KEY_SALES;
+
+        // On page load, check for stored job ID via Dexie
+        (async function init() {
+            const storedJobId = await getJobId(type);
+            if (storedJobId) {
+                progress.classList.remove('hidden');
+                resultDiv.innerHTML = '';
+                statusText.textContent = 'Reconnecting to running import...';
+                cancelBtn.classList.remove('hidden');
+                startPolling(storedJobId, type, statusTextId, progressBarId, counterId, resultId, cancelBtnId, progressId);
+            }
+        })();
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (window[`${type}PollInterval`]) {
+                clearInterval(window[`${type}PollInterval`]);
+                window[`${type}PollInterval`] = null;
+            }
+
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please select a file.');
+                return;
+            }
+
+            const targetRadio = document.querySelector(`input[name="${targetRadioName}"]:checked`);
+            const targetCategory = targetRadio ? targetRadio.value : 'Accessory';
+            const modeRadio = document.querySelector(`input[name="${type}_mode"]:checked`);
+            const mode = modeRadio ? modeRadio.value : 'append';
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('target_category', targetCategory);
+            formData.append('mode', mode);
+
+            progress.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            resultDiv.innerHTML = '';
+            statusText.textContent = 'Starting import...';
+            counterDiv.textContent = '';
+            cancelBtn.classList.remove('hidden');
+            isCancelling = false;
+
+            const baseColor = (type === 'purchase') ? 'bg-teal-500' : 'bg-purple-500';
+            progressBar.className = `${baseColor} h-2.5 rounded-full`;
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (!data.success || !data.job_id) {
+                    throw new Error(data.error || 'Import failed to start');
+                }
+
+                const jobId = data.job_id;
+                // Store in Dexie (and fallback localStorage)
+                await storeJobId(type, jobId);
+                startPolling(jobId, type, statusTextId, progressBarId, counterId, resultId, cancelBtnId, progressId);
+
+            } catch (err) {
+                progress.classList.add('hidden');
+                cancelBtn.classList.add('hidden');
+                resultDiv.innerHTML = `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    <strong>❌ Error:</strong> ${err.message}
+                </div>`;
+                await removeJobId(type);
+            }
+        });
+
+        cancelBtn.addEventListener('click', async () => {
+            const jobId = await getJobId(type);
+            if (!jobId || isCancelling) return;
+            if (!confirm('Are you sure you want to cancel this import? The data already imported will remain.')) {
+                return;
+            }
+            isCancelling = true;
+            cancelBtn.disabled = true;
+            cancelBtn.textContent = 'Cancelling...';
+            try {
+                const res = await fetch(`/api/import/cancel/${jobId}`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    statusText.textContent = 'Cancellation requested...';
+                } else {
+                    alert('Cancel failed: ' + data.error);
+                    isCancelling = false;
+                    cancelBtn.disabled = false;
+                    cancelBtn.textContent = 'Cancel';
+                }
+            } catch (err) {
+                alert('Error cancelling: ' + err.message);
+                isCancelling = false;
+                cancelBtn.disabled = false;
+                cancelBtn.textContent = 'Cancel';
+            }
+        });
+    }
+
+    // Setup purchase import
+    setupImportForm(
+        'importPurchaseForm',
+        'purchaseFileInput',
+        'purchaseProgress',
+        'purchaseProgressBar',
+        'purchaseResult',
+        '/api/inventory/import',
+        'purchase_target',
+        'purchaseStatusText',
+        'purchaseCounter',
+        'purchaseCancelBtn',
+        'purchase'
+    );
+
+    // Setup sales import
+    setupImportForm(
+        'importSalesForm',
+        'salesFileInput',
+        'salesProgress',
+        'salesProgressBar',
+        'salesResult',
+        '/api/sales/import',
+        'sales_target',
+        'salesStatusText',
+        'salesCounter',
+        'salesCancelBtn',
+        'sales'
+    );
+
+    // ---- Initial offline state check ----
+    document.addEventListener('DOMContentLoaded', function() {
+        updateOfflineBanner();
+    });
+</script>
+{% endblock %}

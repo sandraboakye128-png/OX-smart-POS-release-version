@@ -1,0 +1,515 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Offline banner (hidden by default) -->
+<div id="offlineBanner" class="mb-3 md:mb-4 bg-red-100 border border-red-400 text-red-700 px-3 py-2 md:px-4 md:py-3 rounded text-sm md:text-base hidden">
+    ⚠️ You are offline – showing cached data. Data will update when you reconnect.
+</div>
+
+<!-- Header with date range, time range and real-time clock -->
+<div class="flex flex-wrap justify-between items-center gap-3 md:gap-4 mb-4 md:mb-6">
+    <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Dashboard</h1>
+    <div class="flex flex-wrap items-center gap-2 md:gap-4">
+        <!-- Date Range Picker -->
+        <div class="flex items-center gap-1 md:gap-2">
+            <input type="date" id="startDate" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-xs md:text-sm">
+            <span class="text-gray-500 text-xs md:text-sm">to</span>
+            <input type="date" id="endDate" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-xs md:text-sm">
+        </div>
+        <!-- Time Range Picker -->
+        <div class="flex items-center gap-1 md:gap-2">
+            <input type="time" id="startTime" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-xs md:text-sm" step="60">
+            <span class="text-gray-500 text-xs md:text-sm">to</span>
+            <input type="time" id="endTime" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-xs md:text-sm" step="60">
+        </div>
+        <button id="applyFilterBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">Apply Filter</button>
+        <span id="clock" class="text-gray-500 font-mono text-xs md:text-sm"></span>
+    </div>
+</div>
+
+<!-- KPI Cards – 5 columns (2 on mobile) -->
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4 mb-4 md:mb-6">
+    <div class="bg-white rounded-xl shadow-md p-2 md:p-4">
+        <p class="text-gray-500 text-[10px] md:text-sm">Total Sales</p>
+        <p id="salesValue" class="text-base md:text-2xl font-bold text-indigo-600">₵0</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-md p-2 md:p-4">
+        <p class="text-gray-500 text-[10px] md:text-sm">Total Profit</p>
+        <p id="profitValue" class="text-base md:text-2xl font-bold text-green-600">₵0</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-md p-2 md:p-4">
+        <p class="text-gray-500 text-[10px] md:text-sm">Total Products</p>
+        <p id="productsValue" class="text-base md:text-2xl font-bold text-blue-600">0</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-md p-2 md:p-4">
+        <p class="text-gray-500 text-[10px] md:text-sm">Total Batches</p>
+        <p id="batchesValue" class="text-base md:text-2xl font-bold text-purple-600">0</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-md p-2 md:p-4 col-span-2 md:col-span-1">
+        <p class="text-gray-500 text-[10px] md:text-sm">Low Stock Items</p>
+        <p id="lowStockValue" class="text-base md:text-2xl font-bold text-red-600">0</p>
+        <p class="text-[9px] text-gray-400 mt-0.5">Products with 1–10 units</p>
+    </div>
+</div>
+
+<!-- Top Products & Low Stock Split -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
+    <div class="bg-white rounded-xl shadow-md p-3 md:p-4 flex flex-col">
+        <h2 class="text-base md:text-xl font-semibold mb-2 md:mb-3">🏆 Top Products</h2>
+        <div id="topProductsList" class="flex-1 max-h-60 md:max-h-80 overflow-y-auto space-y-1 md:space-y-2 pr-2"></div>
+        <p class="text-[10px] md:text-xs text-gray-400 mt-1 md:mt-2">* Based on total quantity sold for selected period</p>
+    </div>
+
+    <!-- ✅ Split Low Stock Panel (Dashboard = all categories) -->
+    {% set low_stock_category = 'all' %}
+    {% include '_low_stock_split.html' %}
+</div>
+
+<!-- Pie Chart & Sales History (with Calendar) -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+    <!-- Pie Chart -->
+    <div class="bg-white rounded-xl shadow-md p-3 md:p-4">
+        <h2 class="text-base md:text-xl font-semibold mb-2 md:mb-3">🥧 Product Distribution</h2>
+        <div id="pieChartContainer" class="w-full max-w-[300px] md:max-w-full mx-auto">
+            <canvas id="pieChart" class="w-full h-auto"></canvas>
+        </div>
+        <div id="pieChartOfflineMsg" class="text-gray-500 text-center text-sm hidden">Offline – pie chart unavailable</div>
+    </div>
+    <!-- Sales History with Calendar -->
+    <div class="bg-white rounded-xl shadow-md p-3 md:p-4 flex flex-col">
+        <div class="flex justify-between items-center mb-2 md:mb-3">
+            <h2 class="text-base md:text-xl font-semibold">📊 Sales History</h2>
+            <div class="flex items-center gap-1 md:gap-2">
+                <button id="todayHistoryBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-2 py-0.5 md:px-3 md:py-1 rounded-lg text-xs md:text-sm">Today</button>
+            </div>
+        </div>
+        <!-- Calendar -->
+        <div id="calendarContainer" class="mb-3 md:mb-4">
+            <div class="flex justify-between items-center mb-1 md:mb-2">
+                <button id="prevMonthBtn" class="bg-gray-200 hover:bg-gray-300 px-2 py-0.5 md:px-3 md:py-1 rounded text-xs md:text-sm">&larr;</button>
+                <span id="calendarMonthYear" class="font-semibold text-sm md:text-base"></span>
+                <button id="nextMonthBtn" class="bg-gray-200 hover:bg-gray-300 px-2 py-0.5 md:px-3 md:py-1 rounded text-xs md:text-sm">&rarr;</button>
+            </div>
+            <table class="w-full text-center border-collapse">
+                <thead>
+                    <tr>
+                        <th class="text-[8px] md:text-xs text-gray-500 py-0.5 md:py-1">Su</th>
+                        <th class="text-[8px] md:text-xs text-gray-500 py-0.5 md:py-1">Mo</th>
+                        <th class="text-[8px] md:text-xs text-gray-500 py-0.5 md:py-1">Tu</th>
+                        <th class="text-[8px] md:text-xs text-gray-500 py-0.5 md:py-1">We</th>
+                        <th class="text-[8px] md:text-xs text-gray-500 py-0.5 md:py-1">Th</th>
+                        <th class="text-[8px] md:text-xs text-gray-500 py-0.5 md:py-1">Fr</th>
+                        <th class="text-[8px] md:text-xs text-gray-500 py-0.5 md:py-1">Sa</th>
+                    </tr>
+                </thead>
+                <tbody id="calendarBody"></tbody>
+            </table>
+        </div>
+        <div id="salesHistoryList" class="flex-1 max-h-48 md:max-h-72 overflow-y-auto space-y-1 md:space-y-2 pr-2">
+            <!-- dynamic content -->
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM loaded – Dashboard with API‑first rendering");
+
+        // ---------- Offline banner ----------
+        function updateOfflineBanner() {
+            const banner = document.getElementById('offlineBanner');
+            if (!navigator.onLine) {
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+        window.addEventListener('online', updateOfflineBanner);
+        window.addEventListener('offline', updateOfflineBanner);
+
+        // ---------- Helpers ----------
+        let pieChart = null;
+        let lowStockShown = false;
+        let startDate = null;
+        let endDate = null;
+        let startTime = null;
+        let endTime = null;
+        let selectedDate = null;
+        let calendarYear = new Date().getFullYear();
+        let calendarMonth = new Date().getMonth();
+
+        function formatMoney(amount) {
+            return '₵' + (parseFloat(amount) || 0).toFixed(2);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('clock').innerText = timeStr;
+            setTimeout(updateClock, 1000);
+        }
+        updateClock();
+
+        // Get datetime range
+        function getDateTimeRange() {
+            let startDateTime = null, endDateTime = null;
+            if (startDate) {
+                startDateTime = startTime ? `${startDate} ${startTime}:00` : `${startDate} 00:00:00`;
+            }
+            if (endDate) {
+                endDateTime = endTime ? `${endDate} ${endTime}:00` : `${endDate} 23:59:59`;
+            }
+            return { start_datetime: startDateTime, end_datetime: endDateTime };
+        }
+
+        // Calendar rendering
+        function renderCalendar(year, month) {
+            const monthNames = ['January','February','March','April','May','June',
+                                'July','August','September','October','November','December'];
+            document.getElementById('calendarMonthYear').innerText = `${monthNames[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let html = '<tr>';
+            for (let i = 0; i < firstDay; i++) {
+                html += '<td></td>';
+            }
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateObj = new Date(year, month, d);
+                const dateStr = dateObj.toISOString().split('T')[0];
+                const isSelected = (selectedDate === dateStr);
+                const isToday = (dateStr === new Date().toISOString().split('T')[0]);
+                let cls = 'p-0.5 md:p-1 rounded cursor-pointer hover:bg-blue-100 text-xs md:text-sm ';
+                if (isSelected) cls += 'bg-blue-500 text-white hover:bg-blue-600 ';
+                else if (isToday) cls += 'bg-gray-200 font-bold ';
+                html += `<td class="${cls}" data-date="${dateStr}">${d}</td>`;
+                if ((firstDay + d) % 7 === 0) {
+                    html += '</tr><tr>';
+                }
+            }
+            html += '</tr>';
+            document.getElementById('calendarBody').innerHTML = html;
+
+            document.querySelectorAll('#calendarBody td[data-date]').forEach(td => {
+                td.addEventListener('click', function() {
+                    const newDate = this.dataset.date;
+                    startDate = newDate;
+                    endDate = newDate;
+                    startTime = '';
+                    endTime = '';
+                    selectedDate = newDate;
+                    document.getElementById('startDate').value = newDate;
+                    document.getElementById('endDate').value = newDate;
+                    document.getElementById('startTime').value = '';
+                    document.getElementById('endTime').value = '';
+                    loadDashboard();
+                    renderCalendar(calendarYear, calendarMonth);
+                });
+            });
+        }
+
+        document.getElementById('prevMonthBtn').addEventListener('click', function() {
+            if (calendarMonth === 0) { calendarMonth = 11; calendarYear--; }
+            else { calendarMonth--; }
+            renderCalendar(calendarYear, calendarMonth);
+        });
+        document.getElementById('nextMonthBtn').addEventListener('click', function() {
+            if (calendarMonth === 11) { calendarMonth = 0; calendarYear++; }
+            else { calendarMonth++; }
+            renderCalendar(calendarYear, calendarMonth);
+        });
+        document.getElementById('todayHistoryBtn').addEventListener('click', function() {
+            const today = new Date().toISOString().split('T')[0];
+            startDate = today; endDate = today; startTime = ''; endTime = '';
+            selectedDate = today;
+            document.getElementById('startDate').value = today;
+            document.getElementById('endDate').value = today;
+            document.getElementById('startTime').value = '';
+            document.getElementById('endTime').value = '';
+            const now = new Date();
+            calendarYear = now.getFullYear();
+            calendarMonth = now.getMonth();
+            renderCalendar(calendarYear, calendarMonth);
+            loadDashboard();
+        });
+
+        // ========== MAIN DASHBOARD LOAD – API‑FIRST ==========
+        async function loadDashboard() {
+            if (!db) {
+                console.warn('Dexie not available – showing empty');
+                return;
+            }
+
+            updateOfflineBanner();
+
+            // Build query params
+            const range = getDateTimeRange();
+            const params = new URLSearchParams();
+            if (range.start_datetime) params.append('start_datetime', range.start_datetime);
+            if (range.end_datetime) params.append('end_datetime', range.end_datetime);
+
+            let summary = null;
+            let topProducts = [];
+            let salesHistory = [];
+            let lowStock = [];
+            let lowStockSplit = null;
+            let apiSuccess = false;
+
+            // 1. Try API first (if online)
+            if (navigator.onLine) {
+                try {
+                    const summaryUrl = `/api/dashboard/summary${params.toString() ? '?' + params.toString() : ''}`;
+                    const topUrl = `/api/dashboard/top_products${params.toString() ? '?' + params.toString() : ''}`;
+                    const historyUrl = `/api/dashboard/sales_history${params.toString() ? '?' + params.toString() : ''}`;
+                    const lowStockUrl = '/api/low_stock/split?category=all';
+
+                    const [summaryRes, topRes, historyRes, lowStockRes] = await Promise.all([
+                        fetch(summaryUrl),
+                        fetch(topUrl),
+                        fetch(historyUrl),
+                        fetch(lowStockUrl)
+                    ]);
+
+                    if (summaryRes.ok) summary = await summaryRes.json();
+                    if (topRes.ok) topProducts = await topRes.json();
+                    if (historyRes.ok) salesHistory = await historyRes.json();
+                    if (lowStockRes.ok) {
+                        lowStockSplit = await lowStockRes.json();
+                        if (lowStockSplit && lowStockSplit.product_level) {
+                            lowStock = lowStockSplit.product_level.low_stock || [];
+                        }
+                    }
+
+                    // Store in Dexie cache for offline
+                    await db.cache.put({ key: 'dashboard_summary', value: summary, timestamp: Date.now() });
+                    await db.cache.put({ key: 'dashboard_top_products', value: topProducts, timestamp: Date.now() });
+                    await db.cache.put({ key: 'dashboard_sales_history', value: salesHistory, timestamp: Date.now() });
+                    await db.cache.put({ key: 'dashboard_low_stock_split', value: lowStockSplit, timestamp: Date.now() });
+                    await db.cache.put({ key: 'dashboard_last_update', value: Date.now(), timestamp: Date.now() });
+
+                    apiSuccess = true;
+                    console.log('✅ Dashboard data loaded from API');
+                } catch (e) {
+                    console.warn('API failed, falling back to Dexie cache', e);
+                }
+            }
+
+            // 2. If API failed or offline, read from Dexie cache
+            if (!apiSuccess || !navigator.onLine) {
+                try {
+                    const cachedSummary = await db.cache.get('dashboard_summary');
+                    if (cachedSummary) summary = cachedSummary.value;
+                    const cachedTop = await db.cache.get('dashboard_top_products');
+                    if (cachedTop) topProducts = cachedTop.value;
+                    const cachedHistory = await db.cache.get('dashboard_sales_history');
+                    if (cachedHistory) salesHistory = cachedHistory.value;
+
+                    // ✅ Read split data with legacy fallback
+                    const cachedSplit = await db.cache.get('dashboard_low_stock_split');
+                    if (cachedSplit && cachedSplit.value && cachedSplit.value.product_level) {
+                        lowStockSplit = cachedSplit.value;
+                        lowStock = lowStockSplit.product_level.low_stock || [];
+                    } else {
+                        // Legacy: old key that stored just an array
+                        const cachedLowStock = await db.cache.get('dashboard_low_stock');
+                        if (cachedLowStock) lowStock = cachedLowStock.value || [];
+                    }
+                    console.log('📦 Dashboard data loaded from Dexie cache');
+                } catch (e) {
+                    console.warn('Failed to read from Dexie cache:', e);
+                }
+            }
+
+            // 3. Render KPI cards
+            if (summary) {
+                document.getElementById('salesValue').innerText = formatMoney(summary.sales || 0);
+                document.getElementById('profitValue').innerText = formatMoney(summary.profit || 0);
+                document.getElementById('productsValue').innerText = summary.total_products || 0;
+                document.getElementById('batchesValue').innerText = summary.total_batches || 0;
+                document.getElementById('lowStockValue').innerText = lowStock ? lowStock.length : 0;
+            }
+
+            // Render top products
+            const topContainer = document.getElementById('topProductsList');
+            topContainer.innerHTML = '';
+            if (topProducts && topProducts.length) {
+                topProducts.forEach((p, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'border-b pb-1 flex justify-between items-center hover:bg-gray-50 p-1 rounded transition-colors text-xs md:text-sm';
+                    let medal = '';
+                    if (index === 0) medal = '🥇 ';
+                    else if (index === 1) medal = '🥈 ';
+                    else if (index === 2) medal = '🥉 ';
+                    div.innerHTML = `
+                        <span>${medal}<strong class="text-indigo-700">${escapeHtml(p.name)}</strong> <span class="text-gray-600 text-[10px] md:text-xs">(${escapeHtml(p.brand)} | ${escapeHtml(p.category)})</span></span>
+                        <span class="font-bold text-indigo-600 text-xs md:text-sm">${p.qty || 0} sold</span>
+                    `;
+                    topContainer.appendChild(div);
+                });
+            } else {
+                topContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">📊 No sales data for this period.</div>';
+            }
+
+            // Pie chart
+            if (pieChart) pieChart.destroy();
+            const ctx = document.getElementById('pieChart');
+            const container = document.getElementById('pieChartContainer');
+            const offlineMsg = document.getElementById('pieChartOfflineMsg');
+            if (topProducts && topProducts.length > 0) {
+                container.classList.remove('hidden');
+                offlineMsg.classList.add('hidden');
+                let labels = topProducts.map(p => `${p.name.substring(0, 15)}${p.name.length > 15 ? '...' : ''}`);
+                let values = topProducts.map(p => p.qty || 0);
+                if (values.length > 8) {
+                    const top8Values = values.slice(0,8);
+                    const top8Labels = labels.slice(0,8);
+                    const othersSum = values.slice(8).reduce((a,b) => a+b, 0);
+                    top8Values.push(othersSum);
+                    top8Labels.push('Others');
+                    pieChart = new Chart(ctx, {
+                        type: 'pie',
+                        data: { labels: top8Labels, datasets: [{ data: top8Values, backgroundColor: generateColors(top8Labels.length) }] },
+                        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+                    });
+                } else {
+                    pieChart = new Chart(ctx, {
+                        type: 'pie',
+                        data: { labels: labels, datasets: [{ data: values, backgroundColor: generateColors(labels.length) }] },
+                        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+                    });
+                }
+            } else {
+                container.classList.add('hidden');
+                offlineMsg.classList.remove('hidden');
+            }
+
+            // Sales history
+            const historyContainer = document.getElementById('salesHistoryList');
+            historyContainer.innerHTML = '';
+            if (salesHistory && salesHistory.length) {
+                salesHistory.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'border-b pb-1 md:pb-2 mb-1 md:mb-2 hover:bg-gray-50 p-1 rounded transition-colors';
+                    div.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium text-gray-700 text-xs md:text-sm">${item.date}</span>
+                            <span class="font-bold text-green-600 text-xs md:text-base">${formatMoney(item.total_sales)}</span>
+                        </div>
+                        <div class="text-[10px] md:text-sm text-gray-500 flex justify-between">
+                            <span>Profit: ${formatMoney(item.profit)}</span>
+                            <span>Discount: ${formatMoney(item.discount)}</span>
+                        </div>
+                    `;
+                    historyContainer.appendChild(div);
+                });
+                if (!navigator.onLine) {
+                    const note = document.createElement('div');
+                    note.className = 'text-[10px] md:text-xs text-amber-500 mt-2 text-center';
+                    note.innerText = '⚠️ Data may be outdated (offline mode)';
+                    historyContainer.appendChild(note);
+                }
+            } else {
+                historyContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">📅 No sales history found for this period.</div>';
+            }
+
+            // Low stock alert (once per session, non-blocking)
+            if (!lowStockShown && lowStock && lowStock.length > 0) {
+                // ✅ Non-blocking: show for 5 items max, no product detail alert
+                const previewList = lowStock.slice(0, 5).map(item => {
+                    return `• ${item.name} (${item.brand}) - ${item.total_remaining} left`;
+                }).join('\n');
+                const moreCount = lowStock.length > 5 ? `\n\n... and ${lowStock.length - 5} more items` : '';
+
+                // Use setTimeout so it doesn't block the initial render
+                setTimeout(() => {
+                    alert(`⚠️ LOW STOCK ALERT ⚠️\n\n${lowStock.length} product(s) are running low:\n\n${previewList}${moreCount}\n\nPlease restock soon!`);
+                }, 100);
+
+                lowStockShown = true;
+            }
+        }
+
+        // Generate colors for pie chart
+        function generateColors(n) {
+            const colors = [];
+            for (let i = 0; i < n; i++) {
+                const hue = (i * 360 / n) % 360;
+                colors.push(`hsl(${hue}, 70%, 60%)`);
+            }
+            return colors;
+        }
+
+        // ---------- Apply filter ----------
+        function applyFilter() {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            const st = document.getElementById('startTime').value;
+            const et = document.getElementById('endTime').value;
+            if (!start && !end) {
+                alert('Please select at least a start date or end date');
+                return;
+            }
+            startDate = start || null;
+            endDate = end || null;
+            startTime = st || null;
+            endTime = et || null;
+            if (startDate && startDate === endDate) {
+                selectedDate = startDate;
+            } else {
+                selectedDate = null;
+            }
+            if (startDate) {
+                const d = new Date(startDate);
+                calendarYear = d.getFullYear();
+                calendarMonth = d.getMonth();
+                renderCalendar(calendarYear, calendarMonth);
+            }
+            loadDashboard();
+        }
+
+        document.getElementById('applyFilterBtn').addEventListener('click', applyFilter);
+
+        // ---------- Initialisation ----------
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('startDate').value = today;
+        document.getElementById('endDate').value = today;
+        document.getElementById('startTime').value = '00:00';
+        document.getElementById('endTime').value = '23:59';
+        startDate = today;
+        endDate = today;
+        startTime = '00:00';
+        endTime = '23:59';
+        selectedDate = today;
+
+        const now = new Date();
+        calendarYear = now.getFullYear();
+        calendarMonth = now.getMonth();
+        renderCalendar(calendarYear, calendarMonth);
+
+        // Reset lowStockShown when page is reloaded
+        window.addEventListener('beforeunload', function() {
+            lowStockShown = false;
+        });
+
+        // Initial load
+        loadDashboard();
+
+        // Refresh on reconnect
+        window.addEventListener('online', function() {
+            loadDashboard();
+        });
+    });
+</script>
+{% endblock %}

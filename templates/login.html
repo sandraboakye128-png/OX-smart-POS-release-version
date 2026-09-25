@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Offline banner -->
+<div id="offlineBanner" class="fixed top-0 left-0 w-full bg-red-500 text-white text-center py-2 z-50 hidden">
+    ⚠️ You are offline – cannot login. Please connect to the internet.
+</div>
+
+<div class="min-h-[80vh] flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+        <div class="text-center mb-6">
+            <h2 class="text-3xl font-bold text-indigo-600">🔐 Welcome Back</h2>
+            <p class="text-gray-500 mt-1">Login to your account</p>
+        </div>
+        
+        <form id="loginForm">
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">👤 Username</label>
+                <input type="text" id="username" name="username" required autocomplete="off"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">🔒 Password</label>
+                <input type="password" id="password" name="password" required autocomplete="new-password"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div class="mb-6">
+                <label class="flex items-center">
+                    <input type="checkbox" id="showPassword" class="mr-2">
+                    <span class="text-sm text-gray-600">👁 Show Password</span>
+                </label>
+            </div>
+            <button type="submit" id="loginBtn" class="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-4 rounded-lg transition">
+                🚀 Login
+            </button>
+        </form>
+        
+        <div class="mt-6 text-center">
+            <p class="text-gray-600">Don't have an account? 
+                <a href="/signup" class="text-indigo-600 hover:underline">Create Account</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============================================================
+    //  CLEAR ALL BROWSER DATA (localStorage, sessionStorage, IndexedDB, caches)
+    // ============================================================
+    async function clearAllBrowserData() {
+        console.log('🧹 Clearing all browser data...');
+        
+        // 1. Clear localStorage
+        try {
+            const keysToPreserve = []; // Preserve nothing on login
+            Object.keys(localStorage).forEach(key => {
+                if (!keysToPreserve.includes(key)) {
+                    localStorage.removeItem(key);
+                }
+            });
+            console.log('✅ localStorage cleared');
+        } catch(e) { console.warn('localStorage clear failed:', e); }
+        
+        // 2. Clear sessionStorage
+        try {
+            sessionStorage.clear();
+            console.log('✅ sessionStorage cleared');
+        } catch(e) { console.warn('sessionStorage clear failed:', e); }
+        
+        // 3. Clear IndexedDB databases
+        const dbNames = [
+            'OxSmartOfflineDB',
+            'OfflineSalesDB',
+            'SalesDB',
+            'offlineDB',
+            'PendingDB',
+            'ImportQueueDB',
+            'DexieDB'
+        ];
+        for (const dbName of dbNames) {
+            try {
+                const deleteRequest = indexedDB.deleteDatabase(dbName);
+                deleteRequest.onsuccess = () => console.log(`✅ Deleted IndexedDB: ${dbName}`);
+                deleteRequest.onerror = () => console.warn(`⚠️ Failed to delete: ${dbName}`);
+            } catch(e) {}
+        }
+        
+        // 4. Clear browser caches
+        if ('caches' in window) {
+            try {
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+                console.log(`✅ Cleared ${cacheNames.length} caches`);
+            } catch(e) { console.warn('Cache clear failed:', e); }
+        }
+        
+        console.log('🎉 All browser data cleared');
+    }
+
+    // ============================================================
+    //  SMART SESSION CHECK – redirect if valid, otherwise clear stale
+    // ============================================================
+    (function() {
+        const storedUser = localStorage.getItem('ox_user');
+        if (storedUser) {
+            try {
+                const session = JSON.parse(storedUser);
+                const isExpired = session.expiresAt && Date.now() >= session.expiresAt;
+                
+                // If online, verify with server
+                if (navigator.onLine) {
+                    fetch('/api/auth/check', { credentials: 'include' })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.logged_in) {
+                                // Server says we're logged in – redirect
+                                window.location.href = '/';
+                            } else {
+                                // Server says not logged in – clear stale session
+                                localStorage.removeItem('ox_user');
+                                localStorage.removeItem('pin_unlocked');
+                                window.location.reload();
+                            }
+                        })
+                        .catch(() => {
+                            if (!isExpired) {
+                                window.location.href = '/';
+                            } else {
+                                localStorage.removeItem('ox_user');
+                            }
+                        });
+                } else {
+                    if (!isExpired) {
+                        window.location.href = '/';
+                    } else {
+                        localStorage.removeItem('ox_user');
+                    }
+                }
+            } catch (e) {
+                localStorage.removeItem('ox_user');
+            }
+        }
+    })();
+
+    // ============================================================
+    //  OFFLINE BANNER
+    // ============================================================
+    function updateOfflineBanner() {
+        const banner = document.getElementById('offlineBanner');
+        const loginBtn = document.getElementById('loginBtn');
+        if (!navigator.onLine) {
+            banner.classList.remove('hidden');
+            loginBtn.disabled = true;
+            loginBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            loginBtn.textContent = '🚫 Offline – Cannot Login';
+        } else {
+            banner.classList.add('hidden');
+            loginBtn.disabled = false;
+            loginBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            loginBtn.textContent = '🚀 Login';
+        }
+    }
+    window.addEventListener('online', updateOfflineBanner);
+    window.addEventListener('offline', updateOfflineBanner);
+
+    // ============================================================
+    //  CLEAR FORM FIELDS
+    // ============================================================
+    function clearFormFields() {
+        document.querySelectorAll('#loginForm input[type="text"], #loginForm input[type="password"]').forEach(input => {
+            input.value = '';
+        });
+        document.getElementById('showPassword').checked = false;
+        document.getElementById('password').type = 'password';
+    }
+
+    function forceClear() {
+        clearFormFields();
+        setTimeout(clearFormFields, 50);
+        setTimeout(clearFormFields, 200);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        forceClear();
+        updateOfflineBanner();
+    });
+
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            forceClear();
+            updateOfflineBanner();
+        }
+    });
+
+    // ============================================================
+    //  TOGGLE PASSWORD VISIBILITY
+    // ============================================================
+    const showPasswordCheckbox = document.getElementById('showPassword');
+    const passwordField = document.getElementById('password');
+    showPasswordCheckbox.addEventListener('change', () => {
+        passwordField.type = showPasswordCheckbox.checked ? 'text' : 'password';
+    });
+    
+    // ============================================================
+    //  HANDLE LOGIN SUBMISSION (with full data clear + 7‑day expiry)
+    // ============================================================
+    const loginForm = document.getElementById('loginForm');
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!navigator.onLine) {
+            alert('You are offline. Please connect to the internet and try again.');
+            return;
+        }
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        
+        // Show loading state
+        const loginBtn = document.getElementById('loginBtn');
+        const originalText = loginBtn.textContent;
+        loginBtn.disabled = true;
+        loginBtn.textContent = '⏳ Logging in...';
+        
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',  // ✅ Ensure cookies are sent
+                body: JSON.stringify({ username, password })
+            });
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Login failed');
+            }
+            const data = await response.json();
+            if (data.success) {
+                // ✅ CLEAR ALL OLD BROWSER DATA FIRST
+                loginBtn.textContent = '🧹 Clearing old data...';
+                await clearAllBrowserData();
+                
+                // ✅ Store NEW session with 7‑day expiry
+                const session = {
+                    username: data.user.username,
+                    role: data.user.role,
+                    id: data.user.id,
+                    loginTime: Date.now(),
+                    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000
+                };
+                localStorage.setItem('ox_user', JSON.stringify(session));
+                console.log('✅ New session stored for:', data.user.username);
+                
+                // ✅ Redirect with cache-buster to force fresh page load
+                loginBtn.textContent = '✅ Success! Loading...';
+                window.location.href = '/?_t=' + Date.now();
+            } else {
+                alert('Login failed: ' + data.error);
+                loginBtn.disabled = false;
+                loginBtn.textContent = originalText;
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('Login failed. Please check your internet connection and try again.');
+            loginBtn.disabled = false;
+            loginBtn.textContent = originalText;
+        }
+    });
+</script>
+{% endblock %}
