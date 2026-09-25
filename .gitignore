@@ -4,6 +4,7 @@ __pycache__/
 *.pyd
 
 database/*.db
+*.bak
 
 receipts/
 reports/
@@ -29,6 +30,6 @@ android/captures/
 Thumbs.db
 
 *.log
+
 project_files.txt
-pull_users_from_cloud.py*.bak
-*.bak
+pull_users_from_cloud.py
