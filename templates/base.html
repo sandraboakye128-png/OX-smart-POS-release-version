@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>OX Smart POS</title>
 
+    <!-- ============================================================ -->
+    <!-- ENV DETECTION — MUST LOAD FIRST                              -->
+    <!-- Sets window.OX_ENV = { isApk, isWeb, isOnline, useLocalDb }  -->
+    <!-- Downstream code can gate APK-only behavior on OX_ENV.useLocalDb -->
+    <!-- ============================================================ -->
+    <script src="{{ url_for('static', filename='js/env.js') }}"></script>
+
     <!-- ===== EARLY THEME (prevents white flash on dark theme) ===== -->
     <style>
         html[data-theme="dark"] { background: #0f172a; }
@@ -193,10 +200,10 @@
             padding: 0 4px; border: 2px solid #ffffff; line-height: 1;
         }
 
-        /* ===== NOTIFICATION DROPDOWN ===== */
+        /* ===== NOTIFICATION DROPDOWN (taller + scrollable) ===== */
         .notif-dropdown {
             position: absolute; top: calc(100% + 8px); right: 0;
-            width: 380px; max-width: calc(100vw - 24px);
+            width: 400px; max-width: calc(100vw - 24px);
             background: white; border-radius: 14px;
             box-shadow: 0 12px 40px rgba(15, 23, 42, 0.15), 0 2px 8px rgba(15, 23, 42, 0.06);
             border: 1px solid #e5e7eb;
@@ -205,7 +212,8 @@
             transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
             z-index: 100; overflow: hidden;
             display: flex; flex-direction: column;
-            max-height: min(80vh, 560px);
+            max-height: min(88vh, 680px);
+            min-height: 340px;
         }
         .notif-dropdown.open { opacity: 1; visibility: visible; transform: translateY(0); }
         .notif-header {
@@ -229,7 +237,15 @@
         }
         .notif-clear:hover { background: #f1f5f9; color: #0f172a; }
 
-        .notif-list { flex: 1; overflow-y: auto; min-height: 0; }
+        /* Scrollable list area — keeps its own scroll independent of dropdown */
+        .notif-list {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 200px;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
         .notif-empty {
             padding: 48px 24px; text-align: center; color: #94a3b8;
             font-size: 0.85rem; display: flex; flex-direction: column;
@@ -250,6 +266,19 @@
         .notif-item.unread::before {
             content: ''; position: absolute; left: 0; top: 12px; bottom: 12px;
             width: 3px; background: #00CFCF; border-radius: 0 3px 3px 0;
+        }
+
+        /* Persistent notifications: orange asterisk marker, stays until dismissed */
+        .notif-item.persistent::after {
+            content: '*';
+            position: absolute;
+            top: 6px; right: 34px;
+            color: #f59e0b;
+            font-weight: 900;
+            font-size: 20px;
+            line-height: 1;
+            pointer-events: none;
+            text-shadow: 0 0 4px rgba(245, 158, 11, 0.55);
         }
 
         .notif-icon {
@@ -293,8 +322,10 @@
             opacity: 0; transition: background 0.15s, color 0.15s, opacity 0.15s;
             font-family: Arial, sans-serif;
         }
-        .notif-item:hover .notif-close { opacity: 1; }
+        .notif-item:hover .notif-close,
+        .notif-item.persistent .notif-close { opacity: 1; }
         .notif-close:hover { background: #f1f5f9; color: #475569; }
+
         @media (max-width: 480px) {
             .notif-dropdown { width: calc(100vw - 16px); right: -4px; }
         }
@@ -415,7 +446,6 @@
 
         /* ============================================================
            DARK THEME OVERRIDES
-           Applied when <body class="dark-theme"> (set by applyAppTheme)
            ============================================================ */
         body.dark-theme { background: #0f172a !important; color: #e2e8f0 !important; }
 
@@ -457,6 +487,7 @@
         body.dark-theme .notif-close:hover { background: #334155 !important; color: #e2e8f0 !important; }
         body.dark-theme .notif-empty       { color: #64748b !important; }
         body.dark-theme .notif-empty i     { color: #475569 !important; }
+        body.dark-theme .notif-item.persistent::after { color: #fbbf24 !important; }
 
         body.dark-theme .user-chip {
             background: #334155 !important; color: #cbd5e1 !important;
@@ -470,12 +501,10 @@
         body.dark-theme .mobile-header,
         body.dark-theme footer { background: #0b1220 !important; }
 
-        /* Cards & panels */
         body.dark-theme .bg-white,
         body.dark-theme .bg-gray-50,
         body.dark-theme .bg-gray-100 { background-color: #1e293b !important; color: #e2e8f0 !important; }
 
-        /* Text */
         body.dark-theme .text-gray-800,
         body.dark-theme .text-gray-700 { color: #e2e8f0 !important; }
         body.dark-theme .text-gray-600,
@@ -486,13 +515,11 @@
         body.dark-theme .text-amber-600,
         body.dark-theme .text-amber-500 { color: #fcd34d !important; }
 
-        /* Borders */
         body.dark-theme .border,
         body.dark-theme .border-gray-100,
         body.dark-theme .border-gray-200,
         body.dark-theme .border-gray-300 { border-color: #334155 !important; }
 
-        /* Inputs */
         body.dark-theme input,
         body.dark-theme select,
         body.dark-theme textarea {
@@ -502,7 +529,6 @@
         }
         body.dark-theme input::placeholder { color: #64748b !important; }
 
-        /* Tables */
         body.dark-theme table,
         body.dark-theme th,
         body.dark-theme td {
@@ -510,14 +536,12 @@
             border-color: #334155 !important;
         }
 
-        /* Shadows softened on dark background */
         body.dark-theme .shadow,
         body.dark-theme .shadow-sm,
         body.dark-theme .shadow-md,
         body.dark-theme .shadow-lg,
         body.dark-theme .shadow-xl { box-shadow: 0 2px 12px rgba(0,0,0,0.55) !important; }
 
-        /* Sidebar stays dark in both themes */
         body.dark-theme .sidebar { background: #0b1220 !important; }
     </style>
 </head>
@@ -800,6 +824,22 @@
 <script src="{{ url_for('static', filename='js/offline.js') }}"></script>
 <script>
     // ============================================================
+    //  ENV BOOTSTRAP  (Phase 1)
+    //  env.js is loaded in <head>, so OX_ENV exists by now.
+    //  Nothing in this file currently gates on OX_ENV — that begins
+    //  in Phase 2 (Dexie schema). This log confirms detection works.
+    // ============================================================
+    (function () {
+        const e = window.OX_ENV || {};
+        console.log('[OX] env', {
+            isApk:      !!e.isApk,
+            isWeb:      !!e.isWeb,
+            online:     typeof e.isOnline === 'function' ? e.isOnline() : navigator.onLine,
+            useLocalDb: !!e.useLocalDb,
+        });
+    })();
+
+    // ============================================================
     //  APP MODE DETECTION
     // ============================================================
     function isAppMode() {
@@ -808,6 +848,8 @@
 
     // ============================================================
     //  NOTIFICATION SYSTEM
+    //  - persistent: true  →  no auto-dismiss timer, orange * marker,
+    //                         stays until user clicks the ✕
     // ============================================================
     const Notifications = (function () {
         const items = [];
@@ -868,8 +910,9 @@
                 const progressBar = (n.progress !== null && n.progress !== undefined)
                     ? `<div class="notif-progress"><div class="notif-progress-fill" style="width:${Math.max(0, Math.min(100, n.progress))}%"></div></div>`
                     : '';
+                const persistentClass = n.persistent ? ' persistent' : '';
                 return `
-                    <div class="notif-item ${n.read ? '' : 'unread'} notif-${n.type}" data-id="${n.id}">
+                    <div class="notif-item${n.read ? '' : ' unread'} notif-${n.type}${persistentClass}" data-id="${n.id}">
                         <div class="notif-icon">${_icon(n.type)}</div>
                         <div class="notif-body">
                             ${n.title ? `<div class="notif-title">${_esc(n.title)}</div>` : ''}
@@ -884,21 +927,34 @@
         function _refresh() { _renderList(); _renderBadge(); }
 
         function add(opts) {
-            const { type = 'info', title = '', message = '', duration = 0, id = null, progress = null } = opts || {};
+            const {
+                type = 'info',
+                title = '',
+                message = '',
+                duration = 0,
+                id = null,
+                progress = null,
+                persistent = false,
+            } = opts || {};
+
             if (id) {
                 const existing = items.find(i => i.id === id);
-                if (existing) return update(id, { type, title, message, progress });
+                if (existing) return update(id, { type, title, message, progress, persistent });
             }
             const notif = {
                 id: id || ('n_' + (nextId++) + '_' + Date.now()),
                 type, title, message, progress,
-                timestamp: Date.now(), read: false, _timer: null
+                persistent: !!persistent,
+                timestamp: Date.now(),
+                read: false,
+                _timer: null,
             };
             items.unshift(notif);
             unreadCount++;
             if (type === 'success' || type === 'error' || type === 'warning') ringBell();
             _refresh();
-            if (duration > 0 && type !== 'progress') {
+            // Auto-dismiss only when NOT persistent and NOT a live progress bar
+            if (duration > 0 && !persistent && type !== 'progress') {
                 notif._timer = setTimeout(() => remove(notif.id), duration);
             }
             return notif.id;
@@ -906,6 +962,11 @@
         function update(id, patch) {
             const n = items.find(i => i.id === id);
             if (!n) return;
+            // If it just became persistent, cancel any pending auto-dismiss.
+            if (patch && patch.persistent === true && n._timer) {
+                clearTimeout(n._timer);
+                n._timer = null;
+            }
             Object.assign(n, patch || {});
             n.timestamp = Date.now();
             _refresh();
@@ -942,8 +1003,12 @@
         function warning(t, m, d) { return add({ type: 'warning', title: t, message: m, duration: d || 8000 }); }
         function error(t, m, d)   { return add({ type: 'error',   title: t, message: m, duration: d || 0 }); }
 
-        return { add, update, remove, clearAll, markAllRead, info, success, warning, error,
-                 get items() { return items; }, get unreadCount() { return unreadCount; } };
+        return {
+            add, update, remove, clearAll, markAllRead,
+            info, success, warning, error,
+            get items() { return items; },
+            get unreadCount() { return unreadCount; }
+        };
     })();
     window.Notifications = Notifications;
 
@@ -1148,6 +1213,7 @@
 
     // ============================================================
     //  NON-BLOCKING FULL SYNC
+    //  Sync notification is PERSISTENT: stays until user clicks ✕.
     // ============================================================
     async function performFullSync(showProgress = true) {
         if (!navigator.onLine) {
@@ -1162,32 +1228,54 @@
         const SYNC_ID = 'oxSync';
         if (showProgress) {
             Notifications.add({
-                id: SYNC_ID, type: 'progress', title: 'Syncing data',
-                message: 'Fetching latest from server…', progress: 10
+                id: SYNC_ID,
+                type: 'progress',
+                title: 'Pulling latest data',
+                message: 'Fetching latest from server…',
+                progress: 10
             });
         }
 
         try {
             await pullData();
-            if (showProgress) Notifications.update(SYNC_ID, { message: 'Uploading local changes…', progress: 60 });
+            if (showProgress) Notifications.update(SYNC_ID, {
+                type: 'progress',
+                title: 'Pulling latest data',
+                message: 'Uploading local changes…',
+                progress: 60
+            });
+
             await pushPending();
-            if (showProgress) Notifications.update(SYNC_ID, { message: 'Finishing up…', progress: 92 });
+
+            if (showProgress) Notifications.update(SYNC_ID, {
+                type: 'progress',
+                title: 'Pulling latest data',
+                message: 'Finishing up…',
+                progress: 92
+            });
+
             if (typeof updatePendingBadge === 'function') updatePendingBadge();
             setLastSync();
+
             if (showProgress) {
                 Notifications.update(SYNC_ID, {
-                    type: 'success', title: 'Sync complete',
-                    message: 'All data is up to date.', progress: 100
+                    type: 'success',
+                    title: 'Sync complete',
+                    message: 'All data is up to date. Tap ✕ to dismiss.',
+                    progress: 100,
+                    persistent: true
                 });
-                setTimeout(() => Notifications.remove(SYNC_ID), 6000);
+                // Intentionally NOT auto-removed — user dismisses via ✕.
             }
             return true;
         } catch (err) {
             console.error('❌ Full sync error:', err);
             if (showProgress) {
                 Notifications.update(SYNC_ID, {
-                    type: 'error', title: 'Sync failed',
-                    message: (err && err.message) || 'Could not sync with server.'
+                    type: 'error',
+                    title: 'Sync failed',
+                    message: (err && err.message) || 'Could not sync with server. Tap ✕ to dismiss.',
+                    persistent: true
                 });
             }
             return false;
