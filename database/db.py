@@ -1,9 +1,15 @@
 import os
 import sqlite3
-import psycopg2
-from psycopg2 import pool, sql, OperationalError
 import time
 from contextlib import contextmanager
+
+# ---------- Optional Postgres imports (Render only) ----------
+try:
+    import psycopg2
+    from psycopg2 import pool
+except ImportError:
+    psycopg2 = None
+    pool = None
 
 # ---------- Ensure folders exist ----------
 DB_DIR = "database"
@@ -20,7 +26,7 @@ AUTH_DB_PATH = os.path.join(DB_DIR, "auth.db")
 
 # ---------- Check if we are on Render (PostgreSQL) ----------
 DATABASE_URL = os.getenv("DATABASE_URL")
-USE_POSTGRES = DATABASE_URL is not None
+USE_POSTGRES = DATABASE_URL is not None and psycopg2 is not None
 
 # ---------- Connection Pool (for PostgreSQL) ----------
 connection_pool = None
@@ -29,19 +35,19 @@ RETRY_DELAY = 1  # seconds
 
 if USE_POSTGRES:
     print("Using PostgreSQL (Supabase) with connection pooling")
-    
+
     # Ensure SSL is required
     if "sslmode" not in DATABASE_URL:
         if "?" in DATABASE_URL:
             DATABASE_URL += "&sslmode=require"
         else:
             DATABASE_URL += "?sslmode=require"
-    
+
     # Add timeout and keepalive parameters
     if "connect_timeout" not in DATABASE_URL:
         DATABASE_URL += "&connect_timeout=10"
-    
-    print(f"PostgreSQL URL configured (SSL required)")
+
+    print("PostgreSQL URL configured (SSL required)")
 
     SCHEMA = """
     CREATE TABLE IF NOT EXISTS products (
@@ -65,7 +71,7 @@ if USE_POSTGRES:
         date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         payment_method VARCHAR(50) DEFAULT 'cash',
         cheque_number VARCHAR(100),
-        user_id INTEGER REFERENCES users(id)   -- <-- added user_id
+        user_id INTEGER REFERENCES users(id)
     );
 
     CREATE TABLE IF NOT EXISTS deleted_products (
@@ -141,6 +147,24 @@ if USE_POSTGRES:
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- ---------- Auth-adjacent tables (mirrors SQLite AUTH_SCHEMA) ----------
+    CREATE TABLE IF NOT EXISTS user_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        username TEXT,
+        action TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS user_settings (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER UNIQUE,
+        settings_json TEXT,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+
     -- Indexes
     CREATE INDEX IF NOT EXISTS idx_purchase_batches_product_id ON purchase_batches(product_id);
     CREATE INDEX IF NOT EXISTS idx_purchase_batches_remaining ON purchase_batches(remaining_quantity);
@@ -149,7 +173,10 @@ if USE_POSTGRES:
     CREATE INDEX IF NOT EXISTS idx_products_stock ON products(stock);
     CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
     CREATE INDEX IF NOT EXISTS idx_sales_payment_method ON sales(payment_method);
-    CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);  -- <-- new index
+    CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+    CREATE INDEX IF NOT EXISTS idx_user_logs_user_id ON user_logs(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_logs_timestamp ON user_logs(timestamp);
     """
 
     POSTGRES_MIGRATIONS = [
@@ -162,7 +189,7 @@ if USE_POSTGRES:
         "ALTER TABLE sales ADD COLUMN IF NOT EXISTS reversed INTEGER DEFAULT 0",
         "ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50) DEFAULT 'cash'",
         "ALTER TABLE sales ADD COLUMN IF NOT EXISTS cheque_number VARCHAR(100)",
-        "ALTER TABLE sales ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)",  # <-- new migration
+        "ALTER TABLE sales ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)",
         "ALTER TABLE purchases ADD COLUMN IF NOT EXISTS selling_price REAL DEFAULT 0",
         "ALTER TABLE purchases ADD COLUMN IF NOT EXISTS remaining_stock INTEGER DEFAULT 0",
         "ALTER TABLE purchase_batches ADD COLUMN IF NOT EXISTS selling_price REAL DEFAULT 0",
@@ -178,11 +205,17 @@ if USE_POSTGRES:
         "ALTER TABLE sales_items ADD COLUMN IF NOT EXISTS unit_id INTEGER",
         "ALTER TABLE sales_items ADD COLUMN IF NOT EXISTS unit_quantity REAL",
         "CREATE TABLE IF NOT EXISTS product_units (id SERIAL PRIMARY KEY, product_id INTEGER, unit_name TEXT, conversion_factor REAL, selling_price REAL)",
+        # ---------- Auth-adjacent migrations ----------
+        "CREATE TABLE IF NOT EXISTS user_logs (id SERIAL PRIMARY KEY, user_id INTEGER, username TEXT, action TEXT, ip_address TEXT, user_agent TEXT, timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+        "CREATE TABLE IF NOT EXISTS user_settings (id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE, settings_json TEXT, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
         "CREATE INDEX IF NOT EXISTS idx_purchase_batches_product_id ON purchase_batches(product_id)",
         "CREATE INDEX IF NOT EXISTS idx_sales_items_sale_id ON sales_items(sale_id)",
         "CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date)",
         "CREATE INDEX IF NOT EXISTS idx_sales_payment_method ON sales(payment_method)",
-        "CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id)"   # <-- new index
+        "CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)",
+        "CREATE INDEX IF NOT EXISTS idx_user_logs_user_id ON user_logs(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_user_logs_timestamp ON user_logs(timestamp)",
     ]
 
     def init_pool():
@@ -191,10 +224,10 @@ if USE_POSTGRES:
         if connection_pool is not None:
             try:
                 connection_pool.closeall()
-            except:
+            except Exception:
                 pass
             connection_pool = None
-        
+
         try:
             connection_pool = pool.SimpleConnectionPool(
                 2,                     # min connections
@@ -224,19 +257,15 @@ if USE_POSTGRES:
     def get_connection():
         """Get a connection from the pool with retries and fallback"""
         global connection_pool
-        
-        # If pool doesn't exist, try to create it
+
         if connection_pool is None:
             if not init_pool():
-                # If pool init fails, fall back to direct connection
                 print("Pool init failed, using direct connection")
                 return get_direct_connection()
-        
-        # Try to get a connection from the pool with retries
+
         for attempt in range(MAX_RETRIES):
             try:
                 conn = connection_pool.getconn()
-                # Validate connection is alive
                 cursor = conn.cursor()
                 cursor.execute("SELECT 1")
                 cursor.fetchone()
@@ -245,14 +274,11 @@ if USE_POSTGRES:
                 print(f"Error getting connection from pool (attempt {attempt+1}/{MAX_RETRIES}): {e}")
                 if attempt < MAX_RETRIES - 1:
                     time.sleep(RETRY_DELAY * (attempt + 1))
-                    # Try to reinitialize the pool
                     init_pool()
                 else:
-                    # Pool exhausted or broken; fall back to direct connection
                     print("Pool exhausted, falling back to direct connection")
                     return get_direct_connection()
-        
-        # Should never reach here, but fallback
+
         return get_direct_connection()
 
     def get_direct_connection():
@@ -268,7 +294,6 @@ if USE_POSTGRES:
                     keepalives_interval=10,
                     keepalives_count=5
                 )
-                # Ensure schema exists
                 cursor = conn.cursor()
                 cursor.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'products')")
                 tables_exist = cursor.fetchone()[0]
@@ -296,7 +321,6 @@ if USE_POSTGRES:
         if conn is None:
             return
         try:
-            # Check if connection is from the pool (has _pool attribute)
             if connection_pool and hasattr(conn, '_pool'):
                 connection_pool.putconn(conn)
             else:
@@ -305,13 +329,23 @@ if USE_POSTGRES:
             print(f"Error returning connection: {e}")
             try:
                 conn.close()
-            except:
+            except Exception:
                 pass
+
+    # ---------- AUTH CONNECTION (Postgres) ----------
+    # On Postgres everything lives in one database, so "auth" is the same pool.
+    def get_auth_connection():
+        """Return a connection that can query users / user_logs / user_settings."""
+        return get_connection()
+
+    def return_auth_connection(conn):
+        """Return an auth connection to the pool (same as regular connection)."""
+        return_connection(conn)
 
 else:
     # ---------- SQLite (local development) ----------
     print("Using SQLite (local)")
-    
+
     SCHEMA = """
     CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -334,7 +368,7 @@ else:
         date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         payment_method VARCHAR(50) DEFAULT 'cash',
         cheque_number VARCHAR(100),
-        user_id INTEGER REFERENCES users(id)   -- <-- added user_id
+        user_id INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS deleted_products (
@@ -408,9 +442,10 @@ else:
     CREATE INDEX IF NOT EXISTS idx_sales_items_sale_id ON sales_items(sale_id);
     CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date);
     CREATE INDEX IF NOT EXISTS idx_sales_payment_method ON sales(payment_method);
-    CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);   -- <-- new index
+    CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);
     """
 
+    # ---------- AUTH DB (separate file: auth.db) ----------
     AUTH_SCHEMA = """
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -419,12 +454,31 @@ else:
         role TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-    
+
+    CREATE TABLE IF NOT EXISTS user_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT,
+        action TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS user_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER UNIQUE,
+        settings_json TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+    CREATE INDEX IF NOT EXISTS idx_user_logs_user_id ON user_logs(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_logs_timestamp ON user_logs(timestamp);
     """
 
     def get_connection():
-        """Get SQLite connection with proper settings"""
+        """Get SQLite connection to retail.db with proper settings"""
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -432,60 +486,60 @@ else:
         conn.execute("PRAGMA busy_timeout = 30000")
         cursor.executescript(SCHEMA)
 
-        # Safe migrations
+        # Safe migrations (each one silently skipped if column already exists)
         try: cursor.execute("ALTER TABLE products ADD COLUMN category TEXT")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE products ADD COLUMN discount REAL DEFAULT 0")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE products ADD COLUMN base_unit TEXT DEFAULT 'piece'")
-        except: pass
+        except Exception: pass
 
         try: cursor.execute("ALTER TABLE sales ADD COLUMN discount REAL DEFAULT 0")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE sales ADD COLUMN subtotal REAL DEFAULT 0")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE sales ADD COLUMN product_id INTEGER")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE sales ADD COLUMN reversed INTEGER DEFAULT 0")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE sales ADD COLUMN payment_method VARCHAR(50) DEFAULT 'cash'")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE sales ADD COLUMN cheque_number VARCHAR(100)")
-        except: pass
-        try: cursor.execute("ALTER TABLE sales ADD COLUMN user_id INTEGER REFERENCES users(id)")   # <-- new column
-        except: pass
+        except Exception: pass
+        try: cursor.execute("ALTER TABLE sales ADD COLUMN user_id INTEGER")
+        except Exception: pass
 
         try: cursor.execute("ALTER TABLE purchases ADD COLUMN selling_price REAL DEFAULT 0")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE purchases ADD COLUMN remaining_stock INTEGER DEFAULT 0")
-        except: pass
+        except Exception: pass
 
         try: cursor.execute("ALTER TABLE purchase_batches ADD COLUMN selling_price REAL DEFAULT 0")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE purchase_batches ADD COLUMN action TEXT DEFAULT 'created'")
-        except: pass
+        except Exception: pass
 
         try: cursor.execute("ALTER TABLE deleted_products ADD COLUMN category TEXT")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE deleted_products ADD COLUMN discount REAL DEFAULT 0")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE deleted_products ADD COLUMN action TEXT DEFAULT 'deleted'")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE deleted_products ADD COLUMN source TEXT DEFAULT 'product'")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE deleted_products ADD COLUMN batch_id INTEGER")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE deleted_products ADD COLUMN batch_quantity INTEGER")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE deleted_products ADD COLUMN batch_remaining INTEGER")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE deleted_products ADD COLUMN product_id INTEGER")
-        except: pass
+        except Exception: pass
 
         try: cursor.execute("ALTER TABLE sales_items ADD COLUMN unit_id INTEGER")
-        except: pass
+        except Exception: pass
         try: cursor.execute("ALTER TABLE sales_items ADD COLUMN unit_quantity REAL")
-        except: pass
+        except Exception: pass
 
         try:
             cursor.execute("""
@@ -498,30 +552,26 @@ else:
                     FOREIGN KEY (product_id) REFERENCES products(id)
                 )
             """)
-        except: pass
+        except Exception: pass
 
         # Indexes
         try: cursor.execute("CREATE INDEX IF NOT EXISTS idx_purchase_batches_product_id ON purchase_batches(product_id)")
-        except: pass
+        except Exception: pass
         try: cursor.execute("CREATE INDEX IF NOT EXISTS idx_sales_items_sale_id ON sales_items(sale_id)")
-        except: pass
+        except Exception: pass
         try: cursor.execute("CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date)")
-        except: pass
+        except Exception: pass
         try: cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_stock ON products(stock)")
-        except: pass
+        except Exception: pass
         try: cursor.execute("CREATE INDEX IF NOT EXISTS idx_sales_payment_method ON sales(payment_method)")
-        except: pass
-        try: cursor.execute("CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id)")   # <-- new index
-        except: pass
+        except Exception: pass
+        try: cursor.execute("CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id)")
+        except Exception: pass
 
         conn.commit()
 
-        # Auth DB
-        auth_conn = sqlite3.connect(AUTH_DB_PATH)
-        auth_cursor = auth_conn.cursor()
-        auth_cursor.executescript(AUTH_SCHEMA)
-        auth_conn.commit()
-        auth_conn.close()
+        # Ensure auth.db exists and its schema is applied (side effect of get_connection)
+        _ensure_auth_db()
 
         return conn
 
@@ -529,8 +579,37 @@ else:
         if conn:
             try:
                 conn.close()
-            except:
+            except Exception:
                 pass
+
+    # ---------- AUTH CONNECTION (SQLite) ----------
+    def _ensure_auth_db():
+        """Create auth.db and its schema if not present. Safe to call repeatedly."""
+        try:
+            auth_conn = sqlite3.connect(AUTH_DB_PATH)
+            auth_conn.executescript(AUTH_SCHEMA)
+            auth_conn.commit()
+            auth_conn.close()
+        except Exception as e:
+            print(f"⚠️ Could not initialize auth.db: {e}")
+
+    def get_auth_connection():
+        """Return a connection to auth.db (users, user_logs, user_settings)."""
+        conn = sqlite3.connect(AUTH_DB_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA busy_timeout = 30000")
+        conn.executescript(AUTH_SCHEMA)
+        conn.commit()
+        return conn
+
+    def return_auth_connection(conn):
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
 
 # ---------- Helper function to get parameter style ----------
 def get_param_style(cursor):
@@ -538,6 +617,7 @@ def get_param_style(cursor):
         if hasattr(cursor.connection, 'psycopg2_version'):
             return "%s"  # PostgreSQL
     return "?"  # SQLite
+
 
 # ---------- Context manager for automatic connection handling ----------
 @contextmanager
@@ -552,6 +632,7 @@ def get_db_connection():
     finally:
         return_connection(conn)
 
+
 # ---------- Health check function ----------
 def check_database_health():
     try:
@@ -564,6 +645,7 @@ def check_database_health():
     except Exception as e:
         print(f"Database health check failed: {e}")
         return False
+
 
 # ---------- Close all connections (for shutdown) ----------
 def close_all_connections():
