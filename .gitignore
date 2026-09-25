@@ -29,3 +29,4 @@ android/captures/
 Thumbs.db
 
 *.log
+pull_users_from_cloud.py
