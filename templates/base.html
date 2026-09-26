@@ -58,11 +58,12 @@
     <script src="{{ url_for('static', filename='js/db.js') }}"></script>
     <script src="{{ url_for('static', filename='js/sync.js') }}"></script>
 
+
     <!-- ===== SERVICE WORKER ===== -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=9')
-                .then(() => console.log('✅ Service Worker registered (v9)'))
+            navigator.serviceWorker.register('/sw.js?v=10')
+                .then(() => console.log('✅ Service Worker registered (v10)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
     </script>

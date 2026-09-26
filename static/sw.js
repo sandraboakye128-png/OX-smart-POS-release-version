@@ -1,152 +1,183 @@
 // static/sw.js
 // ============================================================
-//  Minimal, robust Service Worker – pre‑cache only static assets
-//  + on‑demand page caching via postMessage
+//  OX Smart POS Service Worker
+//  - Pre-caches static assets
+//  - Network-first for JS/CSS so dev edits show up immediately
+//  - Cache-first for icons/fonts/images/HTML pages
+//  - Never intercepts /api/ — Dexie handles offline data
+//  - On-demand page caching via postMessage
 // ============================================================
 
-// ⚠️ INCREMENT THIS ON EVERY DEPLOY – forces clients to update
-const CACHE_NAME = 'oxsmart-v6';
+// ⚠️ INCREMENT ON EVERY DEPLOY
+const CACHE_NAME = 'oxsmart-v10';
 
-// ----- Only static assets that actually exist -----
-// (Add any other fonts, images, etc. that you have)
-const STATIC_ASSETS = [
+const PRECACHE_ASSETS = [
   '/static/css/style.css',
+  '/static/css/tailwind.min.css',
+  '/static/css/all.min.css',
+  '/static/js/env.js',
+  '/static/js/db.js',
+  '/static/js/sync.js',
   '/static/js/offline.js',
   '/static/manifest.json',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
-  // Add any other assets you need, e.g.:
-  // '/static/fonts/...',
-  // '/static/images/...',
 ];
+
+// Paths that should ALWAYS hit the network first (dev-friendly + fresh logic)
+const NETWORK_FIRST_PREFIXES = ['/static/js/', '/static/css/'];
+
+// Paths the SW should never cache at all
+const NEVER_CACHE_PREFIXES = ['/api/'];
+
 
 // ===== INSTALL =====
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('📦 Pre‑caching static assets');
-        // Only cache static assets – no HTML pages that might redirect
-        return cache.addAll(STATIC_ASSETS);
-      })
-      .then(() => self.skipWaiting())   // force activation
+    caches.open(CACHE_NAME).then(cache => {
+      console.log('[SW] pre-caching static assets');
+      // Don't fail install if one asset 404s
+      return Promise.allSettled(
+        PRECACHE_ASSETS.map(url =>
+          cache.add(url).catch(err =>
+            console.warn('[SW] precache miss:', url, err && err.message)
+          )
+        )
+      );
+    }).then(() => self.skipWaiting())
   );
 });
+
 
 // ===== ACTIVATE =====
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('🗑️ Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
+    caches.keys().then(names =>
+      Promise.all(
+        names.filter(n => n !== CACHE_NAME).map(n => {
+          console.log('[SW] deleting old cache:', n);
+          return caches.delete(n);
         })
-      );
-    }).then(() => self.clients.claim())  // take control immediately
+      )
+    ).then(() => self.clients.claim())
   );
 });
+
 
 // ===== FETCH =====
 self.addEventListener('fetch', event => {
-  const request = event.request;
-  const url = new URL(request.url);
+  const req = event.request;
+  const url = new URL(req.url);
 
-  // Only handle GET requests and same‑origin resources
-  if (request.method !== 'GET' || url.origin !== location.origin) {
-    return;
-  }
+  // Only handle same-origin GETs
+  if (req.method !== 'GET') return;
+  if (url.origin !== location.origin) return;
 
-  // ----- API requests – stale‑while‑revalidate -----
-  if (url.pathname.startsWith('/api/')) {
+  // ----- /api/ : pass through. On failure return a real Response -----
+  if (NEVER_CACHE_PREFIXES.some(p => url.pathname.startsWith(p))) {
     event.respondWith(
-      caches.open(CACHE_NAME).then(cache => {
-        return fetch(request)
-          .then(networkResponse => {
-            // Cache the response (only if it's a success)
-            if (networkResponse.ok) {
-              cache.put(request, networkResponse.clone());
-            }
-            return networkResponse;
-          })
-          .catch(() => cache.match(request));
-      })
+      fetch(req).catch(() =>
+        new Response(
+          JSON.stringify({ error: 'offline', message: 'Network unavailable' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
     );
     return;
   }
 
-  // ----- Pages & static assets -----
-  event.respondWith(
-    caches.match(request)
-      .then(cachedResponse => {
-        if (cachedResponse) {
-          // Stale‑while‑revalidate – update in background
-          event.waitUntil(
-            fetch(request)
-              .then(networkResponse => {
-                // Only cache successful responses (not 302, 404, etc.)
-                if (networkResponse.ok) {
-                  return caches.open(CACHE_NAME).then(cache => {
-                    cache.put(request, networkResponse.clone());
-                    return networkResponse;
-                  });
-                }
-              })
-              .catch(() => {})
-          );
-          return cachedResponse;
-        }
+  // ----- JS / CSS : network-first (fresh edits during dev) -----
+  if (NETWORK_FIRST_PREFIXES.some(p => url.pathname.startsWith(p))) {
+    event.respondWith(
+      fetch(req)
+        .then(res => {
+          if (res && res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(req, clone)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() =>
+          caches.match(req).then(cached =>
+            cached || new Response('/* offline */', {
+              status: 503,
+              headers: { 'Content-Type': 'text/plain' }
+            })
+          )
+        )
+    );
+    return;
+  }
 
-        // Not in cache – try network
-        return fetch(request)
-          .then(networkResponse => {
-            // Cache the response if it's a success (200)
-            if (networkResponse.ok) {
-              const clone = networkResponse.clone();
-              caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
-            }
-            return networkResponse;
-          })
-          .catch(() => {
-            // If the request is for a page (HTML), return a simple offline message
-            if (request.headers.get('accept').includes('text/html')) {
-              return new Response(
-                `<html><body><h1>You are offline</h1><p>Please reconnect to use the app.</p></body></html>`,
-                { status: 503, headers: { 'Content-Type': 'text/html' } }
-              );
-            }
-            // For other assets, return a simple error response
-            return new Response('Offline', { status: 503 });
-          });
-      })
+  // ----- Everything else : cache-first with background refresh -----
+  event.respondWith(
+    caches.match(req).then(cached => {
+      if (cached) {
+        event.waitUntil(
+          fetch(req)
+            .then(res => {
+              if (res && res.ok) {
+                return caches.open(CACHE_NAME).then(c => c.put(req, res.clone()));
+              }
+            })
+            .catch(() => {})
+        );
+        return cached;
+      }
+
+      return fetch(req)
+        .then(res => {
+          if (res && res.ok && res.type === 'basic') {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(req, clone)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() => {
+          const accept = req.headers.get('accept') || '';
+          if (accept.includes('text/html')) {
+            return new Response(
+              `<!DOCTYPE html>
+               <html><head><meta charset="utf-8"><title>Offline</title></head>
+               <body style="font-family:sans-serif;padding:2rem;text-align:center;">
+                 <h1>You are offline</h1>
+                 <p>Please reconnect to use the app.</p>
+               </body></html>`,
+              { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+            );
+          }
+          return new Response('Offline', { status: 503 });
+        });
+    })
   );
 });
 
-// ===== MESSAGE HANDLER – cache protected pages on demand =====
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'CACHE_PAGES') {
-    const urls = event.data.urls || [];
-    if (urls.length === 0) return;
-    event.waitUntil(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        for (const url of urls) {
-          try {
-            // Fetch with credentials so the session cookie is sent
-            const response = await fetch(url, { credentials: 'include' });
-            if (response.ok) {
-              await cache.put(url, response);
-              console.log(`📦 Cached: ${url}`);
-            } else {
-              console.warn(`❌ Failed to cache ${url}: ${response.status}`);
-            }
-          } catch (err) {
-            console.warn(`❌ Error caching ${url}:`, err);
+
+// ===== MESSAGE HANDLER – cache pages on demand =====
+// base.html sends type 'CACHE_ALL_PAGES' (older code may send 'CACHE_PAGES')
+self.addEventListener('message', event => {
+  const type = event.data && event.data.type;
+  if (type !== 'CACHE_PAGES' && type !== 'CACHE_ALL_PAGES') return;
+
+  const urls = event.data.urls || [];
+  if (!urls.length) return;
+
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(async cache => {
+      for (const url of urls) {
+        try {
+          const res = await fetch(url, { credentials: 'include' });
+          if (res && res.ok) {
+            await cache.put(url, res);
+            console.log('[SW] cached page:', url);
+          } else {
+            console.warn('[SW] failed to cache page:', url, res && res.status);
           }
+        } catch (err) {
+          console.warn('[SW] error caching page:', url, err && err.message);
         }
-        console.log('✅ All pages cached successfully');
-      })
-    );
-  }
+      }
+      console.log('[SW] page pre-caching complete');
+    })
+  );
 });
