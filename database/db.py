@@ -342,7 +342,8 @@ if USE_POSTGRES:
         original_date TIMESTAMP WITH TIME ZONE,
         original_cost_price REAL,
         original_selling_price REAL,
-        original_discount REAL DEFAULT 0
+        original_discount REAL DEFAULT 0,
+        is_faulty BOOLEAN DEFAULT FALSE
     );
 
     CREATE TABLE IF NOT EXISTS sales_items (
@@ -428,6 +429,7 @@ if USE_POSTGRES:
         "ALTER TABLE purchase_batches ADD COLUMN IF NOT EXISTS original_cost_price REAL",
         "ALTER TABLE purchase_batches ADD COLUMN IF NOT EXISTS original_selling_price REAL",
         "ALTER TABLE purchase_batches ADD COLUMN IF NOT EXISTS original_discount REAL DEFAULT 0",
+        "ALTER TABLE purchase_batches ADD COLUMN IF NOT EXISTS is_faulty BOOLEAN DEFAULT FALSE",
         "ALTER TABLE deleted_products ADD COLUMN IF NOT EXISTS category TEXT",
         "ALTER TABLE deleted_products ADD COLUMN IF NOT EXISTS discount REAL DEFAULT 0",
         "ALTER TABLE deleted_products ADD COLUMN IF NOT EXISTS action TEXT DEFAULT 'deleted'",
@@ -653,7 +655,8 @@ else:
         original_date TIMESTAMP,
         original_cost_price REAL,
         original_selling_price REAL,
-        original_discount REAL DEFAULT 0
+        original_discount REAL DEFAULT 0,
+        is_faulty BOOLEAN DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS sales_items (
@@ -780,6 +783,8 @@ else:
         try: cursor.execute("ALTER TABLE purchase_batches ADD COLUMN original_selling_price REAL")
         except Exception: pass
         try: cursor.execute("ALTER TABLE purchase_batches ADD COLUMN original_discount REAL DEFAULT 0")
+        except Exception: pass
+        try: cursor.execute("ALTER TABLE purchase_batches ADD COLUMN is_faulty BOOLEAN DEFAULT 0")
         except Exception: pass
 
         try: cursor.execute("ALTER TABLE deleted_products ADD COLUMN category TEXT")
