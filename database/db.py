@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -32,6 +33,195 @@ USE_POSTGRES = DATABASE_URL is not None and psycopg2 is not None
 connection_pool = None
 MAX_RETRIES = 3
 RETRY_DELAY = 1  # seconds
+
+# ==================================================================
+# SQLite placeholder & syntax shim
+# ------------------------------------------------------------------
+# The services layer was originally written for Postgres and uses
+#     %s          (positional placeholders)
+#     :name       (named placeholders)
+#     ::type      (type casts — ::date, ::numeric(10,2), ::text[], ...)
+# SQLite understands only ? and has no :: cast operator.
+#
+# Rather than editing every service file, we wrap the SQLite
+# connection + cursor so anything Postgres-flavored in the SQL string
+# is rewritten before hitting the driver.
+#
+# The Postgres path is untouched — the shim is only applied in the
+# SQLite branch of get_connection() / get_auth_connection().
+#
+# Known limitation: a literal '%s', ':name', or '::type' inside a SQL
+# string literal (rare) would also be rewritten. If you ever need
+# that, write the query with ? directly.
+# ==================================================================
+_PARAM_RE = re.compile(r'%s')
+_NAMED_RE = re.compile(r'(?<![:%\w]):([a-zA-Z_][a-zA-Z0-9_]*)')
+_CAST_RE  = re.compile(
+    r'::[a-zA-Z_][a-zA-Z0-9_]*'              # ::text, ::date, ::numeric
+    r'(?:\s*\(\s*\d+(?:\s*,\s*\d+)?\s*\))?'  # (50) or (10,2)
+    r'(?:\s*\[\s*\])?'                        # [] for array types
+)
+
+
+def _rewrite(sql, params):
+    """
+    Rewrite Postgres-flavored SQL for SQLite.
+
+      1) strip ::type casts        (::date, ::numeric(10,2), ::text[])
+      2) %s     -> ?               (positional, tuple/list params)
+      3) :name  -> ?               (named, dict params -> ordered list)
+
+    Returns (sql, params).
+    """
+    if not isinstance(sql, str):
+        return sql, params
+
+    # 1) Strip Postgres casts first — they have no SQLite equivalent
+    sql = _CAST_RE.sub('', sql)
+
+    # 2) Named-placeholder style: dict params
+    if isinstance(params, dict):
+        order = []
+
+        def repl(m):
+            order.append(m.group(1))
+            return '?'
+
+        sql = _NAMED_RE.sub(repl, sql)
+        try:
+            new_params = [params[n] for n in order]
+        except KeyError:
+            # Caller passed a dict missing a key. Let sqlite raise a
+            # clearer error by passing the original params through.
+            return sql, params
+        return sql, new_params
+
+    # 3) Positional style (default)
+    sql = _PARAM_RE.sub('?', sql)
+    return sql, params
+
+
+# ------------------------------------------------------------------
+# Postgres SQL aggregate shims for SQLite
+# ------------------------------------------------------------------
+# Register SQLite emulations of Postgres-only aggregates so service
+# queries written for Postgres don't crash on the local SQLite DB.
+#
+# Emulated:
+#   array_agg(x)      -> comma-joined string of non-NULL x values
+#   string_agg(x)     -> same (2-arg form still works via comma fallback)
+#   json_agg(x)       -> JSON array string of non-NULL x values
+# ------------------------------------------------------------------
+
+class _ArrayAgg:
+    """Emulates Postgres array_agg with a comma-joined string."""
+    def __init__(self):
+        self.items = []
+
+    def step(self, value):
+        if value is not None:
+            self.items.append(value)
+
+    def finalize(self):
+        return ','.join(str(x) for x in self.items)
+
+
+class _JsonAgg:
+    """Emulates Postgres json_agg with a JSON array string."""
+    def __init__(self):
+        self.items = []
+
+    def step(self, value):
+        if value is not None:
+            self.items.append(value)
+
+    def finalize(self):
+        import json
+        return json.dumps(self.items)
+
+
+def _register_sqlite_functions(conn):
+    """Register SQLite implementations of Postgres-only aggregates."""
+    try:
+        conn.create_aggregate('array_agg',  1, _ArrayAgg)
+        conn.create_aggregate('json_agg',   1, _JsonAgg)
+        conn.create_aggregate('string_agg', 1, _ArrayAgg)
+    except Exception as e:
+        print(f"⚠️ Could not register SQLite function shims: {e}")
+
+
+class _SQLiteShimCursor:
+    """Wraps sqlite3.Cursor to rewrite Postgres-isms -> SQLite."""
+
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def execute(self, sql, params=None):
+        sql, params = _rewrite(sql, params)
+        if params is None:
+            return self._cursor.execute(sql)
+        return self._cursor.execute(sql, params)
+
+    def executemany(self, sql, seq_of_params):
+        if isinstance(sql, str):
+            sql = _CAST_RE.sub('', sql)
+            sql = _PARAM_RE.sub('?', sql)
+        return self._cursor.executemany(sql, seq_of_params)
+
+    def executescript(self, sql):
+        return self._cursor.executescript(sql)
+
+    def __getattr__(self, name):
+        # fetchone / fetchall / fetchmany / rowcount / lastrowid / description ...
+        return getattr(self._cursor, name)
+
+    def __iter__(self):
+        return iter(self._cursor)
+
+
+class _SQLiteShimConnection:
+    """Wraps sqlite3.Connection so .cursor() and .execute() both shim."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def cursor(self):
+        return _SQLiteShimCursor(self._conn.cursor())
+
+    def execute(self, sql, params=None):
+        sql, params = _rewrite(sql, params)
+        if params is None:
+            return self._conn.execute(sql)
+        return self._conn.execute(sql, params)
+
+    def executemany(self, sql, seq_of_params):
+        if isinstance(sql, str):
+            sql = _CAST_RE.sub('', sql)
+            sql = _PARAM_RE.sub('?', sql)
+        return self._conn.executemany(sql, seq_of_params)
+
+    def executescript(self, sql):
+        return self._conn.executescript(sql)
+
+    def commit(self):
+        return self._conn.commit()
+
+    def rollback(self):
+        return self._conn.rollback()
+
+    def close(self):
+        return self._conn.close()
+
+    def __getattr__(self, name):
+        # row_factory, in_transaction, isolation_level, etc.
+        return getattr(self._conn, name)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return self._conn.__exit__(exc_type, exc, tb)
+
 
 if USE_POSTGRES:
     print("Using PostgreSQL (Supabase) with connection pooling")
@@ -111,6 +301,7 @@ if USE_POSTGRES:
         product_id INTEGER,
         quantity INTEGER,
         remaining_quantity INTEGER,
+        claimed_quantity INTEGER DEFAULT 0,
         cost_price REAL,
         discount REAL,
         selling_price REAL,
@@ -194,6 +385,7 @@ if USE_POSTGRES:
         "ALTER TABLE purchases ADD COLUMN IF NOT EXISTS remaining_stock INTEGER DEFAULT 0",
         "ALTER TABLE purchase_batches ADD COLUMN IF NOT EXISTS selling_price REAL DEFAULT 0",
         "ALTER TABLE purchase_batches ADD COLUMN IF NOT EXISTS action TEXT DEFAULT 'created'",
+        "ALTER TABLE purchase_batches ADD COLUMN IF NOT EXISTS claimed_quantity INTEGER DEFAULT 0",
         "ALTER TABLE deleted_products ADD COLUMN IF NOT EXISTS category TEXT",
         "ALTER TABLE deleted_products ADD COLUMN IF NOT EXISTS discount REAL DEFAULT 0",
         "ALTER TABLE deleted_products ADD COLUMN IF NOT EXISTS action TEXT DEFAULT 'deleted'",
@@ -408,6 +600,7 @@ else:
         product_id INTEGER,
         quantity INTEGER,
         remaining_quantity INTEGER,
+        claimed_quantity INTEGER DEFAULT 0,
         cost_price REAL,
         discount REAL,
         selling_price REAL,
@@ -478,9 +671,13 @@ else:
     """
 
     def get_connection():
-        """Get SQLite connection to retail.db with proper settings"""
+        """Get SQLite connection to retail.db with proper settings.
+        Returns a shimmed connection that auto-translates %s / :name / ::type
+        and registers Postgres aggregate function shims.
+        """
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
+        _register_sqlite_functions(conn)
         cursor = conn.cursor()
         cursor.execute("PRAGMA foreign_keys = ON")
         conn.execute("PRAGMA busy_timeout = 30000")
@@ -517,6 +714,8 @@ else:
         try: cursor.execute("ALTER TABLE purchase_batches ADD COLUMN selling_price REAL DEFAULT 0")
         except Exception: pass
         try: cursor.execute("ALTER TABLE purchase_batches ADD COLUMN action TEXT DEFAULT 'created'")
+        except Exception: pass
+        try: cursor.execute("ALTER TABLE purchase_batches ADD COLUMN claimed_quantity INTEGER DEFAULT 0")
         except Exception: pass
 
         try: cursor.execute("ALTER TABLE deleted_products ADD COLUMN category TEXT")
@@ -573,7 +772,8 @@ else:
         # Ensure auth.db exists and its schema is applied (side effect of get_connection)
         _ensure_auth_db()
 
-        return conn
+        # Wrap in shim so services using %s / :name / ::type keep working.
+        return _SQLiteShimConnection(conn)
 
     def return_connection(conn):
         if conn:
@@ -594,14 +794,18 @@ else:
             print(f"⚠️ Could not initialize auth.db: {e}")
 
     def get_auth_connection():
-        """Return a connection to auth.db (users, user_logs, user_settings)."""
+        """Return a shimmed connection to auth.db (users, user_logs, user_settings).
+        %s / :name / ::type are auto-translated to SQLite-friendly SQL,
+        and Postgres aggregate shims are registered.
+        """
         conn = sqlite3.connect(AUTH_DB_PATH)
         conn.row_factory = sqlite3.Row
+        _register_sqlite_functions(conn)
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute("PRAGMA busy_timeout = 30000")
         conn.executescript(AUTH_SCHEMA)
         conn.commit()
-        return conn
+        return _SQLiteShimConnection(conn)
 
     def return_auth_connection(conn):
         if conn:
