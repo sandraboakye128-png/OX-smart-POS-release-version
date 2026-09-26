@@ -28,6 +28,7 @@
     <div class="flex items-center gap-2">
         <h2 class="text-2xl font-bold text-indigo-600 mb-0">📦 Product Manager</h2>
         <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">Accessories</span>
+        <span id="dataSourceBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-gray-100 text-gray-500"></span>
     </div>
     <p class="text-gray-600 mt-1">Manage your accessory products and batches</p>
 </div>
@@ -141,14 +142,11 @@
 
 <!-- Modal: View Batches (BULLETPROOF v3 — CSS GRID LAYOUT) -->
 <div id="batchModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-60" style="align-items:center; justify-content:center; padding:1rem;">
-    <!-- Inner shell: inline styles so it doesn't depend on Tailwind -->
     <div id="batchModalInner">
-        <!-- Header -->
         <div class="bmi-modal-header">
             <h3 id="modalTitle">Batches</h3>
             <button onclick="closeBatchModal()" class="bmi-modal-close">&times;</button>
         </div>
-        <!-- Search Bar -->
         <div class="bmi-modal-searchbar">
             <div class="bmi-modal-searchbar-row">
                 <div style="flex:1 1 auto; min-width:0;">
@@ -160,9 +158,7 @@
                 </div>
             </div>
         </div>
-        <!-- Scrollable list -->
         <div id="batchList"></div>
-        <!-- Footer -->
         <div class="bmi-modal-footer">
             <div style="display:flex; gap:8px;">
                 <button onclick="selectAllBatches()" class="bmi-footer-btn bmi-footer-btn-blue">Select All</button>
@@ -230,9 +226,6 @@
         transition: all 0.3s ease;
     }
 
-    /* ============================================================
-       LOADING SPINNER
-       ============================================================ */
     @keyframes loading-rotate {
         to { transform: rotate(360deg); }
     }
@@ -255,7 +248,6 @@
         vertical-align: -2px;
     }
 
-    /* Subtle pulse for loading summary numbers */
     @keyframes loading-pulse {
         0%, 100% { opacity: 0.4; }
         50% { opacity: 0.9; }
@@ -264,7 +256,6 @@
         animation: loading-pulse 1.4s ease-in-out infinite;
     }
 
-    /* Dark theme — spinner border should adapt */
     body.dark-theme .loading-spinner {
         border-color: #334155;
         border-top-color: #00CFCF;
@@ -274,11 +265,6 @@
         border-top-color: #00CFCF;
     }
 
-    /* ============================================================
-       BATCH MODAL — BULLETPROOF v3 (CSS GRID)
-       Layout does not depend on Tailwind. Unique class names (bmi-*
-       / batch-*) so nothing in style.css can clash.
-       ============================================================ */
     #batchModal { position: fixed !important; top:0; left:0; right:0; bottom:0; }
     #batchModal.hidden { display: none !important; }
     #batchModal:not(.hidden) { display: flex !important; }
@@ -355,7 +341,6 @@
         width: 100% !important;
     }
 
-    /* ---------- Batch item — GRID (fixes content collapse) ---------- */
     .batch-item {
         display: grid !important;
         grid-template-columns: 20px minmax(0, 1fr) !important;
@@ -516,6 +501,25 @@
 </style>
 
 <script>
+    // ============================================================
+    //  APK GATE — the single flag that decides offline behavior
+    //
+    //  Web / PWA users: IS_APK = false. They never touch Dexie for
+    //    reads. The service worker caches the app shell; the data
+    //    comes from /api/* or nothing (if offline).
+    //
+    //  APK users: IS_APK = true. OX_DATA is the Dexie adapter.
+    //    Reads never touch the network; the sync engine keeps Dexie
+    //    fresh in the background. Fully offline-capable.
+    // ============================================================
+    const IS_APK = (typeof OX_ENV !== 'undefined') && !!OX_ENV.useLocalDb;
+
+    // Show which source is active (helpful during testing)
+    document.addEventListener('DOMContentLoaded', () => {
+        const b = document.getElementById('dataSourceBadge');
+        if (b) b.textContent = IS_APK ? 'APK · Dexie' : 'Web · API';
+    });
+
     // ---------- Safe number formatting ----------
     function safeToFixed(val, decimals = 2) {
         const num = parseFloat(val);
@@ -526,22 +530,12 @@
     function savePendingBatchDeletion(batchId, deleteType) {
         if (typeof savePendingOperation === 'function') {
             savePendingOperation('batches_delete', 'delete', batchId, { deleteType: deleteType });
-        } else {
-            let pending = JSON.parse(localStorage.getItem('pendingBatchDeletions') || '[]');
-            pending.push({ id: Date.now() + '_' + Math.random().toString(36).substr(2,5), batchId, deleteType, timestamp: new Date().toISOString() });
-            localStorage.setItem('pendingBatchDeletions', JSON.stringify(pending));
-            if (typeof updatePendingBadge === 'function') updatePendingBadge();
         }
     }
 
     function savePendingProductDeletion(productId, deleteType) {
         if (typeof savePendingOperation === 'function') {
             savePendingOperation('products', 'delete', productId, { deleteType: deleteType });
-        } else {
-            let pending = JSON.parse(localStorage.getItem('pendingProductDeletions') || '[]');
-            pending.push({ id: Date.now() + '_' + Math.random().toString(36).substr(2,5), productId, deleteType, timestamp: new Date().toISOString() });
-            localStorage.setItem('pendingProductDeletions', JSON.stringify(pending));
-            if (typeof updatePendingBadge === 'function') updatePendingBadge();
         }
     }
 
@@ -552,7 +546,10 @@
     function forceRefresh() {
         if (!confirm('⚠️ This will clear your local cache and reload all data from the server.\n\nContinue?')) return;
         try {
-            if (db) { db.products.clear(); db.batches.clear(); }
+            if (IS_APK && typeof db !== 'undefined' && db) {
+                db.products.clear();
+                db.batches.clear();
+            }
             loadProducts(true);
             alert('✅ Cache cleared. Data reloaded from server.');
         } catch (e) {
@@ -565,7 +562,7 @@
         try {
             const keysToKeep = ['ox_user', 'pin_unlocked', 'app_version', 'accessory_summary_collapsed'];
             Object.keys(localStorage).forEach(key => { if (!keysToKeep.includes(key)) localStorage.removeItem(key); });
-            if (db) db.delete().catch(()=>{});
+            if (IS_APK && typeof db !== 'undefined' && db) db.delete().catch(()=>{});
             sessionStorage.removeItem('autoOpenBatches');
             sessionStorage.removeItem('autoOpenProduct');
             sessionStorage.removeItem('autoHighlightBatch');
@@ -636,9 +633,6 @@
 
     // ============================================================
     //  LOADING STATE
-    //  Shows a spinner in the products list and pulse on summary
-    //  counters while loadProducts() runs. Called at the top of
-    //  loadProducts() and never again after first render.
     // ============================================================
     function showLoadingState() {
         const list = document.getElementById('productsList');
@@ -650,7 +644,6 @@
                 </div>
             `;
         }
-        // Pulse the summary counters so they don't look frozen at "—"
         const summaryIds = ['totalProductsCount','totalBatchesCount','totalQuantityCount','totalClaimedCount','totalGoodCount','lowStockCount'];
         summaryIds.forEach(id => {
             const el = document.getElementById(id);
@@ -754,7 +747,7 @@
         document.getElementById('batchModal').classList.remove('hidden');
     }
 
-    // ---------- Render batch list (BULLETPROOF v3 — CSS GRID + REAL SOLD) ----------
+    // ---------- Render batch list ----------
     function renderBatchList(batches) {
         const container = document.getElementById('batchList');
         container.innerHTML = '';
@@ -780,12 +773,6 @@
             const claimedQty = batch.claimed_quantity || 0;
             const goodQty = remainingQty - claimedQty;
 
-            // ✅ REAL SOLD COUNT — from sales_items (batch.sold_quantity from the API).
-            //    Falls back to arithmetic only if the API field is missing (older
-            //    Dexie cache from before the backend change). The arithmetic path
-            //    wrongly counts stock-moved batches as "sold" — which is why a
-            //    batch with action='price_updated_original' used to show Sold=1
-            //    even though no sale existed.
             const soldQty = (typeof batch.sold_quantity === 'number')
                 ? batch.sold_quantity
                 : Math.max(totalQty - remainingQty, 0);
@@ -947,6 +934,8 @@
     }
 
     // ---------- View batch claims ----------
+    // NOTE: claims list still uses the API. On APK offline, this will
+    // fail gracefully. Wire through OX_DATA once a claims adapter exists.
     async function viewBatchClaims(batchId) {
         const batchData = batchLookup[batchId] || null;
         const productName = currentBatchModalProductName || 'Unknown Product';
@@ -1039,50 +1028,55 @@
     window.addEventListener('offline', updateOfflineBanner);
 
     // =============================================================
-    //  API-FIRST PRODUCT LOADING
+    //  PRODUCT LOADING — OX_DATA provider handles the source
+    //
+    //  Web:  OX_DATA = OX_DATA_REMOTE → fetch /api/products
+    //  APK:  OX_DATA = OX_DATA_LOCAL  → read db.products from Dexie
+    //
+    //  The APK path works offline. The web path requires the
+    //  network — the SW only caches the app shell, not the data.
     // =============================================================
     async function loadProducts(forceRefresh = false) {
         if (isLoading) return;
         isLoading = true;
         updateOfflineBanner();
 
-        // ✅ Show loading state immediately so the user sees activity
         showLoadingState();
 
         let productsData = [];
-        let apiSuccess = false;
+        let loaded = false;
 
-        if (navigator.onLine && !forceRefresh) {
+        // Try OX_DATA — works whenever the source is available.
+        // On web:  requires network (navigator.onLine)
+        // On APK:  Dexie is local, works offline
+        if (!forceRefresh && (navigator.onLine || IS_APK)) {
             try {
-                const res = await fetch('/api/products?exclude_category=Screen');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.products && Array.isArray(data.products) && data.products.length > 0) {
-                        productsData = data.products;
-                        if (db) await storeProductsInDexie(productsData);
-                        apiSuccess = true;
-                    }
+                const data = await OX_DATA.products.list({ exclude_category: 'Screen' });
+                if (data && Array.isArray(data.products)) {
+                    productsData = data.products;
+                    loaded = true;
                 }
-            } catch (e) { console.warn('API failed, using Dexie fallback'); }
+            } catch (e) {
+                console.warn('OX_DATA fetch failed:', e);
+            }
         }
 
-        if (!apiSuccess || !navigator.onLine) {
+        // Last-resort Dexie fallback — APK ONLY.
+        // Web users never touch Dexie for reads; they get the SW cache
+        // (app shell only) and nothing else when offline.
+        if (!loaded && IS_APK) {
             try {
-                let cached;
-                if (db) {
-                    try { cached = await db.products.where('category').notEqual('Screen').toArray(); }
-                    catch (e) {
-                        const all = await db.products.toArray();
-                        cached = all.filter(p => p.category !== 'Screen');
-                    }
-                    if (cached && cached.length > 0) productsData = cached;
+                if (typeof db !== 'undefined' && db) {
+                    const all = await db.products.toArray();
+                    const cached = all.filter(p => (p.category || '').toLowerCase() !== 'screen');
+                    if (cached.length > 0) productsData = cached;
                 }
-            } catch (e) { console.warn('Failed to read from Dexie:', e); }
+            } catch (e) {
+                console.warn('Failed to read from Dexie:', e);
+            }
         }
 
         currentProducts = productsData;
-
-        // ✅ Clear the pulse before writing the real numbers
         clearLoadingPulse();
 
         await updateSummary(productsData);
@@ -1091,47 +1085,6 @@
         autoOpenBatches();
 
         isLoading = false;
-    }
-
-    async function storeProductsInDexie(products) {
-        if (!db) return;
-        try {
-            const toStore = products.map(p => ({
-                id: p.product_id || p.id,
-                product_id: p.product_id || p.id,
-                name: p.name, brand: p.brand,
-                category: p.category || '',
-                cost_price: p.cost_price,
-                selling_price: p.selling_price,
-                stock: p.stock,
-                discount: p.discount || 0,
-                batches: p.batches || []
-            }));
-            await db.products.bulkPut(toStore);
-            const allBatches = [];
-            products.forEach(p => {
-                if (p.batches && p.batches.length > 0) {
-                    p.batches.forEach(b => {
-                        allBatches.push({
-                            id: b.batch_id,
-                            product_id: p.product_id || p.id,
-                            quantity: b.quantity || b.batch_quantity,
-                            remaining_quantity: b.remaining_quantity,
-                            cost_price: b.cost_price,
-                            selling_price: b.selling_price,
-                            discount: b.discount || 0,
-                            claimed_quantity: b.claimed_quantity || 0,
-                            sold_quantity: b.sold_quantity || 0,
-                            date: b.date,
-                            action: b.action || '',
-                            source: b.source || '',
-                            is_faulty: b.is_faulty || false
-                        });
-                    });
-                }
-            });
-            if (allBatches.length > 0) await db.batches.bulkPut(allBatches);
-        } catch (e) { console.warn('Failed to store in Dexie:', e); }
     }
 
     async function updateSummary(productsData) {
@@ -1166,24 +1119,29 @@
 
     async function loadLowStockCount() {
         try {
-            if (navigator.onLine) {
-                const res = await fetch('/api/low_stock/split?category=non-Screen');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.success && data.product_level) {
-                        const low = data.product_level.counts.low_stock || 0;
-                        document.getElementById('lowStockCount').textContent = low;
-                        return;
-                    }
+            if (navigator.onLine || IS_APK) {
+                const data = await OX_DATA.lowStock.split({ category: 'non-Screen' });
+                if (data.success && data.product_level) {
+                    const low = data.product_level.counts.low_stock || 0;
+                    document.getElementById('lowStockCount').textContent = low;
+                    return;
                 }
             }
         } catch (e) { console.warn('Could not load low stock count:', e); }
-        let offlineLow = 0;
-        currentProducts.forEach(p => {
-            const stock = p.stock || 0;
-            if (stock > 0 && stock <= 10) offlineLow++;
-        });
-        document.getElementById('lowStockCount').textContent = offlineLow;
+
+        // Offline fallback — APK only
+        if (IS_APK) {
+            let offlineLow = 0;
+            currentProducts.forEach(p => {
+                const stock = p.stock || 0;
+                if (stock > 0 && stock <= 10) offlineLow++;
+            });
+            document.getElementById('lowStockCount').textContent = offlineLow;
+            return;
+        }
+
+        // Web offline: leave the counter blank
+        document.getElementById('lowStockCount').textContent = '—';
     }
 
     function applyAdvancedSearch() {
