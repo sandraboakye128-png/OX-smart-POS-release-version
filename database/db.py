@@ -2,6 +2,7 @@ import os
 import re
 import sqlite3
 import time
+import datetime
 from contextlib import contextmanager
 
 # ---------- Optional Postgres imports (Render only) ----------
@@ -54,6 +55,35 @@ RETRY_DELAY = 1  # seconds
 # string literal (rare) would also be rewritten. If you ever need
 # that, write the query with ? directly.
 # ==================================================================
+
+# ------------------------------------------------------------------
+# SQLite TIMESTAMP -> datetime conversion
+# ------------------------------------------------------------------
+# On Postgres, TIMESTAMP columns come back as datetime objects that
+# have .isoformat(). SQLite stores them as TEXT and returns strings.
+# Register a converter so both backends return datetime objects,
+# matching Postgres behavior. Fixes "'str' object has no attribute
+# 'isoformat'" in api_sync_all and any future service code.
+# ------------------------------------------------------------------
+def _sqlite_timestamp_converter(raw):
+    s = raw.decode('utf-8') if isinstance(raw, (bytes, bytearray)) else str(raw)
+    if not s:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(s)
+    except ValueError:
+        # Fallback for legacy formats with a space separator and no TZ
+        try:
+            return datetime.datetime.strptime(s[:19], '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return s  # give up, return the raw string
+
+
+sqlite3.register_converter("TIMESTAMP", _sqlite_timestamp_converter)
+sqlite3.register_converter("DATETIME",  _sqlite_timestamp_converter)
+sqlite3.register_converter("DATE",      _sqlite_timestamp_converter)
+
+
 _PARAM_RE = re.compile(r'%s')
 _NAMED_RE = re.compile(r'(?<![:%\w]):([a-zA-Z_][a-zA-Z0-9_]*)')
 _CAST_RE  = re.compile(
@@ -690,10 +720,14 @@ else:
 
     def get_connection():
         """Get SQLite connection to retail.db with proper settings.
-        Returns a shimmed connection that auto-translates %s / :name / ::type
-        and registers Postgres aggregate function shims.
+        Returns a shimmed connection that auto-translates %s / :name / ::type,
+        registers Postgres aggregate function shims, and converts
+        TIMESTAMP columns to Python datetime objects.
         """
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(
+            DB_PATH,
+            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
+        )
         conn.row_factory = sqlite3.Row
         _register_sqlite_functions(conn)
         cursor = conn.cursor()
@@ -826,9 +860,13 @@ else:
     def get_auth_connection():
         """Return a shimmed connection to auth.db (users, user_logs, user_settings).
         %s / :name / ::type are auto-translated to SQLite-friendly SQL,
-        and Postgres aggregate shims are registered.
+        Postgres aggregates are registered, and TIMESTAMP columns return
+        Python datetime objects.
         """
-        conn = sqlite3.connect(AUTH_DB_PATH)
+        conn = sqlite3.connect(
+            AUTH_DB_PATH,
+            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
+        )
         conn.row_factory = sqlite3.Row
         _register_sqlite_functions(conn)
         conn.execute("PRAGMA foreign_keys = ON")
