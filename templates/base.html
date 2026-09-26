@@ -58,12 +58,20 @@
     <script src="{{ url_for('static', filename='js/db.js') }}"></script>
     <script src="{{ url_for('static', filename='js/sync.js') }}"></script>
 
+    <!-- ===== PHASE 3: DATA LAYER ===== -->
+    <!-- remote.js  → OX_DATA_REMOTE  (web: hits /api/*)
+         local.js   → OX_DATA_LOCAL   (APK: reads Dexie)
+         provider.js → picks one, exposes window.OX_DATA
+         Order matters: remote + local first, then provider. -->
+    <script src="{{ url_for('static', filename='js/data/remote.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/data/local.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/data/provider.js') }}"></script>
 
     <!-- ===== SERVICE WORKER ===== -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=10')
-                .then(() => console.log('✅ Service Worker registered (v10)'))
+            navigator.serviceWorker.register('/sw.js?v=11')
+                .then(() => console.log('✅ Service Worker registered (v11)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
     </script>
@@ -201,7 +209,12 @@
             padding: 0 4px; border: 2px solid #ffffff; line-height: 1;
         }
 
-        /* ===== NOTIFICATION DROPDOWN (taller + scrollable) ===== */
+        /* ============================================================
+           NOTIFICATION DROPDOWN — bulletproof layout
+           - Desktop: absolute, anchored to the bell wrapper
+           - Mobile:  fixed, anchored to viewport (avoids clipping)
+           - min-height: 0 on the list so flex scrolling actually works
+           ============================================================ */
         .notif-dropdown {
             position: absolute; top: calc(100% + 8px); right: 0;
             width: 400px; max-width: calc(100vw - 24px);
@@ -213,8 +226,7 @@
             transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
             z-index: 100; overflow: hidden;
             display: flex; flex-direction: column;
-            max-height: min(88vh, 680px);
-            min-height: 340px;
+            max-height: min(85vh, 680px);
         }
         .notif-dropdown.open { opacity: 1; visibility: visible; transform: translateY(0); }
         .notif-header {
@@ -238,12 +250,14 @@
         }
         .notif-clear:hover { background: #f1f5f9; color: #0f172a; }
 
-        /* Scrollable list area — keeps its own scroll independent of dropdown */
+        /* Scrollable list area.
+           min-height: 0 is CRITICAL — without it flex children can't shrink
+           below their intrinsic content height and won't scroll. */
         .notif-list {
             flex: 1 1 auto;
             overflow-y: auto;
             overflow-x: hidden;
-            min-height: 200px;
+            min-height: 0;
             overscroll-behavior: contain;
             -webkit-overflow-scrolling: touch;
         }
@@ -269,7 +283,7 @@
             width: 3px; background: #00CFCF; border-radius: 0 3px 3px 0;
         }
 
-        /* Persistent notifications: orange asterisk marker, stays until dismissed */
+        /* Persistent notifications: orange asterisk marker */
         .notif-item.persistent::after {
             content: '*';
             position: absolute;
@@ -325,10 +339,34 @@
         }
         .notif-item:hover .notif-close,
         .notif-item.persistent .notif-close { opacity: 1; }
+        /* On touch devices there's no hover, so always show the close button */
+        @media (hover: none) {
+            .notif-close { opacity: 1; }
+        }
         .notif-close:hover { background: #f1f5f9; color: #475569; }
 
-        @media (max-width: 480px) {
-            .notif-dropdown { width: calc(100vw - 16px); right: -4px; }
+        /* ---- Mobile dropdown: fixed, edge-anchored, above the topbar ---- */
+        @media (max-width: 640px) {
+            .notif-dropdown {
+                position: fixed;
+                top: 62px;                 /* just below the topbar */
+                left: 8px;
+                right: 8px;
+                width: auto;
+                max-width: none;
+                min-height: 0;
+                max-height: calc(100dvh - 78px);
+                transform: translateY(-4px);
+            }
+            .notif-dropdown.open { transform: translateY(0); }
+        }
+        /* Fallback for older browsers without dvh support */
+        @supports not (height: 100dvh) {
+            @media (max-width: 640px) {
+                .notif-dropdown {
+                    max-height: calc(100vh - 78px);
+                }
+            }
         }
 
         /* ===== USER CHIP (clickable) ===== */
@@ -826,9 +864,6 @@
 <script>
     // ============================================================
     //  ENV BOOTSTRAP  (Phase 1)
-    //  env.js is loaded in <head>, so OX_ENV exists by now.
-    //  Nothing in this file currently gates on OX_ENV — that begins
-    //  in Phase 2 (Dexie schema). This log confirms detection works.
     // ============================================================
     (function () {
         const e = window.OX_ENV || {};
@@ -849,14 +884,88 @@
 
     // ============================================================
     //  NOTIFICATION SYSTEM
-    //  - persistent: true  →  no auto-dismiss timer, orange * marker,
-    //                         stays until user clicks the ✕
+    //
+    //  PERSISTENT ACROSS RELOADS AND NAVIGATION:
+    //    - Items are written to localStorage on every mutation and
+    //      rehydrated on page load.
+    //    - The badge shows the TOTAL item count (not "unread"), so it
+    //      stays visible until the user actually dismisses items.
+    //    - Progress notifications are NOT persisted (their task dies
+    //      with the page).
+    //    - Connection notices are re-evaluated on load: offline notice
+    //      is dropped if we're back online, online notice is dropped
+    //      if we're still offline.
+    //    - purge() wipes everything — called from logout() so user A's
+    //      notifications don't leak to user B.
     // ============================================================
     const Notifications = (function () {
+        const STORAGE_KEY = 'ox_notifications_v1';
         const items = [];
         let nextId = 1;
-        let unreadCount = 0;
 
+        // ---------- persistence ----------
+        function _save() {
+            try {
+                const toSave = items.map(n => ({
+                    id:        n.id,
+                    type:      n.type,
+                    title:     n.title,
+                    message:   n.message,
+                    progress:  n.progress,
+                    persistent: n.persistent,
+                    timestamp: n.timestamp,
+                }));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    version: 1,
+                    savedAt: Date.now(),
+                    items: toSave,
+                }));
+            } catch (e) {
+                console.warn('[Notifications] save failed:', e);
+            }
+        }
+        function _load() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                if (!data || data.version !== 1 || !Array.isArray(data.items)) return;
+
+                const online = navigator.onLine;
+                const now = Date.now();
+
+                for (const n of data.items) {
+                    if (n.type === 'progress') continue;
+                    if (n.type === 'offline' && online) continue;
+                    if (n.type === 'online' && !online) continue;
+
+                    items.push({
+                        id:        n.id,
+                        type:      n.type,
+                        title:     n.title,
+                        message:   n.message,
+                        progress:  n.progress,
+                        persistent: n.persistent !== false,
+                        timestamp: n.timestamp || now,
+                        _timer:    null,
+                    });
+                }
+                for (const it of items) {
+                    const m = /^n_(\d+)_/.exec(it.id || '');
+                    if (m) nextId = Math.max(nextId, parseInt(m[1], 10) + 1);
+                }
+            } catch (e) {
+                console.warn('[Notifications] load failed:', e);
+            }
+        }
+        function purge() {
+            try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+            items.forEach(i => { if (i._timer) clearTimeout(i._timer); });
+            items.length = 0;
+            _refresh();
+        }
+
+        // ---------- rendering ----------
         function _esc(s) {
             return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({
                 '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -886,15 +995,19 @@
         function _renderBadge() {
             const badge = document.getElementById('notifBadge');
             const countEl = document.getElementById('notifCount');
+            // Badge reflects TOTAL notification count, not "unread".
+            // Since notifications are persistent (stay until dismissed),
+            // the badge only drops when items are removed or cleared.
+            const total = items.length;
             if (badge) {
-                if (unreadCount > 0) {
-                    badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                if (total > 0) {
+                    badge.textContent = total > 99 ? '99+' : total;
                     badge.style.display = 'flex';
                 } else {
                     badge.style.display = 'none';
                 }
             }
-            if (countEl) countEl.textContent = items.length;
+            if (countEl) countEl.textContent = total;
         }
         function _renderList() {
             const list = document.getElementById('notifList');
@@ -913,7 +1026,7 @@
                     : '';
                 const persistentClass = n.persistent ? ' persistent' : '';
                 return `
-                    <div class="notif-item${n.read ? '' : ' unread'} notif-${n.type}${persistentClass}" data-id="${n.id}">
+                    <div class="notif-item notif-${n.type}${persistentClass}" data-id="${n.id}">
                         <div class="notif-icon">${_icon(n.type)}</div>
                         <div class="notif-body">
                             ${n.title ? `<div class="notif-title">${_esc(n.title)}</div>` : ''}
@@ -927,6 +1040,7 @@
         }
         function _refresh() { _renderList(); _renderBadge(); }
 
+        // ---------- public API ----------
         function add(opts) {
             const {
                 type = 'info',
@@ -935,7 +1049,7 @@
                 duration = 0,
                 id = null,
                 progress = null,
-                persistent = false,
+                persistent = true,   // persistent by default
             } = opts || {};
 
             if (id) {
@@ -947,15 +1061,13 @@
                 type, title, message, progress,
                 persistent: !!persistent,
                 timestamp: Date.now(),
-                read: false,
                 _timer: null,
             };
             items.unshift(notif);
-            unreadCount++;
             if (type === 'success' || type === 'error' || type === 'warning') ringBell();
             _refresh();
-            // Auto-dismiss only when NOT persistent and NOT a live progress bar
-            if (duration > 0 && !persistent && type !== 'progress') {
+            _save();
+            if (!persistent && duration > 0 && type !== 'progress') {
                 notif._timer = setTimeout(() => remove(notif.id), duration);
             }
             return notif.id;
@@ -963,7 +1075,6 @@
         function update(id, patch) {
             const n = items.find(i => i.id === id);
             if (!n) return;
-            // If it just became persistent, cancel any pending auto-dismiss.
             if (patch && patch.persistent === true && n._timer) {
                 clearTimeout(n._timer);
                 n._timer = null;
@@ -971,6 +1082,7 @@
             Object.assign(n, patch || {});
             n.timestamp = Date.now();
             _refresh();
+            _save();
         }
         function remove(id) {
             const idx = items.findIndex(i => i.id === id);
@@ -978,18 +1090,13 @@
             if (items[idx]._timer) clearTimeout(items[idx]._timer);
             items.splice(idx, 1);
             _refresh();
+            _save();
         }
         function clearAll() {
             items.forEach(i => { if (i._timer) clearTimeout(i._timer); });
             items.length = 0;
-            unreadCount = 0;
             _refresh();
-        }
-        function markAllRead() {
-            items.forEach(i => i.read = true);
-            unreadCount = 0;
-            _renderBadge();
-            _renderList();
+            _save();
         }
         function ringBell() {
             const bell = document.getElementById('notifBell');
@@ -999,16 +1106,29 @@
             bell.classList.add('ring');
             setTimeout(() => bell.classList.remove('ring'), 800);
         }
-        function info(t, m, d)    { return add({ type: 'info',    title: t, message: m, duration: d || 5000 }); }
-        function success(t, m, d) { return add({ type: 'success', title: t, message: m, duration: d || 6000 }); }
-        function warning(t, m, d) { return add({ type: 'warning', title: t, message: m, duration: d || 8000 }); }
-        function error(t, m, d)   { return add({ type: 'error',   title: t, message: m, duration: d || 0 }); }
+
+        function info(t, m)    { return add({ type: 'info',    title: t, message: m, persistent: true }); }
+        function success(t, m) { return add({ type: 'success', title: t, message: m, persistent: true }); }
+        function warning(t, m) { return add({ type: 'warning', title: t, message: m, persistent: true }); }
+        function error(t, m)   { return add({ type: 'error',   title: t, message: m, persistent: true }); }
+
+        // ---------- hydrate from previous session ----------
+        _load();
+        setTimeout(_refresh, 0);
+
+        // Cross-tab sync: mirror changes made in other tabs.
+        window.addEventListener('storage', (e) => {
+            if (e.key !== STORAGE_KEY) return;
+            items.length = 0;
+            _load();
+            _refresh();
+        });
 
         return {
-            add, update, remove, clearAll, markAllRead,
+            add, update, remove, clearAll, purge,
             info, success, warning, error,
             get items() { return items; },
-            get unreadCount() { return unreadCount; }
+            get unreadCount() { return items.length; }  // kept for backwards compat
         };
     })();
     window.Notifications = Notifications;
@@ -1023,7 +1143,8 @@
         if (!dd || !bell) return;
         const isOpen = dd.classList.toggle('open');
         bell.classList.toggle('active', isOpen);
-        if (isOpen) setTimeout(() => Notifications.markAllRead(), 800);
+        // Intentionally NOT calling markAllRead() — the badge is driven by
+        // total item count, so opening the dropdown must not change it.
     }
     window.toggleNotifications = toggleNotifications;
 
@@ -1101,7 +1222,7 @@
             localStorage.removeItem('app_version');
             setTimeout(() => {
                 Notifications.warning('App update available',
-                    'Please uninstall the old app and reinstall from the web.', 12000);
+                    'Please uninstall the old app and reinstall from the web.');
             }, 1500);
         }
     })();
@@ -1214,7 +1335,6 @@
 
     // ============================================================
     //  NON-BLOCKING FULL SYNC
-    //  Sync notification is PERSISTENT: stays until user clicks ✕.
     // ============================================================
     async function performFullSync(showProgress = true) {
         if (!navigator.onLine) {
@@ -1233,7 +1353,8 @@
                 type: 'progress',
                 title: 'Pulling latest data',
                 message: 'Fetching latest from server…',
-                progress: 10
+                progress: 10,
+                persistent: true
             });
         }
 
@@ -1266,7 +1387,6 @@
                     progress: 100,
                     persistent: true
                 });
-                // Intentionally NOT auto-removed — user dismisses via ✕.
             }
             return true;
         } catch (err) {
@@ -1414,6 +1534,7 @@
     async function logout() {
         clearSession();
         try { sessionStorage.clear(); } catch (e) {}
+        try { Notifications.purge(); } catch (e) {}    // prevent leak to next user
         const dbNames = [
             'OxSmartOfflineDB', 'OfflineSalesDB', 'SalesDB',
             'offlineDB', 'PendingDB', 'ImportQueueDB', 'DexieDB'
@@ -1464,8 +1585,7 @@
                 'Data may be stale',
                 navigator.onLine
                     ? 'Your offline data is over 6 hours old. Tap Sync Offline to refresh.'
-                    : 'You are offline. Connect to the internet to sync.',
-                15000
+                    : 'You are offline. Connect to the internet to sync.'
             );
         }
     }
@@ -1545,8 +1665,7 @@
                 if (urlParams.get('reinstall') === 'true') {
                     Notifications.warning(
                         'Reinstall required',
-                        'Please uninstall the old app, then tap "Install App" from the sidebar.',
-                        15000
+                        'Please uninstall the old app, then tap "Install App" from the sidebar.'
                     );
                 }
             }
@@ -1557,7 +1676,7 @@
     //  ONLINE / OFFLINE
     // ============================================================
     window.addEventListener('online', function () {
-        Notifications.add({ type: 'online', title: 'Back online', message: 'Refreshing data…', duration: 4000 });
+        Notifications.add({ type: 'online', title: 'Back online', message: 'Refreshing data…', persistent: true });
         performFullSync(true);
         cacheAllPages();
     });
@@ -1565,7 +1684,7 @@
         Notifications.add({
             type: 'offline', title: 'You are offline',
             message: 'Changes will be saved locally and synced when you reconnect.',
-            duration: 0
+            persistent: true
         });
     });
     window.addEventListener('resize', function () {

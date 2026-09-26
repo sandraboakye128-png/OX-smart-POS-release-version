@@ -1,15 +1,20 @@
 // static/sw.js
 // ============================================================
 //  OX Smart POS Service Worker
-//  - Pre-caches static assets
-//  - Network-first for JS/CSS so dev edits show up immediately
-//  - Cache-first for icons/fonts/images/HTML pages
-//  - Never intercepts /api/ — Dexie handles offline data
-//  - On-demand page caching via postMessage
+//
+//  Caching strategy:
+//    /api/*          → pass-through (never cached here; Dexie handles offline)
+//    HTML pages      → NETWORK-FIRST (template edits appear on plain reload)
+//    /static/js|css  → NETWORK-FIRST (dev edits appear immediately)
+//    icons/fonts/img → cache-first with background refresh
+//
+//  Bump CACHE_NAME whenever the SW logic itself changes; the activate
+//  handler deletes any cache whose name doesn't match, so old stale
+//  HTML can never be served after a version bump.
 // ============================================================
 
-// ⚠️ INCREMENT ON EVERY DEPLOY
-const CACHE_NAME = 'oxsmart-v10';
+// ⚠️ INCREMENT ON EVERY SW LOGIC CHANGE
+const CACHE_NAME = 'oxsmart-v11';
 
 const PRECACHE_ASSETS = [
   '/static/css/style.css',
@@ -19,15 +24,18 @@ const PRECACHE_ASSETS = [
   '/static/js/db.js',
   '/static/js/sync.js',
   '/static/js/offline.js',
+  '/static/js/data/remote.js',
+  '/static/js/data/local.js',
+  '/static/js/data/provider.js',
   '/static/manifest.json',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
 ];
 
-// Paths that should ALWAYS hit the network first (dev-friendly + fresh logic)
+// Paths that should ALWAYS hit the network first
 const NETWORK_FIRST_PREFIXES = ['/static/js/', '/static/css/'];
 
-// Paths the SW should never cache at all
+// Paths the SW should never intercept (backend handles its own offline)
 const NEVER_CACHE_PREFIXES = ['/api/'];
 
 
@@ -50,6 +58,8 @@ self.addEventListener('install', event => {
 
 
 // ===== ACTIVATE =====
+// Deletes every cache that isn't the current CACHE_NAME. This is what
+// guarantees a version bump clears stale HTML on next page load.
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(names =>
@@ -73,7 +83,7 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
   if (url.origin !== location.origin) return;
 
-  // ----- /api/ : pass through. On failure return a real Response -----
+  // ----- /api/ : pass through. On failure return a real JSON Response -----
   if (NEVER_CACHE_PREFIXES.some(p => url.pathname.startsWith(p))) {
     event.respondWith(
       fetch(req).catch(() =>
@@ -86,7 +96,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // ----- JS / CSS : network-first (fresh edits during dev) -----
+  // ----- /static/js/ and /static/css/ : network-first -----
   if (NETWORK_FIRST_PREFIXES.some(p => url.pathname.startsWith(p))) {
     event.respondWith(
       fetch(req)
@@ -109,14 +119,45 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // ----- Everything else : cache-first with background refresh -----
+  // ----- HTML pages : network-first (so template edits appear immediately) -----
+  // This is the branch that was previously cache-first and caused
+  // base.html edits to be invisible until the SW was unregistered.
+  const accept = req.headers.get('accept') || '';
+  if (accept.includes('text/html')) {
+    event.respondWith(
+      fetch(req)
+        .then(res => {
+          if (res && res.ok && res.type === 'basic') {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(req, clone)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() =>
+          caches.match(req).then(cached =>
+            cached || new Response(
+              `<!DOCTYPE html>
+               <html><head><meta charset="utf-8"><title>Offline</title></head>
+               <body style="font-family:sans-serif;padding:2rem;text-align:center;">
+                 <h1>You are offline</h1>
+                 <p>Please reconnect to use the app.</p>
+               </body></html>`,
+              { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+            )
+          )
+        )
+    );
+    return;
+  }
+
+  // ----- Everything else (icons, fonts, images) : cache-first -----
   event.respondWith(
     caches.match(req).then(cached => {
       if (cached) {
         event.waitUntil(
           fetch(req)
             .then(res => {
-              if (res && res.ok) {
+              if (res && res.ok && res.type === 'basic') {
                 return caches.open(CACHE_NAME).then(c => c.put(req, res.clone()));
               }
             })
@@ -133,21 +174,7 @@ self.addEventListener('fetch', event => {
           }
           return res;
         })
-        .catch(() => {
-          const accept = req.headers.get('accept') || '';
-          if (accept.includes('text/html')) {
-            return new Response(
-              `<!DOCTYPE html>
-               <html><head><meta charset="utf-8"><title>Offline</title></head>
-               <body style="font-family:sans-serif;padding:2rem;text-align:center;">
-                 <h1>You are offline</h1>
-                 <p>Please reconnect to use the app.</p>
-               </body></html>`,
-              { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-            );
-          }
-          return new Response('Offline', { status: 503 });
-        });
+        .catch(() => new Response('Offline', { status: 503 }));
     })
   );
 });
