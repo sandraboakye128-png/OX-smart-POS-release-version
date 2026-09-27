@@ -1,0 +1,87 @@
+cat > ~/Projects/ox-smart/www/offline.html <<'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>OX Smart POS</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f172a; color: #e2e8f0;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; padding: 24px;
+            -webkit-user-select: none; user-select: none;
+        }
+        .box { text-align: center; max-width: 360px; }
+        .icon {
+            font-size: 72px; margin-bottom: 20px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.55; transform: scale(1); }
+            50%      { opacity: 1;    transform: scale(1.06); }
+        }
+        h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 12px; color: #a5b4fc; }
+        p  { color: #94a3b8; line-height: 1.55; margin-bottom: 8px; font-size: 0.95rem; }
+        .status {
+            margin-top: 24px; font-family: ui-monospace, monospace;
+            font-size: 0.8rem; color: #64748b;
+        }
+        .status.checking { color: #fbbf24; }
+        .status.online   { color: #22c55e; }
+        button {
+            margin-top: 20px; background: #00CFCF; color: #0f172a;
+            border: 0; padding: 12px 28px; border-radius: 10px;
+            font-size: 1rem; font-weight: 600; cursor: pointer;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.96); }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div class="icon">📶</div>
+        <h1>Waiting for connection</h1>
+        <p>OX Smart POS needs a network the first time it opens after a restart.</p>
+        <p>Turn on Wi-Fi or mobile data — the app will open automatically.</p>
+        <div class="status checking" id="status">Checking connection…</div>
+        <button onclick="tryLoad(true)">Retry now</button>
+    </div>
+    <script>
+        // Must match server.url in capacitor.config.json
+        const APP_URL   = 'https://ox-smart-pos-release-version.onrender.com';
+        const PROBE_URL = APP_URL + '/sw.js';   // small file, cheap HEAD probe
+
+        const statusEl = document.getElementById('status');
+
+        async function tryLoad(manual) {
+            statusEl.className = 'status checking';
+            statusEl.textContent = 'Checking connection…';
+            try {
+                const res = await fetch(PROBE_URL + '?_=' + Date.now(), {
+                    method: 'HEAD', cache: 'no-store'
+                });
+                if (res.ok) {
+                    statusEl.className = 'status online';
+                    statusEl.textContent = 'Connected — loading app…';
+                    setTimeout(() => { window.location.replace(APP_URL); },
+                               manual ? 0 : 300);
+                    return;
+                }
+            } catch (e) { /* still offline */ }
+            statusEl.className = 'status';
+            statusEl.textContent = 'Offline · retrying automatically…';
+        }
+
+        // First probe at 400ms, then every 2s
+        setTimeout(() => tryLoad(false), 400);
+        setInterval(() => tryLoad(false), 2000);
+
+        // Instant trigger when the OS radio comes up
+        window.addEventListener('online', () => tryLoad(true));
+    </script>
+</body>
+</html>
+EOF

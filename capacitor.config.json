@@ -4,6 +4,7 @@
   "webDir": "www",
   "server": {
     "url": "https://ox-smart-pos-release-version.onrender.com",
-    "cleartext": true
+    "cleartext": true,
+    "errorPath": "offline.html"
   }
 }
