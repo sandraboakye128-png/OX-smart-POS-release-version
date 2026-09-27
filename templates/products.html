@@ -1220,8 +1220,44 @@
     }
     window.triggerAutoOpenInline = function() { autoOpenBatches(); };
 
-    document.addEventListener('DOMContentLoaded', function() {
-        loadProducts();
+    // ============================================================
+    //  ✅ APK FIRST-LAUNCH FIX — pull before render
+    //
+    //  Problem: on a fresh APK install Dexie is empty. The old
+    //  DOMContentLoaded handler called loadProducts() immediately,
+    //  which read empty Dexie and rendered 0 products. pullData()
+    //  ran ~1s later in the background and populated Dexie, but
+    //  nothing re-rendered the page → stuck at 0 forever.
+    //
+    //  Fix: in APK mode, check Dexie's row count first. If zero
+    //  (fresh install), await pullData() and block until it lands.
+    //  Then loadProducts() reads populated Dexie → real numbers.
+    //
+    //  On subsequent launches Dexie already has rows → the count
+    //  check returns instantly, no network wait, loadProducts()
+    //  runs immediately. Background refresh still happens via the
+    //  sync engine on the base template.
+    //
+    //  Web mode: IS_APK=false → skips this block entirely.
+    //  Web behavior is byte-for-byte identical to before.
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', async function() {
+        // ── APK-only: ensure Dexie has data before first render ──
+        if (IS_APK && typeof db !== 'undefined' && db) {
+            try {
+                const count = await db.products.count();
+                if (count === 0 && typeof pullData === 'function') {
+                    console.log('[products] Dexie empty — running initial pull…');
+                    showLoadingState();  // keep spinner visible during pull
+                    await pullData();
+                    console.log('[products] Initial pull complete.');
+                }
+            } catch (e) {
+                console.warn('[products] pre-load sync failed:', e);
+            }
+        }
+
+        await loadProducts();
         if (typeof updatePendingBadge === 'function') updatePendingBadge();
 
         document.getElementById('searchInput').addEventListener('input', applyAdvancedSearch);
