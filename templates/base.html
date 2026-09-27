@@ -345,7 +345,11 @@
         }
         .notif-close:hover { background: #f1f5f9; color: #475569; }
 
-        /* ---- Mobile dropdown: fixed, edge-anchored, above the topbar ---- */
+        /* ---- Mobile dropdown: fixed, edge-anchored, above the topbar ----
+           The env(safe-area-inset-bottom) subtraction reserves space for the
+           phone's gesture bar / nav buttons so the last item isn't clipped
+           behind the system UI in the Android WebView. On devices without a
+           safe area, env(...) returns 0px and nothing changes. */
         @media (max-width: 640px) {
             .notif-dropdown {
                 position: fixed;
@@ -355,7 +359,7 @@
                 width: auto;
                 max-width: none;
                 min-height: 0;
-                max-height: calc(100dvh - 78px);
+                max-height: calc(100dvh - 78px - env(safe-area-inset-bottom, 0px));
                 transform: translateY(-4px);
             }
             .notif-dropdown.open { transform: translateY(0); }
@@ -364,7 +368,7 @@
         @supports not (height: 100dvh) {
             @media (max-width: 640px) {
                 .notif-dropdown {
-                    max-height: calc(100vh - 78px);
+                    max-height: calc(100vh - 78px - env(safe-area-inset-bottom, 0px));
                 }
             }
         }
@@ -890,8 +894,10 @@
     //      rehydrated on page load.
     //    - The badge shows the TOTAL item count (not "unread"), so it
     //      stays visible until the user actually dismisses items.
-    //    - Progress notifications are NOT persisted (their task dies
-    //      with the page).
+    //    - Progress notifications ARE persisted now. If a sync is
+    //      interrupted by navigation, its notification stays visible
+    //      with the last known progress. The next sync on the new page
+    //      updates the same id in place (see add()'s id-dedup logic).
     //    - Connection notices are re-evaluated on load: offline notice
     //      is dropped if we're back online, online notice is dropped
     //      if we're still offline.
@@ -935,7 +941,11 @@
                 const now = Date.now();
 
                 for (const n of data.items) {
-                    if (n.type === 'progress') continue;
+                    // Connection notices are the only auto-filtered items:
+                    // they reflect a live state that can change while the
+                    // page loads. Everything else (including progress) is
+                    // restored so the badge stays visible until the user
+                    // explicitly dismisses an item.
                     if (n.type === 'offline' && online) continue;
                     if (n.type === 'online' && !online) continue;
 
@@ -1594,6 +1604,12 @@
     //  INIT
     // ============================================================
     document.addEventListener('DOMContentLoaded', function () {
+        // Clear any stale sync flag from a previous page. If the user
+        // navigated mid-sync, the previous page's finally block never ran
+        // and the flag is still set — which would permanently block sync
+        // on this page.
+        try { sessionStorage.removeItem('oxSyncInProgress'); } catch (e) {}
+
         const yearSpan = document.getElementById('footerYear');
         if (yearSpan) yearSpan.textContent = new Date().getFullYear();
 
