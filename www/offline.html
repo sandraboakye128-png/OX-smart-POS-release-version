@@ -1,4 +1,3 @@
-cat > ~/Projects/ox-smart/www/offline.html <<'EOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -55,33 +54,55 @@ cat > ~/Projects/ox-smart/www/offline.html <<'EOF'
         const PROBE_URL = APP_URL + '/sw.js';   // small file, cheap HEAD probe
 
         const statusEl = document.getElementById('status');
+        let navigating = false;   // guard against double-navigation from overlapping probes
 
         async function tryLoad(manual) {
+            if (navigating) return;
             statusEl.className = 'status checking';
             statusEl.textContent = 'Checking connection…';
+
             try {
-                const res = await fetch(PROBE_URL + '?_=' + Date.now(), {
-                    method: 'HEAD', cache: 'no-store'
+                // ── The CORS fix ────────────────────────────────────
+                // This fetch is cross-origin (https://localhost →
+                // https://ox-smart-pos-release-version.onrender.com).
+                // Without mode:'no-cors' the browser refuses to let us
+                // read the response because Flask doesn't send
+                // Access-Control-Allow-Origin, and the promise rejects
+                // even when the server actually responded — leaving the
+                // page stuck in "Offline · retrying…" forever.
+                //
+                // With mode:'no-cors' we get an opaque response (can't
+                // read the body or status), but a *resolved promise*
+                // means the network accepted the request, which is all
+                // we need to know before navigating.
+                // ────────────────────────────────────────────────────
+                await fetch(PROBE_URL + '?_=' + Date.now(), {
+                    method: 'HEAD',
+                    cache: 'no-store',
+                    mode: 'no-cors',
+                    credentials: 'omit'
                 });
-                if (res.ok) {
-                    statusEl.className = 'status online';
-                    statusEl.textContent = 'Connected — loading app…';
-                    setTimeout(() => { window.location.replace(APP_URL); },
-                               manual ? 0 : 300);
-                    return;
-                }
-            } catch (e) { /* still offline */ }
-            statusEl.className = 'status';
-            statusEl.textContent = 'Offline · retrying automatically…';
+
+                // If we got here, the connection works. Navigate.
+                navigating = true;
+                statusEl.className = 'status online';
+                statusEl.textContent = 'Connected — loading app…';
+                setTimeout(() => {
+                    window.location.replace(APP_URL);
+                }, manual ? 0 : 300);
+            } catch (e) {
+                // Truly offline — DNS failed, socket refused, radio down.
+                statusEl.className = 'status';
+                statusEl.textContent = 'Offline · retrying automatically…';
+            }
         }
 
-        // First probe at 400ms, then every 2s
+        // First probe at 400ms, then every 2s while offline.
         setTimeout(() => tryLoad(false), 400);
         setInterval(() => tryLoad(false), 2000);
 
-        // Instant trigger when the OS radio comes up
+        // Instant trigger when the OS reports the radio came up.
         window.addEventListener('online', () => tryLoad(true));
     </script>
 </body>
 </html>
-EOF
