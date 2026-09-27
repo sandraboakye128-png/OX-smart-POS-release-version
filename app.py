@@ -195,6 +195,107 @@ IS_PRODUCTION = os.getenv("FLASK_ENV") == "production" or os.getenv("RENDER")
 app.config['SESSION_COOKIE_SAMESITE'] = 'None' if IS_PRODUCTION else 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = True if IS_PRODUCTION else False
 
+# ============================================================
+#  CORS + BEARER TOKEN AUTH
+#  Added for the bundled APK shell, which lives at
+#  https://localhost and cannot reliably send cross-origin
+#  session cookies in Android WebView.
+# ============================================================
+import secrets
+from datetime import datetime, timezone
+
+# In-memory token store. Survives until process restart.
+# Move to a Postgres table later if you want tokens to outlive deploys.
+_API_TOKENS = {}
+_TOKEN_TTL = timedelta(days=30)
+
+_ALLOWED_CORS_ORIGINS = {
+    'https://localhost',
+    'capacitor://localhost',
+    'http://localhost',
+    'https://ox-smart-pos-release-version.onrender.com',
+}
+
+
+@app.before_request
+def _handle_cors_preflight():
+    if request.method == 'OPTIONS':
+        return ('', 204)
+
+
+@app.after_request
+def _add_cors_headers(response):
+    origin = request.headers.get('Origin', '')
+    if origin in _ALLOWED_CORS_ORIGINS:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, HEAD'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        response.headers['Access-Control-Max-Age'] = '86400'
+    return response
+
+
+@app.before_request
+def _check_bearer_token():
+    """If a valid bearer token is present, populate session from it so all
+    existing @login_required endpoints work unchanged."""
+    if 'user_id' in session:
+        return
+    auth = request.headers.get('Authorization', '')
+    if not auth.startswith('Bearer '):
+        return
+    token = auth[7:].strip()
+    data = _API_TOKENS.get(token)
+    if not data:
+        return
+    if data['expires_at'] < datetime.now(timezone.utc):
+        _API_TOKENS.pop(token, None)
+        return
+    session['user_id'] = data['user_id']
+    session['username'] = data['username']
+    session['role'] = data['role']
+    session.permanent = True
+
+
+@app.route('/api/auth/login-token', methods=['POST'])
+def api_auth_login_token():
+    """Same credentials as /api/auth/login, but returns a bearer token.
+    Used by the bundled APK shell."""
+    data = request.json or {}
+    username = data.get('username')
+    password = data.get('password')
+    if not username or not password:
+        return jsonify({'success': False, 'error': 'Missing credentials'}), 400
+
+    ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+    user_agent = request.headers.get('User-Agent')
+
+    user = login_user(username, password, ip_address, user_agent)
+    if not user:
+        return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+
+    token = secrets.token_urlsafe(32)
+    _API_TOKENS[token] = {
+        'user_id': user['id'],
+        'username': user['username'],
+        'role': user['role'],
+        'expires_at': datetime.now(timezone.utc) + _TOKEN_TTL,
+    }
+    return jsonify({
+        'success': True,
+        'token': token,
+        'user': user,
+        'expires_in': int(_TOKEN_TTL.total_seconds()),
+    })
+
+
+@app.route('/api/auth/revoke-token', methods=['POST'])
+def api_auth_revoke_token():
+    auth = request.headers.get('Authorization', '')
+    if auth.startswith('Bearer '):
+        _API_TOKENS.pop(auth[7:].strip(), None)
+    return jsonify({'success': True})
+
 @app.route('/sw.js')
 def service_worker():
     return send_from_directory('static', 'sw.js')

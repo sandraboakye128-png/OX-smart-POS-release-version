@@ -3,8 +3,10 @@
   "appName": "OX Smart POS",
   "webDir": "www",
   "server": {
-    "url": "https://ox-smart-pos-release-version.onrender.com",
-    "cleartext": true,
-    "errorPath": "offline.html"
+    "androidScheme": "https",
+    "allowNavigation": [
+      "ox-smart-pos-release-version.onrender.com"
+    ]
   }
 }
+

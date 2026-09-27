@@ -1,1 +1,363 @@
-<html><body>OX Smart POS</body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>OX Smart POS</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f172a; color: #e2e8f0;
+            min-height: 100vh;
+            padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+        }
+        .hidden { display: none !important; }
+
+        #loginView {
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; padding: 24px;
+        }
+        .login-box {
+            background: #1e293b; border-radius: 16px; padding: 32px 24px;
+            width: 100%; max-width: 380px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .login-box h1 { font-size: 1.5rem; color: #a5b4fc; margin-bottom: 6px; text-align: center; }
+        .login-box p  { color: #94a3b8; font-size: 0.9rem; margin-bottom: 24px; text-align: center; }
+        .login-box label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .login-box input {
+            width: 100%; padding: 12px 14px; margin-bottom: 16px;
+            background: #0f172a; border: 1px solid #334155; border-radius: 10px;
+            color: #e2e8f0; font-size: 1rem; outline: none;
+        }
+        .login-box input:focus { border-color: #00CFCF; }
+        .login-box button {
+            width: 100%; padding: 14px; background: #00CFCF; color: #0f172a;
+            border: 0; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .login-box button:active { transform: scale(0.98); }
+        .login-box button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .login-error { color: #f87171; font-size: 0.85rem; margin-top: 10px; text-align: center; min-height: 18px; }
+
+        #appView { padding: 16px; padding-top: calc(16px + env(safe-area-inset-top)); }
+        .app-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .app-header h1 { font-size: 1.25rem; color: #a5b4fc; }
+        .badge {
+            font-size: 0.7rem; padding: 4px 10px; border-radius: 10px;
+            font-weight: 600; letter-spacing: 0.3px;
+        }
+        .badge.online  { background: #14532d; color: #86efac; }
+        .badge.offline { background: #7f1d1d; color: #fecaca; }
+
+        .banner {
+            background: #7f1d1d; color: #fecaca; padding: 10px 14px;
+            border-radius: 10px; font-size: 0.85rem; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        .kpis {
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 10px; margin-bottom: 20px;
+        }
+        .kpi {
+            background: #1e293b; border-radius: 12px; padding: 14px;
+            border: 1px solid #334155;
+        }
+        .kpi-label { font-size: 0.7rem; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
+        .kpi-value { font-size: 1.5rem; font-weight: 700; color: #e2e8f0; }
+        .kpi.indigo .kpi-value { color: #a5b4fc; }
+        .kpi.blue   .kpi-value { color: #93c5fd; }
+        .kpi.teal   .kpi-value { color: #5eead4; }
+        .kpi.red    .kpi-value { color: #fca5a5; }
+
+        .card {
+            background: #1e293b; border-radius: 12px; padding: 14px;
+            margin-bottom: 14px; border: 1px solid #334155;
+        }
+        .card h2 { font-size: 0.9rem; margin-bottom: 10px; color: #cbd5e1; font-weight: 600; }
+        .list-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 0; border-bottom: 1px solid #334155; font-size: 0.85rem;
+        }
+        .list-item:last-child { border-bottom: 0; }
+        .list-item .name { color: #e2e8f0; }
+        .list-item .meta { color: #94a3b8; font-size: 0.75rem; }
+        .empty { color: #64748b; font-size: 0.85rem; text-align: center; padding: 12px; }
+
+        .actions { display: flex; gap: 10px; margin-top: 8px; }
+        .actions button {
+            flex: 1; padding: 12px; border: 0; border-radius: 10px;
+            font-size: 0.9rem; font-weight: 600; cursor: pointer;
+        }
+        .btn-primary { background: #00CFCF; color: #0f172a; }
+        .btn-primary:disabled { opacity: 0.5; }
+        .btn-secondary { background: #334155; color: #e2e8f0; }
+
+        .footnote { font-size: 0.7rem; color: #64748b; text-align: center; margin-top: 24px; }
+    </style>
+</head>
+<body>
+
+<div id="loginView">
+    <div class="login-box">
+        <h1>OX Smart POS</h1>
+        <p>Sign in to enable offline mode</p>
+        <label for="loginUser">Username</label>
+        <input type="text" id="loginUser" autocomplete="username" autocapitalize="none">
+        <label for="loginPass">Password</label>
+        <input type="password" id="loginPass" autocomplete="current-password">
+        <button id="loginBtn" onclick="doLogin()">Sign In</button>
+        <div class="login-error" id="loginError"></div>
+    </div>
+</div>
+
+<div id="appView" class="hidden">
+    <div class="app-header">
+        <h1>OX Smart POS</h1>
+        <span id="netBadge" class="badge">…</span>
+    </div>
+
+    <div id="offlineBanner" class="banner hidden">📶 Offline — showing cached data</div>
+
+    <div class="kpis">
+        <div class="kpi indigo"><div class="kpi-label">Products</div><div class="kpi-value" id="kpiProducts">—</div></div>
+        <div class="kpi blue">  <div class="kpi-label">Batches</div> <div class="kpi-value" id="kpiBatches">—</div></div>
+        <div class="kpi teal">  <div class="kpi-label">Sales Today</div><div class="kpi-value" id="kpiSales">—</div></div>
+        <div class="kpi red">   <div class="kpi-label">Low Stock</div><div class="kpi-value" id="kpiLowStock">—</div></div>
+    </div>
+
+    <div class="card">
+        <h2>🕒 Recent Sales</h2>
+        <div id="recentSales"><div class="empty">Loading…</div></div>
+    </div>
+
+    <div class="card">
+        <h2>⚠️ Low Stock</h2>
+        <div id="lowStockList"><div class="empty">Loading…</div></div>
+    </div>
+
+    <div class="actions">
+        <button id="syncBtn" class="btn-primary" onclick="syncNow()">🔄 Sync Now</button>
+        <button class="btn-secondary" onclick="openFullApp()">🌐 Open Full App</button>
+    </div>
+
+    <div class="footnote" id="syncStatus">Checking…</div>
+</div>
+
+<script src="dexie.min.js"></script>
+<script src="db.js"></script>
+<script src="sync.js"></script>
+
+<script>
+const RENDER_URL = 'https://ox-smart-pos-release-version.onrender.com';
+const TOKEN_KEY  = 'ox_api_token';
+
+const $ = id => document.getElementById(id);
+const loginView = $('loginView');
+const appView   = $('appView');
+const loginBtn  = $('loginBtn');
+const loginError= $('loginError');
+
+function updateNetBadge() {
+    const b = $('netBadge');
+    if (navigator.onLine) { b.textContent = '● Online';  b.className = 'badge online';  $('offlineBanner').classList.add('hidden'); }
+    else                  { b.textContent = '● Offline'; b.className = 'badge offline'; $('offlineBanner').classList.remove('hidden'); }
+}
+window.addEventListener('online',  () => { updateNetBadge(); maybeSyncOnReconnect(); });
+window.addEventListener('offline', updateNetBadge);
+updateNetBadge();
+
+function getToken()   { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } }
+function setToken(t)  { try { localStorage.setItem(TOKEN_KEY, t); } catch {} }
+function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch {} }
+
+async function doLogin() {
+    const username = $('loginUser').value.trim();
+    const password = $('loginPass').value;
+    loginError.textContent = '';
+    if (!username || !password) { loginError.textContent = 'Enter username and password'; return; }
+
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Signing in…';
+
+    try {
+        const res = await fetch(RENDER_URL + '/api/auth/login-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            loginError.textContent = data.error || 'Login failed';
+            return;
+        }
+        setToken(data.token);
+        try { localStorage.setItem('ox_user', JSON.stringify(data.user)); } catch {}
+        await enterApp();
+    } catch (e) {
+        loginError.textContent = navigator.onLine
+            ? ('Network error: ' + e.message)
+            : 'No connection — first sign-in requires Wi-Fi.';
+    } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Sign In';
+    }
+}
+
+async function enterApp() {
+    loginView.classList.add('hidden');
+    appView.classList.remove('hidden');
+
+    if (navigator.onLine) {
+        try {
+            const count = await db.products.count();
+            if (count === 0) {
+                $('syncStatus').textContent = 'First sync — downloading data…';
+                await pullData();
+            }
+        } catch (e) { console.warn('Initial pull failed:', e); }
+    }
+
+    await renderDashboard();
+    if (navigator.onLine) syncInBackground();
+}
+
+async function renderDashboard() {
+    try {
+        const [products, batches, allSales] = await Promise.all([
+            db.products.toArray(),
+            db.batches.toArray(),
+            db.sales.toArray()
+        ]);
+
+        $('kpiProducts').textContent = products.length;
+        $('kpiBatches').textContent  = batches.length;
+
+        const today = new Date().toISOString().slice(0, 10);
+        const todaySales = allSales.filter(s => !s.reversed && s.date && String(s.date).slice(0, 10) === today);
+        const totalToday = todaySales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
+        $('kpiSales').textContent = '₵' + totalToday.toFixed(2);
+
+        const goodByProduct = {};
+        batches.forEach(b => {
+            const good = (b.remaining_quantity || 0) - (b.claimed_quantity || 0);
+            if (good > 0) goodByProduct[b.product_id] = (goodByProduct[b.product_id] || 0) + good;
+        });
+        const lowStock = products.filter(p => {
+            const g = goodByProduct[p.id] || 0;
+            return g > 0 && g <= 10;
+        }).map(p => ({ name: p.name, brand: p.brand, good: goodByProduct[p.id] }));
+        $('kpiLowStock').textContent = lowStock.length;
+
+        const recent = [...allSales].filter(s => !s.reversed).sort((a, b) =>
+            String(b.date || '').localeCompare(String(a.date || ''))
+        ).slice(0, 5);
+        if (recent.length === 0) {
+            $('recentSales').innerHTML = '<div class="empty">No sales yet.</div>';
+        } else {
+            $('recentSales').innerHTML = recent.map(s =>
+                '<div class="list-item">' +
+                    '<div>' +
+                        '<div class="name">₵' + parseFloat(s.total || 0).toFixed(2) + '</div>' +
+                        '<div class="meta">' + String(s.date || '').slice(0, 16).replace('T', ' ') + '</div>' +
+                    '</div>' +
+                    '<div class="meta">' + (s.payment_method || 'cash') + '</div>' +
+                '</div>'
+            ).join('');
+        }
+
+        if (lowStock.length === 0) {
+            $('lowStockList').innerHTML = '<div class="empty">All good — nothing low.</div>';
+        } else {
+            $('lowStockList').innerHTML = lowStock.slice(0, 8).map(p =>
+                '<div class="list-item">' +
+                    '<div>' +
+                        '<div class="name">' + escapeHtml(p.name) + '</div>' +
+                        '<div class="meta">' + escapeHtml(p.brand || '') + '</div>' +
+                    '</div>' +
+                    '<div class="meta" style="color:#fca5a5;font-weight:600;">' + p.good + ' left</div>' +
+                '</div>'
+            ).join('');
+        }
+
+        updateSyncStatus();
+    } catch (e) {
+        console.warn('renderDashboard failed:', e);
+        $('syncStatus').textContent = 'Error: ' + e.message;
+    }
+}
+
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, m =>
+        ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+}
+
+async function syncNow() {
+    if (!navigator.onLine) { alert('No connection.'); return; }
+    $('syncBtn').disabled = true;
+    $('syncStatus').textContent = 'Syncing…';
+    try {
+        await fullSync();
+        await renderDashboard();
+    } catch (e) {
+        $('syncStatus').textContent = 'Sync failed: ' + e.message;
+    } finally {
+        $('syncBtn').disabled = false;
+    }
+}
+
+function syncInBackground() {
+    $('syncStatus').textContent = 'Syncing in background…';
+    fullSync().then(renderDashboard).catch(() => {});
+}
+
+function maybeSyncOnReconnect() {
+    if (getToken()) fullSync().then(renderDashboard).catch(() => {});
+}
+
+async function updateSyncStatus() {
+    let pending = 0;
+    try { pending = await getPendingCount(); } catch (e) {}
+    const last = localStorage.getItem('lastSyncTime');
+    const ago = last ? Math.floor((Date.now() - parseInt(last)) / 1000) : null;
+    let txt = 'Ready';
+    if (!navigator.onLine) txt = 'Offline — data is cached';
+    else if (pending > 0) txt = pending + ' change' + (pending === 1 ? '' : 's') + ' waiting to sync';
+    else if (ago !== null) txt = 'Last sync: ' + (ago < 60 ? ago + 's' : Math.floor(ago / 60) + 'm') + ' ago';
+    $('syncStatus').textContent = txt;
+}
+
+function openFullApp() {
+    window.open(RENDER_URL + '/', '_system');
+}
+
+(async function boot() {
+    const token = getToken();
+    if (!token) {
+        loginView.classList.remove('hidden');
+        return;
+    }
+    if (navigator.onLine) {
+        try {
+            const res = await fetch(RENDER_URL + '/api/auth/check', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            if (!data.logged_in) { clearToken(); loginView.classList.remove('hidden'); return; }
+        } catch (e) {
+            // Network failed — trust the local token
+        }
+    }
+    await enterApp();
+})();
+
+document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginPass').focus(); });
+</script>
+</body>
+</html>
