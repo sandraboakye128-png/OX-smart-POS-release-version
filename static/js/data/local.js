@@ -129,8 +129,13 @@ window.OX_DATA_LOCAL = {
     // ---------------- LOW STOCK ----------------
     lowStock: {
         /**
-         * Returns the same shape as /api/low_stock/split — enough for
-         * the pages that only read `product_level.counts.low_stock`.
+         * Returns the same shape as /api/low_stock/split.
+         *
+         * Handles virtual categories the way the Flask endpoint does:
+         *   'all'          → no filter
+         *   'non-Screen'   → exclude category === 'Screen'
+         *   'Screen'       → only category === 'Screen'
+         *   anything else  → exact match (case-insensitive)
          *
          * @param {{ category?: string }} opts
          * @returns {Promise<{success: boolean, batch_level: Object, product_level: Object}>}
@@ -142,6 +147,9 @@ window.OX_DATA_LOCAL = {
 
             const { category } = opts;
             const catLower = category ? String(category).toLowerCase() : null;
+            const isAll = !catLower || catLower === 'all';
+            const isNonScreen = catLower === 'non-screen';
+            const isScreenOnly = catLower === 'screen';
 
             const [allProducts, allBatches] = await Promise.all([
                 db.products.toArray(),
@@ -161,10 +169,18 @@ window.OX_DATA_LOCAL = {
             const low_stock_products = [];
             for (const p of allProducts) {
                 const pCat = (p.category || '').toLowerCase();
-                if (catLower && pCat !== catLower) continue;
+                if (!isAll) {
+                    if (isNonScreen) {
+                        if (pCat === 'screen') continue;
+                    } else if (isScreenOnly) {
+                        if (pCat !== 'screen') continue;
+                    } else {
+                        if (pCat !== catLower) continue;
+                    }
+                }
 
                 const stock = stockByProduct[p.id] || 0;
-                // low_stock means 0 < stock <= 10. out_of_stock is stock == 0.
+                // low_stock means 0 < stock <= 10.
                 if (stock > 0 && stock <= LOW_THRESHOLD) {
                     low_stock_products.push({
                         product_id: p.id,
@@ -194,4 +210,122 @@ window.OX_DATA_LOCAL = {
             };
         },
     },
+
+    // ---------------- DASHBOARD ----------------
+    dashboard: {
+        /**
+         * Same shape as /api/dashboard/summary.
+         * @param {{ start_datetime?: string, end_datetime?: string }} opts
+         * @returns {Promise<{sales: number, profit: number, total_products: number, total_batches: number}>}
+         */
+        async summary(opts = {}) {
+            if (typeof db === 'undefined' || !db) {
+                throw new Error('Dexie (db) not available');
+            }
+            const { start_datetime, end_datetime } = opts;
+
+            const [products, batches, sales] = await Promise.all([
+                db.products.toArray(),
+                db.batches.toArray(),
+                db.sales.toArray(),
+            ]);
+
+            const filtered = _filterSales(sales, start_datetime, end_datetime);
+
+            return {
+                sales:          filtered.reduce((s, x) => s + (parseFloat(x.total)  || 0), 0),
+                profit:         filtered.reduce((s, x) => s + (parseFloat(x.profit) || 0), 0),
+                total_products: products.length,
+                total_batches:  batches.length,
+            };
+        },
+
+        /**
+         * Same shape as /api/dashboard/top_products.
+         * @param {{ start_datetime?: string, end_datetime?: string, limit?: number }} opts
+         * @returns {Promise<Array<{name: string, brand: string, category: string, qty: number}>>}
+         */
+        async topProducts(opts = {}) {
+            if (typeof db === 'undefined' || !db) {
+                throw new Error('Dexie (db) not available');
+            }
+            const { start_datetime, end_datetime, limit = 10 } = opts;
+
+            const [sales, items, products] = await Promise.all([
+                db.sales.toArray(),
+                db.sales_items.toArray(),
+                db.products.toArray(),
+            ]);
+
+            const filtered = _filterSales(sales, start_datetime, end_datetime);
+            const validIds = new Set(filtered.map(s => s.id));
+
+            const qtyByProduct = {};
+            for (const si of items) {
+                if (!validIds.has(si.sale_id)) continue;
+                const pid = si.product_id;
+                if (pid == null) continue;
+                qtyByProduct[pid] = (qtyByProduct[pid] || 0) + (si.quantity || 0);
+            }
+
+            const pmap = new Map(products.map(p => [p.id, p]));
+
+            return Object.entries(qtyByProduct)
+                .map(([pid, qty]) => {
+                    const p = pmap.get(parseInt(pid, 10));
+                    return {
+                        name:     p ? p.name     : 'Unknown',
+                        brand:    p ? p.brand    : '',
+                        category: p ? p.category : '',
+                        qty,
+                    };
+                })
+                .sort((a, b) => b.qty - a.qty)
+                .slice(0, limit);
+        },
+
+        /**
+         * Same shape as /api/dashboard/sales_history.
+         * @param {{ start_datetime?: string, end_datetime?: string }} opts
+         * @returns {Promise<Array<{date: string, total_sales: number, profit: number, discount: number}>>}
+         */
+        async salesHistory(opts = {}) {
+            if (typeof db === 'undefined' || !db) {
+                throw new Error('Dexie (db) not available');
+            }
+            const { start_datetime, end_datetime } = opts;
+
+            const sales = await db.sales.toArray();
+            const filtered = _filterSales(sales, start_datetime, end_datetime);
+
+            const byDate = {};
+            for (const s of filtered) {
+                if (!s.date) continue;
+                // s.date is an ISO-ish timestamp. Group by calendar day.
+                const key = String(s.date).split(' ')[0].split('T')[0];
+                if (!key) continue;
+                if (!byDate[key]) {
+                    byDate[key] = { date: key, total_sales: 0, profit: 0, discount: 0 };
+                }
+                byDate[key].total_sales += parseFloat(s.total)    || 0;
+                byDate[key].profit      += parseFloat(s.profit)   || 0;
+                byDate[key].discount    += parseFloat(s.discount) || 0;
+            }
+
+            return Object.values(byDate).sort((a, b) => b.date.localeCompare(a.date));
+        },
+    },
 };
+
+// ------------------------------------------------------------------
+// Internal helper — filter sales by date window, dropping reversed.
+// Kept outside the object literal to avoid re-creating on every call.
+// ------------------------------------------------------------------
+function _filterSales(sales, startDt, endDt) {
+    return sales.filter(s => {
+        if (s.reversed) return false;
+        if (startDt && (!s.date || s.date < startDt)) return false;
+        if (endDt && (!s.date || s.date > endDt)) return false;
+        return true;
+    });
+}

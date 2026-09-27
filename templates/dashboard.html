@@ -8,7 +8,10 @@
 
 <!-- Header with date range, time range and real-time clock -->
 <div class="flex flex-wrap justify-between items-center gap-3 md:gap-4 mb-4 md:mb-6">
-    <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Dashboard</h1>
+    <div class="flex items-center gap-2">
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Dashboard</h1>
+        <span id="dataSourceBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-gray-100 text-gray-500"></span>
+    </div>
     <div class="flex flex-wrap items-center gap-2 md:gap-4">
         <!-- Date Range Picker -->
         <div class="flex items-center gap-1 md:gap-2">
@@ -113,17 +116,39 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log("DOM loaded – Dashboard with API‑first rendering");
+    // ============================================================
+    //  APK GATE — same flag as products.html
+    //
+    //  Web / PWA: IS_APK = false → existing API + db.cache path
+    //  APK:       IS_APK = true  → OX_DATA.dashboard.* (reads Dexie)
+    // ============================================================
+    const IS_APK = (typeof OX_ENV !== 'undefined') && !!OX_ENV.useLocalDb;
+
+    document.addEventListener('DOMContentLoaded', async function() {
+        console.log("DOM loaded – Dashboard");
+
+        const badge = document.getElementById('dataSourceBadge');
+        if (badge) badge.textContent = IS_APK ? 'APK · Dexie' : 'Web · API';
+
+        // ── APK-only: ensure Dexie has data before first render ──
+        if (IS_APK && typeof db !== 'undefined' && db) {
+            try {
+                const count = await db.products.count();
+                if (count === 0 && typeof pullData === 'function') {
+                    console.log('[dashboard] Dexie empty — running initial pull…');
+                    await pullData();
+                    console.log('[dashboard] Initial pull complete.');
+                }
+            } catch (e) {
+                console.warn('[dashboard] pre-load sync failed:', e);
+            }
+        }
 
         // ---------- Offline banner ----------
         function updateOfflineBanner() {
             const banner = document.getElementById('offlineBanner');
-            if (!navigator.onLine) {
-                banner.classList.remove('hidden');
-            } else {
-                banner.classList.add('hidden');
-            }
+            if (!navigator.onLine) banner.classList.remove('hidden');
+            else banner.classList.add('hidden');
         }
         window.addEventListener('online', updateOfflineBanner);
         window.addEventListener('offline', updateOfflineBanner);
@@ -142,7 +167,6 @@
         function formatMoney(amount) {
             return '₵' + (parseFloat(amount) || 0).toFixed(2);
         }
-
         function escapeHtml(str) {
             if (!str) return '';
             return str.replace(/[&<>]/g, function(m) {
@@ -152,7 +176,6 @@
                 return m;
             });
         }
-
         function updateClock() {
             const now = new Date();
             const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -161,7 +184,6 @@
         }
         updateClock();
 
-        // Get datetime range
         function getDateTimeRange() {
             let startDateTime = null, endDateTime = null;
             if (startDate) {
@@ -183,9 +205,7 @@
             const daysInMonth = new Date(year, month + 1, 0).getDate();
 
             let html = '<tr>';
-            for (let i = 0; i < firstDay; i++) {
-                html += '<td></td>';
-            }
+            for (let i = 0; i < firstDay; i++) html += '<td></td>';
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateObj = new Date(year, month, d);
                 const dateStr = dateObj.toISOString().split('T')[0];
@@ -195,9 +215,7 @@
                 if (isSelected) cls += 'bg-blue-500 text-white hover:bg-blue-600 ';
                 else if (isToday) cls += 'bg-gray-200 font-bold ';
                 html += `<td class="${cls}" data-date="${dateStr}">${d}</td>`;
-                if ((firstDay + d) % 7 === 0) {
-                    html += '</tr><tr>';
-                }
+                if ((firstDay + d) % 7 === 0) html += '</tr><tr>';
             }
             html += '</tr>';
             document.getElementById('calendarBody').innerHTML = html;
@@ -205,10 +223,8 @@
             document.querySelectorAll('#calendarBody td[data-date]').forEach(td => {
                 td.addEventListener('click', function() {
                     const newDate = this.dataset.date;
-                    startDate = newDate;
-                    endDate = newDate;
-                    startTime = '';
-                    endTime = '';
+                    startDate = newDate; endDate = newDate;
+                    startTime = ''; endTime = '';
                     selectedDate = newDate;
                     document.getElementById('startDate').value = newDate;
                     document.getElementById('endDate').value = newDate;
@@ -245,103 +261,116 @@
             loadDashboard();
         });
 
-        // ========== MAIN DASHBOARD LOAD – API‑FIRST ==========
+        // ========== MAIN DASHBOARD LOAD ==========
         async function loadDashboard() {
-            if (!db) {
+            if (typeof db === 'undefined' || !db) {
                 console.warn('Dexie not available – showing empty');
                 return;
             }
 
             updateOfflineBanner();
 
-            // Build query params
-            const range = getDateTimeRange();
-            const params = new URLSearchParams();
-            if (range.start_datetime) params.append('start_datetime', range.start_datetime);
-            if (range.end_datetime) params.append('end_datetime', range.end_datetime);
-
             let summary = null;
             let topProducts = [];
             let salesHistory = [];
             let lowStock = [];
-            let lowStockSplit = null;
             let apiSuccess = false;
 
-            // 1. Try API first (if online)
-            if (navigator.onLine) {
+            if (IS_APK) {
+                // ── APK path: everything from OX_DATA. No network. ──
                 try {
-                    const summaryUrl = `/api/dashboard/summary${params.toString() ? '?' + params.toString() : ''}`;
-                    const topUrl = `/api/dashboard/top_products${params.toString() ? '?' + params.toString() : ''}`;
-                    const historyUrl = `/api/dashboard/sales_history${params.toString() ? '?' + params.toString() : ''}`;
-                    const lowStockUrl = '/api/low_stock/split?category=all';
-
-                    const [summaryRes, topRes, historyRes, lowStockRes] = await Promise.all([
-                        fetch(summaryUrl),
-                        fetch(topUrl),
-                        fetch(historyUrl),
-                        fetch(lowStockUrl)
+                    const range = getDateTimeRange();
+                    const [sum, top, hist, lowSplit] = await Promise.all([
+                        OX_DATA.dashboard.summary(range),
+                        OX_DATA.dashboard.topProducts(range),
+                        OX_DATA.dashboard.salesHistory(range),
+                        OX_DATA.lowStock.split({ category: 'all' }),
                     ]);
+                    summary = sum;
+                    topProducts = top;
+                    salesHistory = hist;
+                    lowStock = (lowSplit && lowSplit.product_level && lowSplit.product_level.low_stock) || [];
+                    console.log('📦 Dashboard computed from OX_DATA (Dexie)');
+                } catch (e) {
+                    console.warn('OX_DATA dashboard fetch failed:', e);
+                }
+            } else {
+                // ── Web path: unchanged API + cache behavior ──
+                const range = getDateTimeRange();
+                const params = new URLSearchParams();
+                if (range.start_datetime) params.append('start_datetime', range.start_datetime);
+                if (range.end_datetime)   params.append('end_datetime',   range.end_datetime);
 
-                    if (summaryRes.ok) summary = await summaryRes.json();
-                    if (topRes.ok) topProducts = await topRes.json();
-                    if (historyRes.ok) salesHistory = await historyRes.json();
-                    if (lowStockRes.ok) {
-                        lowStockSplit = await lowStockRes.json();
-                        if (lowStockSplit && lowStockSplit.product_level) {
-                            lowStock = lowStockSplit.product_level.low_stock || [];
+                let lowStockSplit = null;
+
+                if (navigator.onLine) {
+                    try {
+                        const summaryUrl = `/api/dashboard/summary${params.toString() ? '?' + params.toString() : ''}`;
+                        const topUrl     = `/api/dashboard/top_products${params.toString() ? '?' + params.toString() : ''}`;
+                        const historyUrl = `/api/dashboard/sales_history${params.toString() ? '?' + params.toString() : ''}`;
+                        const lowStockUrl = '/api/low_stock/split?category=all';
+
+                        const [summaryRes, topRes, historyRes, lowStockRes] = await Promise.all([
+                            fetch(summaryUrl), fetch(topUrl), fetch(historyUrl), fetch(lowStockUrl)
+                        ]);
+
+                        if (summaryRes.ok) summary = await summaryRes.json();
+                        if (topRes.ok)     topProducts = await topRes.json();
+                        if (historyRes.ok) salesHistory = await historyRes.json();
+                        if (lowStockRes.ok) {
+                            lowStockSplit = await lowStockRes.json();
+                            if (lowStockSplit && lowStockSplit.product_level) {
+                                lowStock = lowStockSplit.product_level.low_stock || [];
+                            }
                         }
+
+                        await db.cache.put({ key: 'dashboard_summary',           value: summary,       timestamp: Date.now() });
+                        await db.cache.put({ key: 'dashboard_top_products',      value: topProducts,   timestamp: Date.now() });
+                        await db.cache.put({ key: 'dashboard_sales_history',     value: salesHistory,  timestamp: Date.now() });
+                        await db.cache.put({ key: 'dashboard_low_stock_split',   value: lowStockSplit, timestamp: Date.now() });
+                        await db.cache.put({ key: 'dashboard_last_update',       value: Date.now(),    timestamp: Date.now() });
+
+                        apiSuccess = true;
+                        console.log('✅ Dashboard data loaded from API');
+                    } catch (e) {
+                        console.warn('API failed, falling back to Dexie cache', e);
                     }
+                }
 
-                    // Store in Dexie cache for offline
-                    await db.cache.put({ key: 'dashboard_summary', value: summary, timestamp: Date.now() });
-                    await db.cache.put({ key: 'dashboard_top_products', value: topProducts, timestamp: Date.now() });
-                    await db.cache.put({ key: 'dashboard_sales_history', value: salesHistory, timestamp: Date.now() });
-                    await db.cache.put({ key: 'dashboard_low_stock_split', value: lowStockSplit, timestamp: Date.now() });
-                    await db.cache.put({ key: 'dashboard_last_update', value: Date.now(), timestamp: Date.now() });
+                if (!apiSuccess || !navigator.onLine) {
+                    try {
+                        const cachedSummary = await db.cache.get('dashboard_summary');
+                        if (cachedSummary) summary = cachedSummary.value;
+                        const cachedTop = await db.cache.get('dashboard_top_products');
+                        if (cachedTop) topProducts = cachedTop.value;
+                        const cachedHistory = await db.cache.get('dashboard_sales_history');
+                        if (cachedHistory) salesHistory = cachedHistory.value;
 
-                    apiSuccess = true;
-                    console.log('✅ Dashboard data loaded from API');
-                } catch (e) {
-                    console.warn('API failed, falling back to Dexie cache', e);
+                        const cachedSplit = await db.cache.get('dashboard_low_stock_split');
+                        if (cachedSplit && cachedSplit.value && cachedSplit.value.product_level) {
+                            lowStockSplit = cachedSplit.value;
+                            lowStock = lowStockSplit.product_level.low_stock || [];
+                        } else {
+                            const cachedLowStock = await db.cache.get('dashboard_low_stock');
+                            if (cachedLowStock) lowStock = cachedLowStock.value || [];
+                        }
+                        console.log('📦 Dashboard data loaded from Dexie cache');
+                    } catch (e) {
+                        console.warn('Failed to read from Dexie cache:', e);
+                    }
                 }
             }
 
-            // 2. If API failed or offline, read from Dexie cache
-            if (!apiSuccess || !navigator.onLine) {
-                try {
-                    const cachedSummary = await db.cache.get('dashboard_summary');
-                    if (cachedSummary) summary = cachedSummary.value;
-                    const cachedTop = await db.cache.get('dashboard_top_products');
-                    if (cachedTop) topProducts = cachedTop.value;
-                    const cachedHistory = await db.cache.get('dashboard_sales_history');
-                    if (cachedHistory) salesHistory = cachedHistory.value;
-
-                    // ✅ Read split data with legacy fallback
-                    const cachedSplit = await db.cache.get('dashboard_low_stock_split');
-                    if (cachedSplit && cachedSplit.value && cachedSplit.value.product_level) {
-                        lowStockSplit = cachedSplit.value;
-                        lowStock = lowStockSplit.product_level.low_stock || [];
-                    } else {
-                        // Legacy: old key that stored just an array
-                        const cachedLowStock = await db.cache.get('dashboard_low_stock');
-                        if (cachedLowStock) lowStock = cachedLowStock.value || [];
-                    }
-                    console.log('📦 Dashboard data loaded from Dexie cache');
-                } catch (e) {
-                    console.warn('Failed to read from Dexie cache:', e);
-                }
-            }
-
-            // 3. Render KPI cards
+            // KPI cards
             if (summary) {
-                document.getElementById('salesValue').innerText = formatMoney(summary.sales || 0);
-                document.getElementById('profitValue').innerText = formatMoney(summary.profit || 0);
+                document.getElementById('salesValue').innerText    = formatMoney(summary.sales || 0);
+                document.getElementById('profitValue').innerText   = formatMoney(summary.profit || 0);
                 document.getElementById('productsValue').innerText = summary.total_products || 0;
-                document.getElementById('batchesValue').innerText = summary.total_batches || 0;
+                document.getElementById('batchesValue').innerText  = summary.total_batches || 0;
                 document.getElementById('lowStockValue').innerText = lowStock ? lowStock.length : 0;
             }
 
-            // Render top products
+            // Top products
             const topContainer = document.getElementById('topProductsList');
             topContainer.innerHTML = '';
             if (topProducts && topProducts.length) {
@@ -424,24 +453,19 @@
                 historyContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">📅 No sales history found for this period.</div>';
             }
 
-            // Low stock alert (once per session, non-blocking)
+            // Low stock alert (once per session)
             if (!lowStockShown && lowStock && lowStock.length > 0) {
-                // ✅ Non-blocking: show for 5 items max, no product detail alert
                 const previewList = lowStock.slice(0, 5).map(item => {
-                    return `• ${item.name} (${item.brand}) - ${item.total_remaining} left`;
+                    return `• ${item.name} (${item.brand}) - ${item.total_remaining != null ? item.total_remaining : item.stock} left`;
                 }).join('\n');
                 const moreCount = lowStock.length > 5 ? `\n\n... and ${lowStock.length - 5} more items` : '';
-
-                // Use setTimeout so it doesn't block the initial render
                 setTimeout(() => {
                     alert(`⚠️ LOW STOCK ALERT ⚠️\n\n${lowStock.length} product(s) are running low:\n\n${previewList}${moreCount}\n\nPlease restock soon!`);
                 }, 100);
-
                 lowStockShown = true;
             }
         }
 
-        // Generate colors for pie chart
         function generateColors(n) {
             const colors = [];
             for (let i = 0; i < n; i++) {
@@ -451,25 +475,18 @@
             return colors;
         }
 
-        // ---------- Apply filter ----------
         function applyFilter() {
             const start = document.getElementById('startDate').value;
             const end = document.getElementById('endDate').value;
             const st = document.getElementById('startTime').value;
             const et = document.getElementById('endTime').value;
-            if (!start && !end) {
-                alert('Please select at least a start date or end date');
-                return;
-            }
+            if (!start && !end) { alert('Please select at least a start date or end date'); return; }
             startDate = start || null;
             endDate = end || null;
             startTime = st || null;
             endTime = et || null;
-            if (startDate && startDate === endDate) {
-                selectedDate = startDate;
-            } else {
-                selectedDate = null;
-            }
+            if (startDate && startDate === endDate) selectedDate = startDate;
+            else selectedDate = null;
             if (startDate) {
                 const d = new Date(startDate);
                 calendarYear = d.getFullYear();
@@ -487,10 +504,8 @@
         document.getElementById('endDate').value = today;
         document.getElementById('startTime').value = '00:00';
         document.getElementById('endTime').value = '23:59';
-        startDate = today;
-        endDate = today;
-        startTime = '00:00';
-        endTime = '23:59';
+        startDate = today; endDate = today;
+        startTime = '00:00'; endTime = '23:59';
         selectedDate = today;
 
         const now = new Date();
@@ -498,18 +513,12 @@
         calendarMonth = now.getMonth();
         renderCalendar(calendarYear, calendarMonth);
 
-        // Reset lowStockShown when page is reloaded
         window.addEventListener('beforeunload', function() {
             lowStockShown = false;
         });
 
-        // Initial load
         loadDashboard();
-
-        // Refresh on reconnect
-        window.addEventListener('online', function() {
-            loadDashboard();
-        });
+        window.addEventListener('online', function() { loadDashboard(); });
     });
 </script>
 {% endblock %}
