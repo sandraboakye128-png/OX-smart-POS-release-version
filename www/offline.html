@@ -30,13 +30,47 @@
         }
         .status.checking { color: #fbbf24; }
         .status.online   { color: #22c55e; }
+
+        /* ---------- Buttons ---------- */
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+        }
         button {
-            margin-top: 20px; background: #00CFCF; color: #0f172a;
-            border: 0; padding: 12px 28px; border-radius: 10px;
-            font-size: 1rem; font-weight: 600; cursor: pointer;
-            transition: transform 0.1s;
+            flex: 1;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.15s, border-color 0.15s, color 0.15s;
+            font-family: inherit;
         }
         button:active { transform: scale(0.96); }
+
+        .btn-primary {
+            background: #00CFCF;
+            color: #0f172a;
+            border: 0;
+        }
+        .btn-primary:hover { background: #33d9d9; }
+
+        .btn-secondary {
+            background: transparent;
+            color: #94a3b8;
+            border: 1px solid #334155;
+        }
+        .btn-secondary:hover {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-color: #475569;
+        }
+        .btn-secondary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -46,16 +80,69 @@
         <p>OX Smart POS needs a network the first time it opens after a restart.</p>
         <p>Turn on Wi-Fi or mobile data — the app will open automatically.</p>
         <div class="status checking" id="status">Checking connection…</div>
-        <button onclick="tryLoad(true)">Retry now</button>
+
+        <div class="buttons">
+            <button class="btn-secondary" id="backBtn" onclick="goBack()">← Back</button>
+            <button class="btn-primary" onclick="tryLoad(true)">Retry now</button>
+        </div>
     </div>
+
     <script>
         // Must match server.url in capacitor.config.json
         const APP_URL   = 'https://ox-smart-pos-release-version.onrender.com';
         const PROBE_URL = APP_URL + '/sw.js';   // small file, cheap HEAD probe
 
         const statusEl = document.getElementById('status');
+        const backBtn  = document.getElementById('backBtn');
         let navigating = false;   // guard against double-navigation from overlapping probes
 
+        // ============================================================
+        //  BACK — return to wherever the user came from
+        //
+        //  Strategy, in order:
+        //    1. Browser history (works when we got here from the shell)
+        //    2. Local bundled shell (index.html) — Capacitor cold-start case
+        //    3. If neither works, tell the user
+        //
+        //  We check `history.length > 1` because on a fresh WebView the
+        //  only entry is this offline page itself — calling back() there
+        //  does nothing, so we must have a fallback.
+        // ============================================================
+        function goBack() {
+            backBtn.disabled = true;
+
+            // 1. Try browser history
+            if (window.history.length > 1) {
+                try {
+                    window.history.back();
+                    // If history.back() lands nowhere (rare), re-enable
+                    // the button after a beat so the user can try again.
+                    setTimeout(() => { backBtn.disabled = false; }, 800);
+                    return;
+                } catch (e) {
+                    console.warn('[offline] history.back() failed:', e);
+                }
+            }
+
+            // 2. Fall back to the local bundled shell
+            //    offline.html sits next to index.html inside www/
+            try {
+                window.location.href = 'index.html';
+                return;
+            } catch (e) {
+                console.warn('[offline] index.html fallback failed:', e);
+            }
+
+            // 3. Nothing worked — tell the user
+            statusEl.className = 'status';
+            statusEl.textContent = 'Nothing to go back to — tap Retry when online.';
+            backBtn.disabled = false;
+        }
+        window.goBack = goBack;
+
+        // ============================================================
+        //  CONNECTION PROBE + AUTO-NAVIGATE
+        // ============================================================
         async function tryLoad(manual) {
             if (navigating) return;
             statusEl.className = 'status checking';
@@ -94,6 +181,8 @@
                 // Truly offline — DNS failed, socket refused, radio down.
                 statusEl.className = 'status';
                 statusEl.textContent = 'Offline · retrying automatically…';
+                // Re-enable Back in case the user pressed it during the probe
+                backBtn.disabled = false;
             }
         }
 
