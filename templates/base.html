@@ -59,10 +59,6 @@
     <script src="{{ url_for('static', filename='js/sync.js') }}"></script>
 
     <!-- ===== PHASE 3: DATA LAYER ===== -->
-    <!-- remote.js  → OX_DATA_REMOTE  (web: hits /api/*)
-         local.js   → OX_DATA_LOCAL   (APK: reads Dexie)
-         provider.js → picks one, exposes window.OX_DATA
-         Order matters: remote + local first, then provider. -->
     <script src="{{ url_for('static', filename='js/data/remote.js') }}"></script>
     <script src="{{ url_for('static', filename='js/data/local.js') }}"></script>
     <script src="{{ url_for('static', filename='js/data/provider.js') }}"></script>
@@ -210,10 +206,9 @@
         }
 
         /* ============================================================
-           NOTIFICATION DROPDOWN — bulletproof layout
-           - Desktop: absolute, anchored to the bell wrapper
-           - Mobile:  fixed, anchored to viewport (avoids clipping)
-           - min-height: 0 on the list so flex scrolling actually works
+           NOTIFICATION DROPDOWN — base
+           Desktop: absolute anchored to the bell.
+           Mobile:  overridden below (fixed, viewport-anchored).
            ============================================================ */
         .notif-dropdown {
             position: absolute; top: calc(100% + 8px); right: 0;
@@ -227,6 +222,10 @@
             z-index: 100; overflow: hidden;
             display: flex; flex-direction: column;
             max-height: min(85vh, 680px);
+            /* Smooth animation on low-end devices */
+            will-change: transform, opacity;
+            /* Scrolling inside the dropdown must never scroll the page */
+            overscroll-behavior: contain;
         }
         .notif-dropdown.open { opacity: 1; visibility: visible; transform: translateY(0); }
         .notif-header {
@@ -345,30 +344,73 @@
         }
         .notif-close:hover { background: #f1f5f9; color: #475569; }
 
-        /* ---- Mobile dropdown: fixed, edge-anchored, above the topbar ----
-           The env(safe-area-inset-bottom) subtraction reserves space for the
-           phone's gesture bar / nav buttons so the last item isn't clipped
-           behind the system UI in the Android WebView. On devices without a
-           safe area, env(...) returns 0px and nothing changes. */
+        /* ============================================================
+           NOTIFICATION DROPDOWN — DESKTOP (> 640px)
+           Absolute-anchored to the bell. Hard-clamps the height so
+           very short desktop windows don't push it off the top of
+           the screen.
+           ============================================================ */
+        @media (min-width: 641px) {
+            .notif-dropdown {
+                max-height: min(85vh, 680px, calc(100vh - 80px));
+            }
+        }
+
+        /* ============================================================
+           NOTIFICATION DROPDOWN — MOBILE (≤ 640px)
+           Fixed to the viewport instead of the bell, so it can never
+           be clipped by the topbar. Reserves:
+             - 62px top offset (topbar height + gap)
+             - 16px bottom margin
+             - env(safe-area-inset-bottom) for the gesture bar / nav
+             - min-height floor so it never collapses to just header
+           ============================================================ */
         @media (max-width: 640px) {
             .notif-dropdown {
                 position: fixed;
-                top: 62px;                 /* just below the topbar */
+                top: 62px;
                 left: 8px;
                 right: 8px;
                 width: auto;
                 max-width: none;
-                min-height: 0;
+                /* Header + at least one full card is ~140px. */
+                min-height: 140px;
                 max-height: calc(100dvh - 78px - env(safe-area-inset-bottom, 0px));
                 transform: translateY(-4px);
             }
             .notif-dropdown.open { transform: translateY(0); }
         }
-        /* Fallback for older browsers without dvh support */
+        /* Fallback for older WebViews without dvh support */
         @supports not (height: 100dvh) {
             @media (max-width: 640px) {
                 .notif-dropdown {
                     max-height: calc(100vh - 78px - env(safe-area-inset-bottom, 0px));
+                }
+            }
+        }
+
+        /* ============================================================
+           NOTIFICATION DROPDOWN — SHORT VIEWPORTS
+           Landscape phones and split-screen modes. Uses a tighter
+           top offset (topbar is thinner when brand text is
+           truncated) and takes almost the full viewport height.
+           ============================================================ */
+        @media (max-height: 500px) {
+            .notif-dropdown {
+                position: fixed;
+                top: 56px;
+                left: 12px;
+                right: 12px;
+                width: auto;
+                max-width: none;
+                min-height: 0;
+                max-height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px));
+            }
+        }
+        @supports not (height: 100dvh) {
+            @media (max-height: 500px) {
+                .notif-dropdown {
+                    max-height: calc(100vh - 64px - env(safe-area-inset-bottom, 0px));
                 }
             }
         }
@@ -813,7 +855,7 @@
                     </div>
                 </div>
 
-                <!-- User chip — clickable: admins → edit their own user page; regular users → settings -->
+                <!-- User chip -->
                 {% if current_user %}
                 {% set _is_admin_user = (current_user.role == 'admin' or current_user.username.lower() == 'oxbee') %}
                 <a href="{{ ('/admin/users/' ~ session.user_id ~ '/edit') if _is_admin_user else '/settings' }}"
@@ -888,21 +930,6 @@
 
     // ============================================================
     //  NOTIFICATION SYSTEM
-    //
-    //  PERSISTENT ACROSS RELOADS AND NAVIGATION:
-    //    - Items are written to localStorage on every mutation and
-    //      rehydrated on page load.
-    //    - The badge shows the TOTAL item count (not "unread"), so it
-    //      stays visible until the user actually dismisses items.
-    //    - Progress notifications ARE persisted now. If a sync is
-    //      interrupted by navigation, its notification stays visible
-    //      with the last known progress. The next sync on the new page
-    //      updates the same id in place (see add()'s id-dedup logic).
-    //    - Connection notices are re-evaluated on load: offline notice
-    //      is dropped if we're back online, online notice is dropped
-    //      if we're still offline.
-    //    - purge() wipes everything — called from logout() so user A's
-    //      notifications don't leak to user B.
     // ============================================================
     const Notifications = (function () {
         const STORAGE_KEY = 'ox_notifications_v1';
@@ -941,11 +968,6 @@
                 const now = Date.now();
 
                 for (const n of data.items) {
-                    // Connection notices are the only auto-filtered items:
-                    // they reflect a live state that can change while the
-                    // page loads. Everything else (including progress) is
-                    // restored so the badge stays visible until the user
-                    // explicitly dismisses an item.
                     if (n.type === 'offline' && online) continue;
                     if (n.type === 'online' && !online) continue;
 
@@ -1005,9 +1027,6 @@
         function _renderBadge() {
             const badge = document.getElementById('notifBadge');
             const countEl = document.getElementById('notifCount');
-            // Badge reflects TOTAL notification count, not "unread".
-            // Since notifications are persistent (stay until dismissed),
-            // the badge only drops when items are removed or cleared.
             const total = items.length;
             if (badge) {
                 if (total > 0) {
@@ -1059,7 +1078,7 @@
                 duration = 0,
                 id = null,
                 progress = null,
-                persistent = true,   // persistent by default
+                persistent = true,
             } = opts || {};
 
             if (id) {
@@ -1122,11 +1141,9 @@
         function warning(t, m) { return add({ type: 'warning', title: t, message: m, persistent: true }); }
         function error(t, m)   { return add({ type: 'error',   title: t, message: m, persistent: true }); }
 
-        // ---------- hydrate from previous session ----------
         _load();
         setTimeout(_refresh, 0);
 
-        // Cross-tab sync: mirror changes made in other tabs.
         window.addEventListener('storage', (e) => {
             if (e.key !== STORAGE_KEY) return;
             items.length = 0;
@@ -1138,7 +1155,7 @@
             add, update, remove, clearAll, purge,
             info, success, warning, error,
             get items() { return items; },
-            get unreadCount() { return items.length; }  // kept for backwards compat
+            get unreadCount() { return items.length; }
         };
     })();
     window.Notifications = Notifications;
@@ -1153,8 +1170,6 @@
         if (!dd || !bell) return;
         const isOpen = dd.classList.toggle('open');
         bell.classList.toggle('active', isOpen);
-        // Intentionally NOT calling markAllRead() — the badge is driven by
-        // total item count, so opening the dropdown must not change it.
     }
     window.toggleNotifications = toggleNotifications;
 
@@ -1544,7 +1559,7 @@
     async function logout() {
         clearSession();
         try { sessionStorage.clear(); } catch (e) {}
-        try { Notifications.purge(); } catch (e) {}    // prevent leak to next user
+        try { Notifications.purge(); } catch (e) {}
         const dbNames = [
             'OxSmartOfflineDB', 'OfflineSalesDB', 'SalesDB',
             'offlineDB', 'PendingDB', 'ImportQueueDB', 'DexieDB'
@@ -1604,10 +1619,6 @@
     //  INIT
     // ============================================================
     document.addEventListener('DOMContentLoaded', function () {
-        // Clear any stale sync flag from a previous page. If the user
-        // navigated mid-sync, the previous page's finally block never ran
-        // and the flag is still set — which would permanently block sync
-        // on this page.
         try { sessionStorage.removeItem('oxSyncInProgress'); } catch (e) {}
 
         const yearSpan = document.getElementById('footerYear');

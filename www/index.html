@@ -5,182 +5,556 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>OX Smart POS</title>
     <style>
+        :root {
+            --bg:          #0f172a;
+            --bg-card:     #1e293b;
+            --bg-hover:    #273449;
+            --border:      #334155;
+            --border-soft: #1e293b;
+            --text:        #e2e8f0;
+            --text-dim:    #94a3b8;
+            --text-faint:  #64748b;
+            --accent:      #00CFCF;
+            --accent-dim:  #67e8f9;
+            --indigo:      #a5b4fc;
+            --green:       #4ade80;
+            --green-dim:   #86efac;
+            --red:         #f87171;
+            --red-dim:     #fecaca;
+            --amber:       #fbbf24;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { min-height: 100%; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #0f172a; color: #e2e8f0;
-            min-height: 100vh;
-            padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 15px;
+            line-height: 1.45;
+            padding-bottom: env(safe-area-inset-bottom);
+            -webkit-font-smoothing: antialiased;
         }
         .hidden { display: none !important; }
+        button { font-family: inherit; }
+        input { font-family: inherit; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
+        /* ═══════════════════════════════════════════════════════
+           LOGIN VIEW
+           ═══════════════════════════════════════════════════════ */
         #loginView {
             display: flex; align-items: center; justify-content: center;
             min-height: 100vh; padding: 24px;
         }
         .login-box {
-            background: #1e293b; border-radius: 16px; padding: 32px 24px;
-            width: 100%; max-width: 380px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            background: var(--bg-card); border-radius: 20px;
+            padding: 36px 28px 32px; width: 100%; max-width: 380px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+            border: 1px solid var(--border-soft);
         }
-        .login-box h1 { font-size: 1.5rem; color: #a5b4fc; margin-bottom: 6px; text-align: center; }
-        .login-box p  { color: #94a3b8; font-size: 0.9rem; margin-bottom: 24px; text-align: center; }
-        .login-box label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .login-logo {
+            width: 64px; height: 64px; border-radius: 18px;
+            background: linear-gradient(135deg, #00CFCF, #0891b2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 32px; margin: 0 auto 20px;
+            box-shadow: 0 8px 24px rgba(0, 207, 207, 0.3);
+        }
+        .login-box h1 {
+            font-size: 1.55rem; font-weight: 700; color: var(--indigo);
+            text-align: center; margin-bottom: 6px;
+        }
+        .login-box .subtitle {
+            color: var(--text-dim); font-size: 0.875rem;
+            text-align: center; margin-bottom: 28px;
+        }
+        .login-box label {
+            display: block; font-size: 0.7rem; font-weight: 600;
+            color: var(--text-dim); margin-bottom: 6px;
+            text-transform: uppercase; letter-spacing: 0.6px;
+        }
         .login-box input {
-            width: 100%; padding: 12px 14px; margin-bottom: 16px;
-            background: #0f172a; border: 1px solid #334155; border-radius: 10px;
-            color: #e2e8f0; font-size: 1rem; outline: none;
+            width: 100%; padding: 13px 15px; margin-bottom: 16px;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 11px; color: var(--text); font-size: 0.95rem;
+            outline: none; transition: border-color 0.15s, box-shadow 0.15s;
         }
-        .login-box input:focus { border-color: #00CFCF; }
-        .login-box button {
-            width: 100%; padding: 14px; background: #00CFCF; color: #0f172a;
-            border: 0; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer;
-            transition: transform 0.1s;
+        .login-box input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 207, 207, 0.15);
         }
-        .login-box button:active { transform: scale(0.98); }
-        .login-box button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .login-error { color: #f87171; font-size: 0.85rem; margin-top: 10px; text-align: center; min-height: 18px; }
+        .login-box button#loginBtn {
+            width: 100%; padding: 14px; margin-top: 4px;
+            background: var(--accent); color: #0f172a;
+            border: 0; border-radius: 11px;
+            font-size: 1rem; font-weight: 700; cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.15s;
+            box-shadow: 0 4px 12px rgba(0, 207, 207, 0.25);
+        }
+        .login-box button#loginBtn:active { transform: scale(0.98); }
+        .login-box button#loginBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .login-error {
+            color: var(--red); font-size: 0.85rem; margin-top: 12px;
+            text-align: center; min-height: 18px;
+        }
+        .login-hint {
+            color: var(--text-faint); font-size: 0.75rem;
+            text-align: center; margin-top: 20px; line-height: 1.5;
+        }
 
-        #appView { padding: 16px; padding-top: calc(16px + env(safe-area-inset-top)); }
-        .app-header {
-            display: flex; align-items: center; justify-content: space-between;
+        /* ═══════════════════════════════════════════════════════
+           LOADING VIEW (during first pull)
+           ═══════════════════════════════════════════════════════ */
+        #loadingView {
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            min-height: 100vh; padding: 24px;
+        }
+        .loading-spinner {
+            width: 56px; height: 56px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
             margin-bottom: 20px;
         }
-        .app-header h1 { font-size: 1.25rem; color: #a5b4fc; }
-        .badge {
-            font-size: 0.7rem; padding: 4px 10px; border-radius: 10px;
-            font-weight: 600; letter-spacing: 0.3px;
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text {
+            color: var(--text-dim); font-size: 0.95rem;
+            text-align: center; max-width: 280px;
         }
-        .badge.online  { background: #14532d; color: #86efac; }
-        .badge.offline { background: #7f1d1d; color: #fecaca; }
 
-        .banner {
-            background: #7f1d1d; color: #fecaca; padding: 10px 14px;
-            border-radius: 10px; font-size: 0.85rem; margin-bottom: 16px;
+        /* ═══════════════════════════════════════════════════════
+           APP SHELL
+           ═══════════════════════════════════════════════════════ */
+        #appView {
+            padding: 12px 14px 24px;
+            padding-top: calc(12px + env(safe-area-inset-top));
+            max-width: 720px; margin: 0 auto;
+        }
+
+        /* Topbar */
+        .shell-topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; padding: 8px 4px 14px;
+        }
+        .brand {
             display: flex; align-items: center; gap: 8px;
+            font-size: 1.05rem; font-weight: 700; color: var(--indigo);
+        }
+        .brand-icon {
+            width: 34px; height: 34px; border-radius: 10px;
+            background: linear-gradient(135deg, #00CFCF, #0891b2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 17px;
+            box-shadow: 0 4px 12px rgba(0, 207, 207, 0.2);
+        }
+        .topbar-right { display: flex; align-items: center; gap: 8px; }
+
+        .badge {
+            font-size: 0.68rem; padding: 5px 10px; border-radius: 9px;
+            font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;
+        }
+        .badge.online  { background: #14532d; color: var(--green-dim); }
+        .badge.offline { background: #7f1d1d; color: var(--red-dim); }
+        .badge.syncing { background: #164e63; color: var(--accent-dim); }
+        .badge.syncing::before {
+            content: ''; display: inline-block;
+            width: 7px; height: 7px; margin-right: 5px;
+            border-radius: 50%; background: var(--accent);
+            animation: pulse 1.2s ease-in-out infinite;
+            vertical-align: middle;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: 0.4; transform: scale(0.85); }
         }
 
+        .icon-btn {
+            background: var(--bg-card); border: 1px solid var(--border);
+            width: 40px; height: 40px; border-radius: 11px;
+            cursor: pointer; color: var(--text-dim); font-size: 17px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s, color 0.15s, transform 0.1s;
+        }
+        .icon-btn:hover { background: var(--bg-hover); color: var(--text); }
+        .icon-btn:active { transform: scale(0.94); }
+        .icon-btn:disabled { opacity: 0.4; }
+        .icon-btn.spinning { animation: spin 0.8s linear infinite; }
+
+        /* User chip */
+        .user-chip {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 7px 12px; background: var(--bg-card);
+            border: 1px solid var(--border); border-radius: 11px;
+            font-size: 0.8rem; color: var(--text-dim);
+            margin-bottom: 14px;
+        }
+        .user-chip .user-icon {
+            width: 22px; height: 22px; border-radius: 50%;
+            background: var(--accent); color: #0f172a;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700;
+        }
+        .user-chip .user-name { font-weight: 600; color: var(--text); }
+        .user-chip .user-role {
+            background: var(--bg-hover); color: var(--text-faint);
+            font-size: 0.65rem; padding: 2px 7px; border-radius: 6px;
+            text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700;
+        }
+
+        /* Offline banner */
+        .offline-banner {
+            background: linear-gradient(90deg, #7f1d1d, #991b1b);
+            color: var(--red-dim); padding: 11px 14px;
+            border-radius: 11px; font-size: 0.85rem;
+            margin-bottom: 14px;
+            display: flex; align-items: center; gap: 9px;
+            border: 1px solid rgba(248, 113, 113, 0.3);
+        }
+
+        /* KPI grid */
         .kpis {
             display: grid; grid-template-columns: repeat(2, 1fr);
-            gap: 10px; margin-bottom: 20px;
+            gap: 10px; margin-bottom: 16px;
         }
         .kpi {
-            background: #1e293b; border-radius: 12px; padding: 14px;
-            border: 1px solid #334155;
+            background: var(--bg-card); border-radius: 14px;
+            padding: 14px 15px; border: 1px solid var(--border-soft);
+            transition: border-color 0.15s, transform 0.1s;
         }
-        .kpi-label { font-size: 0.7rem; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
-        .kpi-value { font-size: 1.5rem; font-weight: 700; color: #e2e8f0; }
-        .kpi.indigo .kpi-value { color: #a5b4fc; }
+        .kpi:active { transform: scale(0.99); }
+        .kpi-label {
+            font-size: 0.68rem; font-weight: 700;
+            color: var(--text-dim); margin-bottom: 6px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .kpi-value {
+            font-size: 1.65rem; font-weight: 700;
+            color: var(--text); line-height: 1.1;
+            font-variant-numeric: tabular-nums;
+        }
+        .kpi.indigo .kpi-value { color: var(--indigo); }
         .kpi.blue   .kpi-value { color: #93c5fd; }
         .kpi.teal   .kpi-value { color: #5eead4; }
-        .kpi.red    .kpi-value { color: #fca5a5; }
-
-        .card {
-            background: #1e293b; border-radius: 12px; padding: 14px;
-            margin-bottom: 14px; border: 1px solid #334155;
+        .kpi.red    .kpi-value { color: var(--red); }
+        .kpi-sub {
+            font-size: 0.7rem; color: var(--text-faint);
+            margin-top: 4px;
         }
-        .card h2 { font-size: 0.9rem; margin-bottom: 10px; color: #cbd5e1; font-weight: 600; }
+
+        /* Cards (Recent Sales, Low Stock) */
+        .card {
+            background: var(--bg-card); border-radius: 14px;
+            padding: 15px 16px; margin-bottom: 12px;
+            border: 1px solid var(--border-soft);
+        }
+        .card h2 {
+            font-size: 0.85rem; font-weight: 700;
+            color: var(--text); margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .card h2 .count {
+            background: var(--bg-hover); color: var(--text-dim);
+            font-size: 0.7rem; padding: 2px 8px; border-radius: 8px;
+            font-weight: 700;
+        }
+        .card h2 .count.alert {
+            background: #7f1d1d; color: var(--red-dim);
+        }
+
         .list-item {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 8px 0; border-bottom: 1px solid #334155; font-size: 0.85rem;
+            padding: 10px 0; border-bottom: 1px solid var(--border-soft);
+            font-size: 0.85rem; gap: 10px;
         }
-        .list-item:last-child { border-bottom: 0; }
-        .list-item .name { color: #e2e8f0; }
-        .list-item .meta { color: #94a3b8; font-size: 0.75rem; }
-        .empty { color: #64748b; font-size: 0.85rem; text-align: center; padding: 12px; }
+        .list-item:last-child { border-bottom: 0; padding-bottom: 0; }
+        .list-item:first-of-type { padding-top: 0; }
+        .list-item .left { min-width: 0; flex: 1; }
+        .list-item .name {
+            color: var(--text); font-weight: 500;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .list-item .meta {
+            color: var(--text-faint); font-size: 0.72rem;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .list-item .right {
+            color: var(--text-dim); font-size: 0.78rem;
+            font-weight: 600; flex-shrink: 0;
+            text-transform: capitalize;
+        }
+        .list-item .right.alert { color: var(--red); }
 
-        .actions { display: flex; gap: 10px; margin-top: 8px; }
+        .empty {
+            color: var(--text-faint); font-size: 0.85rem;
+            text-align: center; padding: 16px 8px;
+        }
+
+        /* Actions */
+        .actions {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 10px; margin-top: 16px; margin-bottom: 12px;
+        }
         .actions button {
-            flex: 1; padding: 12px; border: 0; border-radius: 10px;
-            font-size: 0.9rem; font-weight: 600; cursor: pointer;
+            padding: 13px 16px; border: 0; border-radius: 12px;
+            font-size: 0.9rem; font-weight: 700;
+            cursor: pointer; transition: transform 0.1s, opacity 0.15s;
+            display: flex; align-items: center; justify-content: center;
+            gap: 6px;
         }
-        .btn-primary { background: #00CFCF; color: #0f172a; }
-        .btn-primary:disabled { opacity: 0.5; }
-        .btn-secondary { background: #334155; color: #e2e8f0; }
+        .actions button:active { transform: scale(0.97); }
+        .actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary {
+            background: var(--accent); color: #0f172a;
+            box-shadow: 0 4px 12px rgba(0, 207, 207, 0.2);
+        }
+        .btn-secondary {
+            background: var(--bg-card); color: var(--text);
+            border: 1px solid var(--border) !important;
+        }
 
-        .footnote { font-size: 0.7rem; color: #64748b; text-align: center; margin-top: 24px; }
+        /* Sign out */
+        .signout-row {
+            display: flex; justify-content: center;
+            margin-top: 4px; margin-bottom: 16px;
+        }
+        .btn-signout {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--text-dim); font-size: 0.78rem;
+            padding: 8px 16px; border-radius: 10px;
+            cursor: pointer; transition: color 0.15s, border-color 0.15s;
+        }
+        .btn-signout:hover { color: var(--red); border-color: var(--red); }
+
+        /* Footer status */
+        .footnote {
+            font-size: 0.72rem; color: var(--text-faint);
+            text-align: center; line-height: 1.6;
+            padding: 8px 0;
+        }
+        .footnote .dot {
+            display: inline-block; width: 6px; height: 6px;
+            border-radius: 50%; background: var(--text-faint);
+            margin: 0 6px; vertical-align: middle;
+        }
+        .footnote .dot.green { background: var(--green); }
+        .footnote .dot.red   { background: var(--red); }
+        .footnote .dot.amber { background: var(--amber); }
+
+        /* Error card */
+        .error-card {
+            background: #450a0a; border: 1px solid #7f1d1d;
+            color: var(--red-dim); padding: 12px 14px;
+            border-radius: 11px; font-size: 0.82rem;
+            margin-bottom: 12px;
+            display: flex; align-items: flex-start; gap: 8px;
+        }
+        .error-card .icon { flex-shrink: 0; font-size: 16px; }
+
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.25s ease-out; }
     </style>
 </head>
 <body>
 
+<!-- ═══════════════════════════════════════════════════════════
+     LOGIN VIEW
+     ═══════════════════════════════════════════════════════════ -->
 <div id="loginView">
     <div class="login-box">
+        <div class="login-logo">🧾</div>
         <h1>OX Smart POS</h1>
-        <p>Sign in to enable offline mode</p>
+        <p class="subtitle">Sign in to enable offline mode</p>
+
         <label for="loginUser">Username</label>
-        <input type="text" id="loginUser" autocomplete="username" autocapitalize="none">
+        <input type="text" id="loginUser" autocomplete="username" autocapitalize="none" spellcheck="false">
+
         <label for="loginPass">Password</label>
         <input type="password" id="loginPass" autocomplete="current-password">
+
         <button id="loginBtn" onclick="doLogin()">Sign In</button>
         <div class="login-error" id="loginError"></div>
+        <div class="login-hint">First sign-in requires Wi-Fi.<br>After that, the app works offline.</div>
     </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════
+     LOADING VIEW (first sync)
+     ═══════════════════════════════════════════════════════════ -->
+<div id="loadingView" class="hidden">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loadingText">Downloading your data…</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     APP SHELL VIEW
+     ═══════════════════════════════════════════════════════════ -->
 <div id="appView" class="hidden">
-    <div class="app-header">
-        <h1>OX Smart POS</h1>
-        <span id="netBadge" class="badge">…</span>
+
+    <div class="shell-topbar">
+        <div class="brand">
+            <div class="brand-icon">🧾</div>
+            <span>OX Smart POS</span>
+        </div>
+        <div class="topbar-right">
+            <span id="netBadge" class="badge">…</span>
+            <button id="syncIconBtn" class="icon-btn" title="Sync now" onclick="syncNow()">⟳</button>
+        </div>
     </div>
 
-    <div id="offlineBanner" class="banner hidden">📶 Offline — showing cached data</div>
-
-    <div class="kpis">
-        <div class="kpi indigo"><div class="kpi-label">Products</div><div class="kpi-value" id="kpiProducts">—</div></div>
-        <div class="kpi blue">  <div class="kpi-label">Batches</div> <div class="kpi-value" id="kpiBatches">—</div></div>
-        <div class="kpi teal">  <div class="kpi-label">Sales Today</div><div class="kpi-value" id="kpiSales">—</div></div>
-        <div class="kpi red">   <div class="kpi-label">Low Stock</div><div class="kpi-value" id="kpiLowStock">—</div></div>
+    <div id="userChip" class="user-chip hidden">
+        <div class="user-icon" id="userInitial">?</div>
+        <span>Signed in as</span>
+        <span class="user-name" id="userName">—</span>
+        <span class="user-role" id="userRole">—</span>
     </div>
 
-    <div class="card">
-        <h2>🕒 Recent Sales</h2>
+    <div id="offlineBanner" class="offline-banner hidden">
+        <span>📶</span>
+        <span>Offline — showing cached data. Sync will run when you reconnect.</span>
+    </div>
+
+    <div id="errorCard" class="error-card hidden">
+        <span class="icon">⚠️</span>
+        <span id="errorMessage">Something went wrong.</span>
+    </div>
+
+    <div class="kpis fade-in">
+        <div class="kpi indigo">
+            <div class="kpi-label">📦 Products</div>
+            <div class="kpi-value" id="kpiProducts">—</div>
+            <div class="kpi-sub" id="kpiProductsSub"></div>
+        </div>
+        <div class="kpi blue">
+            <div class="kpi-label">📊 Batches</div>
+            <div class="kpi-value" id="kpiBatches">—</div>
+            <div class="kpi-sub">&nbsp;</div>
+        </div>
+        <div class="kpi teal">
+            <div class="kpi-label">💰 Sales Today</div>
+            <div class="kpi-value" id="kpiSales">—</div>
+            <div class="kpi-sub" id="kpiSalesSub"></div>
+        </div>
+        <div class="kpi red">
+            <div class="kpi-label">⚠️ Low Stock</div>
+            <div class="kpi-value" id="kpiLowStock">—</div>
+            <div class="kpi-sub">1–10 units left</div>
+        </div>
+    </div>
+
+    <div class="card fade-in">
+        <h2>🕒 Recent Sales <span class="count" id="recentCount">0</span></h2>
         <div id="recentSales"><div class="empty">Loading…</div></div>
     </div>
 
-    <div class="card">
-        <h2>⚠️ Low Stock</h2>
+    <div class="card fade-in">
+        <h2>⚠️ Low Stock <span class="count" id="lowStockCount">0</span></h2>
         <div id="lowStockList"><div class="empty">Loading…</div></div>
     </div>
 
-    <div class="actions">
-        <button id="syncBtn" class="btn-primary" onclick="syncNow()">🔄 Sync Now</button>
-        <button class="btn-secondary" onclick="openFullApp()">🌐 Open Full App</button>
+    <div class="actions fade-in">
+        <button id="syncBtn" class="btn-primary" onclick="syncNow()">
+            <span id="syncBtnIcon">🔄</span>
+            <span id="syncBtnText">Sync Now</span>
+        </button>
+        <button class="btn-secondary" onclick="openFullApp()">
+            🌐 Full App
+        </button>
+    </div>
+
+    <div class="signout-row">
+        <button class="btn-signout" onclick="doLogout()">Sign out</button>
     </div>
 
     <div class="footnote" id="syncStatus">Checking…</div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════
+     BUNDLED LIBRARIES
+     ═══════════════════════════════════════════════════════════ -->
 <script src="dexie.min.js"></script>
 <script src="db.js"></script>
 <script src="sync.js"></script>
 
 <script>
+// ============================================================
+//  BUNDLED SHELL — runs from https://localhost
+//  Reads Dexie locally, syncs to Render via bearer token
+// ============================================================
 const RENDER_URL = 'https://ox-smart-pos-release-version.onrender.com';
 const TOKEN_KEY  = 'ox_api_token';
+const USER_KEY   = 'ox_shell_user';
 
 const $ = id => document.getElementById(id);
-const loginView = $('loginView');
-const appView   = $('appView');
-const loginBtn  = $('loginBtn');
-const loginError= $('loginError');
 
-function updateNetBadge() {
+const loginView   = $('loginView');
+const loadingView = $('loadingView');
+const appView     = $('appView');
+const loginBtn    = $('loginBtn');
+const loginError  = $('loginError');
+
+// ============================================================
+//  NETWORK STATUS — event-driven + poller fallback
+//
+//  Android WebView's navigator.onLine can lag behind the actual
+//  radio state by several seconds after an airplane-mode toggle.
+//  We trust the events first and add a 3s poller as a safety net.
+// ============================================================
+let _lastNetState = null;
+
+function setNetBadge(isOnline) {
+    _lastNetState = isOnline;
     const b = $('netBadge');
-    if (navigator.onLine) { b.textContent = '● Online';  b.className = 'badge online';  $('offlineBanner').classList.add('hidden'); }
-    else                  { b.textContent = '● Offline'; b.className = 'badge offline'; $('offlineBanner').classList.remove('hidden'); }
+    if (!b) return;
+    if (isOnline) {
+        b.textContent = '● Online';
+        b.className = 'badge online';
+        $('offlineBanner').classList.add('hidden');
+    } else {
+        b.textContent = '● Offline';
+        b.className = 'badge offline';
+        $('offlineBanner').classList.remove('hidden');
+    }
 }
-window.addEventListener('online',  () => { updateNetBadge(); maybeSyncOnReconnect(); });
-window.addEventListener('offline', updateNetBadge);
-updateNetBadge();
 
+window.addEventListener('online',  () => { setNetBadge(true);  maybeSyncOnReconnect(); });
+window.addEventListener('offline', () => setNetBadge(false));
+
+// Poller — catches the case where an event never fires
+setInterval(() => {
+    if (navigator.onLine !== _lastNetState) {
+        setNetBadge(navigator.onLine);
+        if (navigator.onLine) maybeSyncOnReconnect();
+    }
+}, 3000);
+
+// ============================================================
+//  TOKEN / USER HELPERS
+// ============================================================
 function getToken()   { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } }
 function setToken(t)  { try { localStorage.setItem(TOKEN_KEY, t); } catch {} }
 function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch {} }
 
+function getStoredUser()   { try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch { return null; } }
+function setStoredUser(u)  { try { localStorage.setItem(USER_KEY, JSON.stringify(u)); } catch {} }
+function clearStoredUser() { try { localStorage.removeItem(USER_KEY); } catch {} }
+
+// ============================================================
+//  LOGIN
+// ============================================================
 async function doLogin() {
     const username = $('loginUser').value.trim();
     const password = $('loginPass').value;
     loginError.textContent = '';
     if (!username || !password) { loginError.textContent = 'Enter username and password'; return; }
+    if (!navigator.onLine) { loginError.textContent = 'No connection — first sign-in requires Wi-Fi.'; return; }
 
     loginBtn.disabled = true;
     loginBtn.textContent = 'Signing in…';
@@ -197,7 +571,7 @@ async function doLogin() {
             return;
         }
         setToken(data.token);
-        try { localStorage.setItem('ox_user', JSON.stringify(data.user)); } catch {}
+        setStoredUser(data.user || { username });
         await enterApp();
     } catch (e) {
         loginError.textContent = navigator.onLine
@@ -209,24 +583,72 @@ async function doLogin() {
     }
 }
 
-async function enterApp() {
-    loginView.classList.add('hidden');
-    appView.classList.remove('hidden');
+// ============================================================
+//  LOGOUT
+// ============================================================
+function doLogout() {
+    if (!confirm('Sign out? You will need to log in again to sync.')) return;
+    clearToken();
+    clearStoredUser();
+    location.reload();
+}
 
-    if (navigator.onLine) {
-        try {
-            const count = await db.products.count();
-            if (count === 0) {
-                $('syncStatus').textContent = 'First sync — downloading data…';
-                await pullData();
-            }
-        } catch (e) { console.warn('Initial pull failed:', e); }
+// ============================================================
+//  ENTER APP — main flow after login or on boot with valid token
+// ============================================================
+async function enterApp() {
+    // Guard: Dexie must be available
+    if (typeof db === 'undefined' || !db) {
+        showError('Local database failed to initialise. Try reinstalling the app.');
+        return;
     }
 
+    loginView.classList.add('hidden');
+    loadingView.classList.remove('hidden');
+
+    // Show loading only during first sync (Dexie empty + online)
+    let firstSync = false;
+    try {
+        const count = await db.products.count();
+        if (count === 0 && navigator.onLine) {
+            firstSync = true;
+            $('loadingText').textContent = 'Downloading your data…';
+            try {
+                await pullData();
+            } catch (e) {
+                console.warn('Initial pull failed:', e);
+                $('loadingText').textContent = 'Could not download data. Showing cached view.';
+                await new Promise(r => setTimeout(r, 1200));
+            }
+        }
+    } catch (e) {
+        console.warn('Dexie count failed:', e);
+    }
+
+    loadingView.classList.add('hidden');
+    appView.classList.remove('hidden');
+
+    renderUserChip();
     await renderDashboard();
+
     if (navigator.onLine) syncInBackground();
 }
 
+// ============================================================
+//  RENDER: user chip
+// ============================================================
+function renderUserChip() {
+    const u = getStoredUser();
+    if (!u || !u.username) return;
+    $('userInitial').textContent = u.username.charAt(0).toUpperCase();
+    $('userName').textContent = u.username;
+    $('userRole').textContent = u.role || 'user';
+    $('userChip').classList.remove('hidden');
+}
+
+// ============================================================
+//  RENDER: dashboard
+// ============================================================
 async function renderDashboard() {
     try {
         const [products, batches, allSales] = await Promise.all([
@@ -238,124 +660,229 @@ async function renderDashboard() {
         $('kpiProducts').textContent = products.length;
         $('kpiBatches').textContent  = batches.length;
 
+        // Products sub-line: in stock / out of stock
+        let inStock = 0, outOfStock = 0;
+        products.forEach(p => {
+            if ((p.stock || 0) > 0) inStock++; else outOfStock++;
+        });
+        $('kpiProductsSub').textContent = inStock + ' in stock · ' + outOfStock + ' out';
+
+        // Sales today
         const today = new Date().toISOString().slice(0, 10);
         const todaySales = allSales.filter(s => !s.reversed && s.date && String(s.date).slice(0, 10) === today);
         const totalToday = todaySales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
         $('kpiSales').textContent = '₵' + totalToday.toFixed(2);
+        $('kpiSalesSub').textContent = todaySales.length + ' sale' + (todaySales.length === 1 ? '' : 's');
 
+        // Low stock per product
         const goodByProduct = {};
         batches.forEach(b => {
             const good = (b.remaining_quantity || 0) - (b.claimed_quantity || 0);
             if (good > 0) goodByProduct[b.product_id] = (goodByProduct[b.product_id] || 0) + good;
         });
-        const lowStock = products.filter(p => {
-            const g = goodByProduct[p.id] || 0;
-            return g > 0 && g <= 10;
-        }).map(p => ({ name: p.name, brand: p.brand, good: goodByProduct[p.id] }));
-        $('kpiLowStock').textContent = lowStock.length;
+        const lowStock = products
+            .map(p => ({
+                name: p.name,
+                brand: p.brand,
+                good: goodByProduct[p.id] || 0
+            }))
+            .filter(p => p.good > 0 && p.good <= 10)
+            .sort((a, b) => a.good - b.good);
 
-        const recent = [...allSales].filter(s => !s.reversed).sort((a, b) =>
-            String(b.date || '').localeCompare(String(a.date || ''))
-        ).slice(0, 5);
+        $('kpiLowStock').textContent = lowStock.length;
+        $('lowStockCount').textContent = lowStock.length;
+        if (lowStock.length > 0) $('lowStockCount').classList.add('alert');
+        else $('lowStockCount').classList.remove('alert');
+
+        // Recent sales (last 5)
+        const recent = [...allSales]
+            .filter(s => !s.reversed)
+            .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+            .slice(0, 5);
+        $('recentCount').textContent = recent.length;
+
         if (recent.length === 0) {
             $('recentSales').innerHTML = '<div class="empty">No sales yet.</div>';
         } else {
-            $('recentSales').innerHTML = recent.map(s =>
-                '<div class="list-item">' +
-                    '<div>' +
-                        '<div class="name">₵' + parseFloat(s.total || 0).toFixed(2) + '</div>' +
-                        '<div class="meta">' + String(s.date || '').slice(0, 16).replace('T', ' ') + '</div>' +
+            $('recentSales').innerHTML = recent.map(s => {
+                const total = parseFloat(s.total || 0).toFixed(2);
+                const dateStr = String(s.date || '').slice(0, 16).replace('T', ' ');
+                const method = (s.payment_method || 'cash');
+                return '<div class="list-item">' +
+                    '<div class="left">' +
+                        '<div class="name">₵' + total + '</div>' +
+                        '<div class="meta">' + dateStr + '</div>' +
                     '</div>' +
-                    '<div class="meta">' + (s.payment_method || 'cash') + '</div>' +
-                '</div>'
-            ).join('');
+                    '<div class="right">' + method + '</div>' +
+                '</div>';
+            }).join('');
         }
 
+        // Low stock list (top 8)
         if (lowStock.length === 0) {
             $('lowStockList').innerHTML = '<div class="empty">All good — nothing low.</div>';
         } else {
             $('lowStockList').innerHTML = lowStock.slice(0, 8).map(p =>
                 '<div class="list-item">' +
-                    '<div>' +
+                    '<div class="left">' +
                         '<div class="name">' + escapeHtml(p.name) + '</div>' +
                         '<div class="meta">' + escapeHtml(p.brand || '') + '</div>' +
                     '</div>' +
-                    '<div class="meta" style="color:#fca5a5;font-weight:600;">' + p.good + ' left</div>' +
+                    '<div class="right alert">' + p.good + ' left</div>' +
                 '</div>'
             ).join('');
         }
 
         updateSyncStatus();
+        hideError();
     } catch (e) {
         console.warn('renderDashboard failed:', e);
-        $('syncStatus').textContent = 'Error: ' + e.message;
+        showError('Could not read local data: ' + e.message);
     }
 }
 
+// ============================================================
+//  UTILITIES
+// ============================================================
 function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, m =>
         ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
 }
 
+function showError(msg) {
+    $('errorMessage').textContent = msg;
+    $('errorCard').classList.remove('hidden');
+}
+function hideError() { $('errorCard').classList.add('hidden'); }
+
+// ============================================================
+//  SYNC
+// ============================================================
 async function syncNow() {
-    if (!navigator.onLine) { alert('No connection.'); return; }
-    $('syncBtn').disabled = true;
-    $('syncStatus').textContent = 'Syncing…';
+    if (!navigator.onLine) {
+        alert('No connection. Sync will resume when you are back online.');
+        return;
+    }
+    const btn = $('syncBtn');
+    const icon = $('syncBtnIcon');
+    const text = $('syncBtnText');
+    const topIcon = $('syncIconBtn');
+
+    btn.disabled = true;
+    icon.classList.add('spinning');
+    text.textContent = 'Syncing…';
+    topIcon.classList.add('spinning');
+    topIcon.disabled = true;
+
     try {
         await fullSync();
         await renderDashboard();
     } catch (e) {
-        $('syncStatus').textContent = 'Sync failed: ' + e.message;
+        showError('Sync failed: ' + e.message);
     } finally {
-        $('syncBtn').disabled = false;
+        btn.disabled = false;
+        icon.classList.remove('spinning');
+        text.textContent = 'Sync Now';
+        topIcon.classList.remove('spinning');
+        topIcon.disabled = false;
     }
 }
 
 function syncInBackground() {
-    $('syncStatus').textContent = 'Syncing in background…';
-    fullSync().then(renderDashboard).catch(() => {});
+    $('syncStatus').innerHTML = 'Syncing in background…';
+    fullSync()
+        .then(renderDashboard)
+        .catch(e => console.warn('Background sync failed:', e));
 }
 
 function maybeSyncOnReconnect() {
-    if (getToken()) fullSync().then(renderDashboard).catch(() => {});
+    if (getToken() && !appView.classList.contains('hidden')) {
+        fullSync().then(renderDashboard).catch(() => {});
+    }
 }
 
 async function updateSyncStatus() {
     let pending = 0;
     try { pending = await getPendingCount(); } catch (e) {}
+
     const last = localStorage.getItem('lastSyncTime');
-    const ago = last ? Math.floor((Date.now() - parseInt(last)) / 1000) : null;
-    let txt = 'Ready';
-    if (!navigator.onLine) txt = 'Offline — data is cached';
-    else if (pending > 0) txt = pending + ' change' + (pending === 1 ? '' : 's') + ' waiting to sync';
-    else if (ago !== null) txt = 'Last sync: ' + (ago < 60 ? ago + 's' : Math.floor(ago / 60) + 'm') + ' ago';
-    $('syncStatus').textContent = txt;
+    const ago = last ? Math.floor((Date.now() - parseInt(last, 10)) / 1000) : null;
+
+    let dotClass = 'red';
+    let text = '';
+
+    if (!navigator.onLine) {
+        dotClass = 'red';
+        text = 'Offline — data is cached locally';
+    } else if (pending > 0) {
+        dotClass = 'amber';
+        text = pending + ' change' + (pending === 1 ? '' : 's') + ' waiting to sync';
+    } else if (ago !== null) {
+        dotClass = 'green';
+        const agoText = ago < 5 ? 'just now'
+                      : ago < 60 ? ago + 's ago'
+                      : ago < 3600 ? Math.floor(ago / 60) + 'm ago'
+                      : Math.floor(ago / 3600) + 'h ago';
+        text = 'Last sync ' + agoText;
+    } else {
+        dotClass = 'amber';
+        text = 'Not yet synced';
+    }
+
+    $('syncStatus').innerHTML =
+        '<span class="dot ' + dotClass + '"></span>' +
+        text +
+        '<span class="dot"></span>' +
+        'APK · Dexie';
 }
 
+// ============================================================
+//  OPEN FULL WEB APP
+// ============================================================
 function openFullApp() {
+    if (!navigator.onLine) {
+        alert('No connection. The full web app requires Wi-Fi or mobile data.');
+        return;
+    }
     window.open(RENDER_URL + '/', '_system');
 }
 
+// ============================================================
+//  BOOT
+// ============================================================
 (async function boot() {
+    setNetBadge(navigator.onLine);
+
     const token = getToken();
     if (!token) {
         loginView.classList.remove('hidden');
+        $('loginUser').focus();
         return;
     }
+
+    // Token present — verify if online
     if (navigator.onLine) {
         try {
             const res = await fetch(RENDER_URL + '/api/auth/check', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
             const data = await res.json();
-            if (!data.logged_in) { clearToken(); loginView.classList.remove('hidden'); return; }
+            if (!data.logged_in) {
+                clearToken();
+                clearStoredUser();
+                loginView.classList.remove('hidden');
+                $('loginUser').focus();
+                return;
+            }
         } catch (e) {
-            // Network failed — trust the local token
+            // Network blip — trust the local token, proceed to app
         }
     }
+
     await enterApp();
 })();
 
+// Keyboard shortcuts for login
 document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginPass').focus(); });
 </script>
