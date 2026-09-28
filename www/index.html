@@ -41,9 +41,7 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        /* ═══════════════════════════════════════════════════════
-           LOGIN VIEW
-           ═══════════════════════════════════════════════════════ */
+        /* LOGIN VIEW */
         #loginView {
             display: flex; align-items: center; justify-content: center;
             min-height: 100vh; padding: 24px;
@@ -103,9 +101,7 @@
             text-align: center; margin-top: 20px; line-height: 1.5;
         }
 
-        /* ═══════════════════════════════════════════════════════
-           LOADING VIEW (during first pull)
-           ═══════════════════════════════════════════════════════ */
+        /* LOADING VIEW */
         #loadingView {
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
@@ -125,16 +121,13 @@
             text-align: center; max-width: 280px;
         }
 
-        /* ═══════════════════════════════════════════════════════
-           APP SHELL
-           ═══════════════════════════════════════════════════════ */
+        /* APP SHELL */
         #appView {
             padding: 12px 14px 24px;
             padding-top: calc(12px + env(safe-area-inset-top));
             max-width: 720px; margin: 0 auto;
         }
 
-        /* Topbar */
         .shell-topbar {
             display: flex; align-items: center; justify-content: space-between;
             gap: 10px; padding: 8px 4px 14px;
@@ -158,11 +151,11 @@
         }
         .badge.online  { background: #14532d; color: var(--green-dim); }
         .badge.offline { background: #7f1d1d; color: var(--red-dim); }
-        .badge.syncing { background: #164e63; color: var(--accent-dim); }
-        .badge.syncing::before {
+        .badge.unknown { background: var(--bg-hover); color: var(--text-faint); }
+        .badge.unknown::before {
             content: ''; display: inline-block;
             width: 7px; height: 7px; margin-right: 5px;
-            border-radius: 50%; background: var(--accent);
+            border-radius: 50%; background: var(--text-faint);
             animation: pulse 1.2s ease-in-out infinite;
             vertical-align: middle;
         }
@@ -183,7 +176,6 @@
         .icon-btn:disabled { opacity: 0.4; }
         .icon-btn.spinning { animation: spin 0.8s linear infinite; }
 
-        /* User chip */
         .user-chip {
             display: inline-flex; align-items: center; gap: 8px;
             padding: 7px 12px; background: var(--bg-card);
@@ -204,7 +196,6 @@
             text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700;
         }
 
-        /* Offline banner */
         .offline-banner {
             background: linear-gradient(90deg, #7f1d1d, #991b1b);
             color: var(--red-dim); padding: 11px 14px;
@@ -214,7 +205,6 @@
             border: 1px solid rgba(248, 113, 113, 0.3);
         }
 
-        /* KPI grid */
         .kpis {
             display: grid; grid-template-columns: repeat(2, 1fr);
             gap: 10px; margin-bottom: 16px;
@@ -240,12 +230,8 @@
         .kpi.blue   .kpi-value { color: #93c5fd; }
         .kpi.teal   .kpi-value { color: #5eead4; }
         .kpi.red    .kpi-value { color: var(--red); }
-        .kpi-sub {
-            font-size: 0.7rem; color: var(--text-faint);
-            margin-top: 4px;
-        }
+        .kpi-sub { font-size: 0.7rem; color: var(--text-faint); margin-top: 4px; }
 
-        /* Cards (Recent Sales, Low Stock) */
         .card {
             background: var(--bg-card); border-radius: 14px;
             padding: 15px 16px; margin-bottom: 12px;
@@ -261,9 +247,7 @@
             font-size: 0.7rem; padding: 2px 8px; border-radius: 8px;
             font-weight: 700;
         }
-        .card h2 .count.alert {
-            background: #7f1d1d; color: var(--red-dim);
-        }
+        .card h2 .count.alert { background: #7f1d1d; color: var(--red-dim); }
 
         .list-item {
             display: flex; justify-content: space-between; align-items: center;
@@ -283,8 +267,7 @@
         }
         .list-item .right {
             color: var(--text-dim); font-size: 0.78rem;
-            font-weight: 600; flex-shrink: 0;
-            text-transform: capitalize;
+            font-weight: 600; flex-shrink: 0; text-transform: capitalize;
         }
         .list-item .right.alert { color: var(--red); }
 
@@ -293,7 +276,6 @@
             text-align: center; padding: 16px 8px;
         }
 
-        /* Actions */
         .actions {
             display: grid; grid-template-columns: 1fr 1fr;
             gap: 10px; margin-top: 16px; margin-bottom: 12px;
@@ -316,7 +298,6 @@
             border: 1px solid var(--border) !important;
         }
 
-        /* Sign out */
         .signout-row {
             display: flex; justify-content: center;
             margin-top: 4px; margin-bottom: 16px;
@@ -329,7 +310,6 @@
         }
         .btn-signout:hover { color: var(--red); border-color: var(--red); }
 
-        /* Footer status */
         .footnote {
             font-size: 0.72rem; color: var(--text-faint);
             text-align: center; line-height: 1.6;
@@ -344,7 +324,6 @@
         .footnote .dot.red   { background: var(--red); }
         .footnote .dot.amber { background: var(--amber); }
 
-        /* Error card */
         .error-card {
             background: #450a0a; border: 1px solid #7f1d1d;
             color: var(--red-dim); padding: 12px 14px;
@@ -354,7 +333,6 @@
         }
         .error-card .icon { flex-shrink: 0; font-size: 16px; }
 
-        /* Fade in animation */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(6px); }
             to   { opacity: 1; transform: translateY(0); }
@@ -364,9 +342,7 @@
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════════
-     LOGIN VIEW
-     ═══════════════════════════════════════════════════════════ -->
+<!-- LOGIN VIEW -->
 <div id="loginView">
     <div class="login-box">
         <div class="login-logo">🧾</div>
@@ -385,17 +361,13 @@
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     LOADING VIEW (first sync)
-     ═══════════════════════════════════════════════════════════ -->
+<!-- LOADING VIEW -->
 <div id="loadingView" class="hidden">
     <div class="loading-spinner"></div>
     <div class="loading-text" id="loadingText">Downloading your data…</div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     APP SHELL VIEW
-     ═══════════════════════════════════════════════════════════ -->
+<!-- APP SHELL VIEW -->
 <div id="appView" class="hidden">
 
     <div class="shell-topbar">
@@ -404,7 +376,7 @@
             <span>OX Smart POS</span>
         </div>
         <div class="topbar-right">
-            <span id="netBadge" class="badge">…</span>
+            <span id="netBadge" class="badge unknown">Checking…</span>
             <button id="syncIconBtn" class="icon-btn" title="Sync now" onclick="syncNow()">⟳</button>
         </div>
     </div>
@@ -476,9 +448,6 @@
     <div class="footnote" id="syncStatus">Checking…</div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     BUNDLED LIBRARIES
-     ═══════════════════════════════════════════════════════════ -->
 <script src="dexie.min.js"></script>
 <script src="db.js"></script>
 <script src="sync.js"></script>
@@ -501,18 +470,28 @@ const loginBtn    = $('loginBtn');
 const loginError  = $('loginError');
 
 // ============================================================
-//  NETWORK STATUS — event-driven + poller fallback
+//  NETWORK STATUS — real HTTP probe as source of truth
 //
-//  Android WebView's navigator.onLine can lag behind the actual
-//  radio state by several seconds after an airplane-mode toggle.
-//  We trust the events first and add a 3s poller as a safety net.
+//  Android WebView's navigator.onLine is unreliable: it can
+//  report "online" for many seconds after airplane mode toggles,
+//  and sometimes never flips at all. We probe the server with a
+//  no-cors HEAD request. A resolved promise = network is up;
+//  a rejection = genuinely offline.
+//
+//  _isOnline is the single source of truth for the entire shell.
+//  null = unknown until the first probe completes.
 // ============================================================
-let _lastNetState = null;
+let _isOnline = null;
 
 function setNetBadge(isOnline) {
-    _lastNetState = isOnline;
     const b = $('netBadge');
     if (!b) return;
+    if (isOnline === null) {
+        b.textContent = 'Checking…';
+        b.className = 'badge unknown';
+        $('offlineBanner').classList.add('hidden');
+        return;
+    }
     if (isOnline) {
         b.textContent = '● Online';
         b.className = 'badge online';
@@ -524,16 +503,51 @@ function setNetBadge(isOnline) {
     }
 }
 
-window.addEventListener('online',  () => { setNetBadge(true);  maybeSyncOnReconnect(); });
-window.addEventListener('offline', () => setNetBadge(false));
-
-// Poller — catches the case where an event never fires
-setInterval(() => {
-    if (navigator.onLine !== _lastNetState) {
-        setNetBadge(navigator.onLine);
-        if (navigator.onLine) maybeSyncOnReconnect();
+async function probeNetwork() {
+    try {
+        // no-cors HEAD — we can't read the response (opaque), but a
+        // resolved promise means the network accepted the request.
+        await fetch(RENDER_URL + '/sw.js?_=' + Date.now(), {
+            method: 'HEAD',
+            mode: 'no-cors',
+            cache: 'no-store',
+            credentials: 'omit'
+        });
+        return true;
+    } catch (e) {
+        return false;
     }
-}, 3000);
+}
+
+async function refreshNetStatus(opts) {
+    opts = opts || {};
+    const previous = _isOnline;
+    const online = await probeNetwork();
+
+    if (online !== previous) {
+        _isOnline = online;
+        setNetBadge(online);
+
+        // Fired only on genuine transitions
+        if (online && opts.syncOnRecover !== false) {
+            maybeSyncOnReconnect();
+        }
+        if (!online && opts.warnOnOffline) {
+            // Optional: silent — banner already shows
+        }
+    } else if (previous === null) {
+        // First probe completed, no state change to report but we
+        // still need to update the badge from "unknown"
+        setNetBadge(online);
+    }
+}
+
+// Events are triggers, not truth
+window.addEventListener('online',  () => refreshNetStatus({ syncOnRecover: true }));
+window.addEventListener('offline', () => refreshNetStatus({ syncOnRecover: false }));
+
+// Background poller — every 5 seconds, no matter what
+setInterval(() => refreshNetStatus({ syncOnRecover: true }), 5000);
 
 // ============================================================
 //  TOKEN / USER HELPERS
@@ -554,7 +568,15 @@ async function doLogin() {
     const password = $('loginPass').value;
     loginError.textContent = '';
     if (!username || !password) { loginError.textContent = 'Enter username and password'; return; }
-    if (!navigator.onLine) { loginError.textContent = 'No connection — first sign-in requires Wi-Fi.'; return; }
+
+    // Fresh probe before login — never trust stale _isOnline
+    const online = await probeNetwork();
+    _isOnline = online;
+    setNetBadge(online);
+    if (!online) {
+        loginError.textContent = 'No connection — first sign-in requires Wi-Fi.';
+        return;
+    }
 
     loginBtn.disabled = true;
     loginBtn.textContent = 'Signing in…';
@@ -574,9 +596,7 @@ async function doLogin() {
         setStoredUser(data.user || { username });
         await enterApp();
     } catch (e) {
-        loginError.textContent = navigator.onLine
-            ? ('Network error: ' + e.message)
-            : 'No connection — first sign-in requires Wi-Fi.';
+        loginError.textContent = 'Network error: ' + e.message;
     } finally {
         loginBtn.disabled = false;
         loginBtn.textContent = 'Sign In';
@@ -594,10 +614,9 @@ function doLogout() {
 }
 
 // ============================================================
-//  ENTER APP — main flow after login or on boot with valid token
+//  ENTER APP
 // ============================================================
 async function enterApp() {
-    // Guard: Dexie must be available
     if (typeof db === 'undefined' || !db) {
         showError('Local database failed to initialise. Try reinstalling the app.');
         return;
@@ -606,12 +625,14 @@ async function enterApp() {
     loginView.classList.add('hidden');
     loadingView.classList.remove('hidden');
 
-    // Show loading only during first sync (Dexie empty + online)
-    let firstSync = false;
+    // Fresh probe — do we have network right now?
+    const online = await probeNetwork();
+    _isOnline = online;
+    setNetBadge(online);
+
     try {
         const count = await db.products.count();
-        if (count === 0 && navigator.onLine) {
-            firstSync = true;
+        if (count === 0 && online) {
             $('loadingText').textContent = 'Downloading your data…';
             try {
                 await pullData();
@@ -631,7 +652,7 @@ async function enterApp() {
     renderUserChip();
     await renderDashboard();
 
-    if (navigator.onLine) syncInBackground();
+    if (online) syncInBackground();
 }
 
 // ============================================================
@@ -660,21 +681,18 @@ async function renderDashboard() {
         $('kpiProducts').textContent = products.length;
         $('kpiBatches').textContent  = batches.length;
 
-        // Products sub-line: in stock / out of stock
         let inStock = 0, outOfStock = 0;
         products.forEach(p => {
             if ((p.stock || 0) > 0) inStock++; else outOfStock++;
         });
         $('kpiProductsSub').textContent = inStock + ' in stock · ' + outOfStock + ' out';
 
-        // Sales today
         const today = new Date().toISOString().slice(0, 10);
         const todaySales = allSales.filter(s => !s.reversed && s.date && String(s.date).slice(0, 10) === today);
         const totalToday = todaySales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
         $('kpiSales').textContent = '₵' + totalToday.toFixed(2);
         $('kpiSalesSub').textContent = todaySales.length + ' sale' + (todaySales.length === 1 ? '' : 's');
 
-        // Low stock per product
         const goodByProduct = {};
         batches.forEach(b => {
             const good = (b.remaining_quantity || 0) - (b.claimed_quantity || 0);
@@ -694,7 +712,6 @@ async function renderDashboard() {
         if (lowStock.length > 0) $('lowStockCount').classList.add('alert');
         else $('lowStockCount').classList.remove('alert');
 
-        // Recent sales (last 5)
         const recent = [...allSales]
             .filter(s => !s.reversed)
             .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
@@ -718,7 +735,6 @@ async function renderDashboard() {
             }).join('');
         }
 
-        // Low stock list (top 8)
         if (lowStock.length === 0) {
             $('lowStockList').innerHTML = '<div class="empty">All good — nothing low.</div>';
         } else {
@@ -759,10 +775,16 @@ function hideError() { $('errorCard').classList.add('hidden'); }
 //  SYNC
 // ============================================================
 async function syncNow() {
-    if (!navigator.onLine) {
+    // Fresh probe — never trust stale state
+    const online = await probeNetwork();
+    _isOnline = online;
+    setNetBadge(online);
+
+    if (!online) {
         alert('No connection. Sync will resume when you are back online.');
         return;
     }
+
     const btn = $('syncBtn');
     const icon = $('syncBtnIcon');
     const text = $('syncBtnText');
@@ -785,6 +807,8 @@ async function syncNow() {
         text.textContent = 'Sync Now';
         topIcon.classList.remove('spinning');
         topIcon.disabled = false;
+        // Re-probe after sync to catch any mid-sync network drop
+        refreshNetStatus({ syncOnRecover: false });
     }
 }
 
@@ -811,7 +835,7 @@ async function updateSyncStatus() {
     let dotClass = 'red';
     let text = '';
 
-    if (!navigator.onLine) {
+    if (_isOnline === false) {
         dotClass = 'red';
         text = 'Offline — data is cached locally';
     } else if (pending > 0) {
@@ -839,8 +863,13 @@ async function updateSyncStatus() {
 // ============================================================
 //  OPEN FULL WEB APP
 // ============================================================
-function openFullApp() {
-    if (!navigator.onLine) {
+async function openFullApp() {
+    // Fresh probe before launching the system browser
+    const online = await probeNetwork();
+    _isOnline = online;
+    setNetBadge(online);
+
+    if (!online) {
         alert('No connection. The full web app requires Wi-Fi or mobile data.');
         return;
     }
@@ -851,7 +880,11 @@ function openFullApp() {
 //  BOOT
 // ============================================================
 (async function boot() {
-    setNetBadge(navigator.onLine);
+    // First probe before deciding anything
+    setNetBadge(null); // show "Checking…"
+    const online = await probeNetwork();
+    _isOnline = online;
+    setNetBadge(online);
 
     const token = getToken();
     if (!token) {
@@ -860,8 +893,8 @@ function openFullApp() {
         return;
     }
 
-    // Token present — verify if online
-    if (navigator.onLine) {
+    // Token present — verify only if we have real network
+    if (online) {
         try {
             const res = await fetch(RENDER_URL + '/api/auth/check', {
                 headers: { 'Authorization': 'Bearer ' + token }
@@ -875,7 +908,7 @@ function openFullApp() {
                 return;
             }
         } catch (e) {
-            // Network blip — trust the local token, proceed to app
+            // Network blip — trust local token, proceed to app
         }
     }
 
