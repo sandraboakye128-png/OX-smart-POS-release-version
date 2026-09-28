@@ -273,7 +273,7 @@
 
         .empty {
             color: var(--text-faint); font-size: 0.85rem;
-            text-align: center; padding: 16px 8px;
+            text-align: center; padding: 16px 8px; line-height: 1.6;
         }
 
         .actions {
@@ -333,6 +333,39 @@
         }
         .error-card .icon { flex-shrink: 0; font-size: 16px; }
 
+        /* TOAST — feedback for actions like "Open Full App" */
+        .toast {
+            position: fixed;
+            bottom: calc(24px + env(safe-area-inset-bottom));
+            left: 50%;
+            transform: translateX(-50%) translateY(24px);
+            background: var(--accent);
+            color: #0f172a;
+            padding: 13px 22px;
+            border-radius: 12px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            box-shadow: 0 12px 32px rgba(0, 207, 207, 0.35), 0 4px 12px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            z-index: 9999;
+            max-width: calc(100vw - 40px);
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .toast.error {
+            background: var(--red);
+            color: #450a0a;
+            box-shadow: 0 12px 32px rgba(248, 113, 113, 0.35), 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(6px); }
             to   { opacity: 1; transform: translateY(0); }
@@ -364,7 +397,7 @@
 <!-- LOADING VIEW -->
 <div id="loadingView" class="hidden">
     <div class="loading-spinner"></div>
-    <div class="loading-text" id="loadingText">Downloading your data…</div>
+    <div class="loading-text" id="loadingText">Starting…</div>
 </div>
 
 <!-- APP SHELL VIEW -->
@@ -436,8 +469,9 @@
             <span id="syncBtnIcon">🔄</span>
             <span id="syncBtnText">Sync Now</span>
         </button>
-        <button class="btn-secondary" onclick="openFullApp()">
-            🌐 Full App
+        <button id="openFullAppBtn" class="btn-secondary" onclick="openFullApp()">
+            <span id="openFullAppIcon">🌐</span>
+            <span id="openFullAppText">Full App</span>
         </button>
     </div>
 
@@ -468,6 +502,32 @@ const loadingView = $('loadingView');
 const appView     = $('appView');
 const loginBtn    = $('loginBtn');
 const loginError  = $('loginError');
+
+// ============================================================
+//  TOAST — transient notification at the bottom of the screen
+// ============================================================
+let _toastTimer = null;
+
+function showToast(msg, opts) {
+    opts = opts || {};
+    let toast = $('toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.className = 'toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.className = 'toast' + (opts.error ? ' error' : '');
+    // Force reflow so the transition restarts if it was already showing
+    void toast.offsetWidth;
+    toast.classList.add('show');
+
+    if (_toastTimer) clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+    }, opts.duration || 2200);
+}
 
 // ============================================================
 //  NETWORK STATUS — real HTTP probe as source of truth
@@ -528,16 +588,10 @@ async function refreshNetStatus(opts) {
         _isOnline = online;
         setNetBadge(online);
 
-        // Fired only on genuine transitions
         if (online && opts.syncOnRecover !== false) {
             maybeSyncOnReconnect();
         }
-        if (!online && opts.warnOnOffline) {
-            // Optional: silent — banner already shows
-        }
     } else if (previous === null) {
-        // First probe completed, no state change to report but we
-        // still need to update the badge from "unknown"
         setNetBadge(online);
     }
 }
@@ -546,7 +600,7 @@ async function refreshNetStatus(opts) {
 window.addEventListener('online',  () => refreshNetStatus({ syncOnRecover: true }));
 window.addEventListener('offline', () => refreshNetStatus({ syncOnRecover: false }));
 
-// Background poller — every 5 seconds, no matter what
+// Background poller — every 5 seconds
 setInterval(() => refreshNetStatus({ syncOnRecover: true }), 5000);
 
 // ============================================================
@@ -569,15 +623,6 @@ async function doLogin() {
     loginError.textContent = '';
     if (!username || !password) { loginError.textContent = 'Enter username and password'; return; }
 
-    // Fresh probe before login — never trust stale _isOnline
-    const online = await probeNetwork();
-    _isOnline = online;
-    setNetBadge(online);
-    if (!online) {
-        loginError.textContent = 'No connection — first sign-in requires Wi-Fi.';
-        return;
-    }
-
     loginBtn.disabled = true;
     loginBtn.textContent = 'Signing in…';
 
@@ -594,9 +639,12 @@ async function doLogin() {
         }
         setToken(data.token);
         setStoredUser(data.user || { username });
-        await enterApp();
+        // We just proved we're online — pass it through
+        await enterApp(true);
     } catch (e) {
-        loginError.textContent = 'Network error: ' + e.message;
+        loginError.textContent = navigator.onLine
+            ? 'Network error: ' + e.message
+            : 'No connection — first sign-in requires Wi-Fi.';
     } finally {
         loginBtn.disabled = false;
         loginBtn.textContent = 'Sign In';
@@ -614,9 +662,10 @@ function doLogout() {
 }
 
 // ============================================================
-//  ENTER APP
+//  ENTER APP — called from doLogin OR from boot
+//  Pass knownOnline=true to skip an extra network probe.
 // ============================================================
-async function enterApp() {
+async function enterApp(knownOnline) {
     if (typeof db === 'undefined' || !db) {
         showError('Local database failed to initialise. Try reinstalling the app.');
         return;
@@ -625,8 +674,11 @@ async function enterApp() {
     loginView.classList.add('hidden');
     loadingView.classList.remove('hidden');
 
-    // Fresh probe — do we have network right now?
-    const online = await probeNetwork();
+    // Use caller-provided online state if we have one, otherwise probe.
+    const online = (typeof knownOnline === 'boolean')
+        ? knownOnline
+        : await probeNetwork();
+
     _isOnline = online;
     setNetBadge(online);
 
@@ -639,7 +691,7 @@ async function enterApp() {
             } catch (e) {
                 console.warn('Initial pull failed:', e);
                 $('loadingText').textContent = 'Could not download data. Showing cached view.';
-                await new Promise(r => setTimeout(r, 1200));
+                await new Promise(r => setTimeout(r, 1000));
             }
         }
     } catch (e) {
@@ -677,6 +729,31 @@ async function renderDashboard() {
             db.batches.toArray(),
             db.sales.toArray()
         ]);
+
+        // ── Empty-Dexie state ──
+        // Fresh install with no network yet: show an actionable
+        // message instead of a "Loading…" that never resolves.
+        if (products.length === 0 && batches.length === 0 && allSales.length === 0) {
+            $('kpiProducts').textContent = '—';
+            $('kpiBatches').textContent  = '—';
+            $('kpiSales').textContent    = '—';
+            $('kpiLowStock').textContent = '—';
+            $('kpiProductsSub').textContent = '';
+            $('kpiSalesSub').textContent = '';
+            $('recentCount').textContent = '0';
+            $('lowStockCount').textContent = '0';
+            $('lowStockCount').classList.remove('alert');
+
+            const noDataMsg = (_isOnline === false)
+                ? '<div class="empty">No data yet.<br>Connect to Wi-Fi to download your inventory.</div>'
+                : '<div class="empty">Sync in progress…<br>Tap Sync Now if it doesn\'t fill in.</div>';
+            $('recentSales').innerHTML = noDataMsg;
+            $('lowStockList').innerHTML = noDataMsg;
+
+            updateSyncStatus();
+            hideError();
+            return;
+        }
 
         $('kpiProducts').textContent = products.length;
         $('kpiBatches').textContent  = batches.length;
@@ -781,7 +858,7 @@ async function syncNow() {
     setNetBadge(online);
 
     if (!online) {
-        alert('No connection. Sync will resume when you are back online.');
+        showToast('No connection — sync paused', { error: true });
         return;
     }
 
@@ -799,15 +876,16 @@ async function syncNow() {
     try {
         await fullSync();
         await renderDashboard();
+        showToast('✅ Sync complete');
     } catch (e) {
         showError('Sync failed: ' + e.message);
+        showToast('Sync failed', { error: true });
     } finally {
         btn.disabled = false;
         icon.classList.remove('spinning');
         text.textContent = 'Sync Now';
         topIcon.classList.remove('spinning');
         topIcon.disabled = false;
-        // Re-probe after sync to catch any mid-sync network drop
         refreshNetStatus({ syncOnRecover: false });
     }
 }
@@ -864,36 +942,73 @@ async function updateSyncStatus() {
 //  OPEN FULL WEB APP
 // ============================================================
 async function openFullApp() {
+    const btn = $('openFullAppBtn');
+    const icon = $('openFullAppIcon');
+    const text = $('openFullAppText');
+
     // Fresh probe before launching the system browser
     const online = await probeNetwork();
     _isOnline = online;
     setNetBadge(online);
 
     if (!online) {
-        alert('No connection. The full web app requires Wi-Fi or mobile data.');
+        showToast('No connection — full app needs Wi-Fi', { error: true });
         return;
     }
-    window.open(RENDER_URL + '/', '_system');
+
+    // Give the user visible feedback — the WebView stays visible
+    // in the background while the browser takes focus.
+    icon.classList.add('spinning');
+    text.textContent = 'Opening…';
+    btn.disabled = true;
+
+    showToast('🌐 Opening in browser…');
+
+    // Small delay so the toast paints before the intent fires.
+    // Then launch the external browser via Capacitor.
+    setTimeout(() => {
+        try {
+            window.open(RENDER_URL + '/', '_system');
+        } catch (e) {
+            showToast('Could not open browser', { error: true });
+        }
+        // Restore button after a moment — the user may come back
+        setTimeout(() => {
+            icon.classList.remove('spinning');
+            text.textContent = 'Full App';
+            btn.disabled = false;
+        }, 1500);
+    }, 180);
 }
 
 // ============================================================
-//  BOOT
+//  BOOT — parallelize to minimize startup delay
 // ============================================================
 (async function boot() {
-    // First probe before deciding anything
-    setNetBadge(null); // show "Checking…"
-    const online = await probeNetwork();
-    _isOnline = online;
-    setNetBadge(online);
-
+    // No token → show login immediately, no probing in the way
     const token = getToken();
     if (!token) {
         loginView.classList.remove('hidden');
         $('loginUser').focus();
+        // Background probe so the badge is ready when the user logs in
+        refreshNetStatus({ syncOnRecover: false });
         return;
     }
 
-    // Token present — verify only if we have real network
+    // Token present → show loading screen while we work
+    loginView.classList.add('hidden');
+    loadingView.classList.remove('hidden');
+    $('loadingText').textContent = 'Starting…';
+
+    // Parallelize: probe network + read Dexie count + verify token
+    const [online, count] = await Promise.all([
+        probeNetwork(),
+        db.products.count().catch(() => 0)
+    ]);
+    _isOnline = online;
+    setNetBadge(online);
+
+    // Token validity check only if we have real network
     if (online) {
         try {
             const res = await fetch(RENDER_URL + '/api/auth/check', {
@@ -903,16 +1018,36 @@ async function openFullApp() {
             if (!data.logged_in) {
                 clearToken();
                 clearStoredUser();
+                loadingView.classList.add('hidden');
                 loginView.classList.remove('hidden');
                 $('loginUser').focus();
                 return;
             }
         } catch (e) {
-            // Network blip — trust local token, proceed to app
+            // Network blip — trust local token, proceed
         }
     }
 
-    await enterApp();
+    // First-install download only if needed
+    if (online && count === 0) {
+        $('loadingText').textContent = 'Downloading your data…';
+        try {
+            await pullData();
+        } catch (e) {
+            console.warn('Initial pull failed:', e);
+            $('loadingText').textContent = 'Could not download data. Showing cached view.';
+            await new Promise(r => setTimeout(r, 1000));
+        }
+    }
+
+    // Show the app
+    loadingView.classList.add('hidden');
+    appView.classList.remove('hidden');
+
+    renderUserChip();
+    await renderDashboard();
+
+    if (online) syncInBackground();
 })();
 
 // Keyboard shortcuts for login
