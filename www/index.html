@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>OX Smart POS</title>
+        <title>OX Smart POS</title>
+    <link rel="stylesheet" href="tailwind.min.css">
     <style>
         :root {
             --bg:          #0f172a;
@@ -36,12 +37,12 @@
         }
         .hidden { display: none !important; }
         button { font-family: inherit; }
-        input { font-family: inherit; }
+        input, select, textarea { font-family: inherit; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        /* LOGIN VIEW */
+        /* LOGIN */
         #loginView {
             display: flex; align-items: center; justify-content: center;
             min-height: 100vh; padding: 24px;
@@ -101,7 +102,7 @@
             text-align: center; margin-top: 20px; line-height: 1.5;
         }
 
-        /* LOADING VIEW */
+        /* LOADING */
         #loadingView {
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
@@ -132,9 +133,17 @@
             display: flex; align-items: center; justify-content: space-between;
             gap: 10px; padding: 8px 4px 14px;
         }
+        .menu-btn {
+            background: transparent; border: 0; color: var(--text-dim);
+            font-size: 22px; cursor: pointer; padding: 4px 8px;
+            line-height: 1; margin-right: 2px;
+            border-radius: 8px; transition: background 0.15s, color 0.15s;
+        }
+        .menu-btn:hover { background: var(--bg-hover); color: var(--text); }
         .brand {
             display: flex; align-items: center; gap: 8px;
             font-size: 1.05rem; font-weight: 700; color: var(--indigo);
+            flex: 1;
         }
         .brand-icon {
             width: 34px; height: 34px; border-radius: 10px;
@@ -205,6 +214,16 @@
             border: 1px solid rgba(248, 113, 113, 0.3);
         }
 
+        .error-card {
+            background: #450a0a; border: 1px solid #7f1d1d;
+            color: var(--red-dim); padding: 12px 14px;
+            border-radius: 11px; font-size: 0.82rem;
+            margin-bottom: 12px;
+            display: flex; align-items: flex-start; gap: 8px;
+        }
+        .error-card .icon { flex-shrink: 0; font-size: 16px; }
+
+        /* DASHBOARD VIEW (in view container) */
         .kpis {
             display: grid; grid-template-columns: repeat(2, 1fr);
             gap: 10px; margin-bottom: 16px;
@@ -276,6 +295,7 @@
             text-align: center; padding: 16px 8px; line-height: 1.6;
         }
 
+        /* PERSISTENT ACTIONS */
         .actions {
             display: grid; grid-template-columns: 1fr 1fr;
             gap: 10px; margin-top: 16px; margin-bottom: 12px;
@@ -324,16 +344,7 @@
         .footnote .dot.red   { background: var(--red); }
         .footnote .dot.amber { background: var(--amber); }
 
-        .error-card {
-            background: #450a0a; border: 1px solid #7f1d1d;
-            color: var(--red-dim); padding: 12px 14px;
-            border-radius: 11px; font-size: 0.82rem;
-            margin-bottom: 12px;
-            display: flex; align-items: flex-start; gap: 8px;
-        }
-        .error-card .icon { flex-shrink: 0; font-size: 16px; }
-
-        /* TOAST — feedback for actions like "Open Full App" */
+        /* TOAST */
         .toast {
             position: fixed;
             bottom: calc(24px + env(safe-area-inset-bottom));
@@ -371,6 +382,167 @@
             to   { opacity: 1; transform: translateY(0); }
         }
         .fade-in { animation: fadeIn 0.25s ease-out; }
+
+        /* MENU DRAWER */
+        #menuOverlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        #menuOverlay.open {
+            display: block;
+            opacity: 1;
+        }
+        #menuDrawer {
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: 280px; max-width: 82vw;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            transform: translateX(-100%);
+            transition: transform 0.25s ease;
+            z-index: 1001;
+            overflow-y: auto;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+        }
+        #menuDrawer.open { transform: translateX(0); }
+        .menu-header {
+            padding: 20px 20px 14px;
+            border-bottom: 1px solid var(--border-soft);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .menu-header .brand-icon {
+            width: 40px; height: 40px; font-size: 20px;
+        }
+        .menu-header-title {
+            font-size: 0.9rem; font-weight: 700; color: var(--indigo);
+        }
+        .menu-header-sub {
+            font-size: 0.7rem; color: var(--text-faint); margin-top: 2px;
+        }
+        #menuNav {
+            padding: 10px 8px;
+        }
+        .menu-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 13px 14px;
+            border-radius: 10px;
+            color: var(--text-dim);
+            font-size: 0.9rem; font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            margin-bottom: 2px;
+        }
+        .menu-item:hover { background: var(--bg-hover); color: var(--text); }
+        .menu-item.active {
+            background: var(--accent); color: #0f172a; font-weight: 700;
+        }
+        .menu-item .icon {
+            font-size: 18px; width: 24px; text-align: center;
+            flex-shrink: 0;
+        }
+        .menu-item .label { flex: 1; }
+        .menu-item .tag {
+            font-size: 0.6rem;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: rgba(248, 113, 113, 0.15);
+            color: var(--red);
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+        .menu-section-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--text-faint);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            padding: 14px 14px 6px;
+        }
+
+        /* VIEW container */
+        #viewContainer > * { animation: fadeIn 0.2s ease-out; }
+
+        /* Shared view styles — used by injected views */
+        .view-header {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 14px;
+        }
+        .view-title {
+            font-size: 1.2rem; font-weight: 700;
+            color: var(--text);
+        }
+        .view-back {
+            background: var(--bg-card); border: 1px solid var(--border);
+            color: var(--text-dim); border-radius: 10px;
+            padding: 7px 12px; font-size: 0.8rem; font-weight: 600;
+            cursor: pointer;
+        }
+        .view-back:hover { background: var(--bg-hover); color: var(--text); }
+
+        .search-box {
+            width: 100%; padding: 12px 14px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; color: var(--text);
+            font-size: 0.9rem; outline: none;
+            margin-bottom: 10px;
+        }
+        .search-box:focus { border-color: var(--accent); }
+
+        .view-card {
+            background: var(--bg-card); border-radius: 14px;
+            padding: 14px 15px; margin-bottom: 10px;
+            border: 1px solid var(--border-soft);
+            cursor: pointer; transition: border-color 0.15s, transform 0.1s;
+        }
+        .view-card:active { transform: scale(0.995); }
+        .view-card .row1 {
+            display: flex; justify-content: space-between;
+            align-items: baseline; gap: 8px;
+            margin-bottom: 5px;
+        }
+        .view-card .title {
+            font-weight: 600; color: var(--text);
+            font-size: 0.92rem;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .view-card .status {
+            font-size: 0.7rem; font-weight: 700;
+            padding: 2px 8px; border-radius: 8px;
+            white-space: nowrap; flex-shrink: 0;
+        }
+        .view-card .status.in  { background: #14532d; color: var(--green-dim); }
+        .view-card .status.out { background: #7f1d1d; color: var(--red-dim); }
+        .view-card .row2 {
+            font-size: 0.78rem; color: var(--text-dim);
+            display: flex; gap: 12px; flex-wrap: wrap;
+        }
+        .view-card .row3 {
+            font-size: 0.72rem; color: var(--text-faint);
+            margin-top: 4px;
+        }
+
+        .btn-row {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 10px; margin-top: 14px;
+        }
+        .btn {
+            padding: 11px 14px; border: 0; border-radius: 11px;
+            font-size: 0.85rem; font-weight: 700;
+            cursor: pointer; transition: transform 0.1s, opacity 0.15s;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn:disabled { opacity: 0.5; }
+        .btn-cyan { background: var(--accent); color: #0f172a; }
+        .btn-gray { background: var(--bg-card); color: var(--text); border: 1px solid var(--border) !important; }
+        .btn-red  { background: var(--red); color: #450a0a; }
+        .btn-green{ background: #16a34a; color: #f0fdf4; }
     </style>
 </head>
 <body>
@@ -381,13 +553,10 @@
         <div class="login-logo">🧾</div>
         <h1>OX Smart POS</h1>
         <p class="subtitle">Sign in to enable offline mode</p>
-
         <label for="loginUser">Username</label>
         <input type="text" id="loginUser" autocomplete="username" autocapitalize="none" spellcheck="false">
-
         <label for="loginPass">Password</label>
         <input type="password" id="loginPass" autocomplete="current-password">
-
         <button id="loginBtn" onclick="doLogin()">Sign In</button>
         <div class="login-error" id="loginError"></div>
         <div class="login-hint">First sign-in requires Wi-Fi.<br>After that, the app works offline.</div>
@@ -400,10 +569,11 @@
     <div class="loading-text" id="loadingText">Starting…</div>
 </div>
 
-<!-- APP SHELL VIEW -->
+<!-- APP SHELL -->
 <div id="appView" class="hidden">
 
     <div class="shell-topbar">
+        <button class="menu-btn" onclick="openMenu()" aria-label="Open menu">☰</button>
         <div class="brand">
             <div class="brand-icon">🧾</div>
             <span>OX Smart POS</span>
@@ -431,40 +601,48 @@
         <span id="errorMessage">Something went wrong.</span>
     </div>
 
-    <div class="kpis fade-in">
-        <div class="kpi indigo">
-            <div class="kpi-label">📦 Products</div>
-            <div class="kpi-value" id="kpiProducts">—</div>
-            <div class="kpi-sub" id="kpiProductsSub"></div>
+    <div id="viewContainer">
+        <!-- Inline dashboard view (default) -->
+        <div id="viewDashboard">
+            <div class="kpis">
+                <div class="kpi indigo">
+                    <div class="kpi-label">📦 Products</div>
+                    <div class="kpi-value" id="kpiProducts">—</div>
+                    <div class="kpi-sub" id="kpiProductsSub"></div>
+                </div>
+                <div class="kpi blue">
+                    <div class="kpi-label">📊 Batches</div>
+                    <div class="kpi-value" id="kpiBatches">—</div>
+                    <div class="kpi-sub">&nbsp;</div>
+                </div>
+                <div class="kpi teal">
+                    <div class="kpi-label">💰 Sales Today</div>
+                    <div class="kpi-value" id="kpiSales">—</div>
+                    <div class="kpi-sub" id="kpiSalesSub"></div>
+                </div>
+                <div class="kpi red">
+                    <div class="kpi-label">⚠️ Low Stock</div>
+                    <div class="kpi-value" id="kpiLowStock">—</div>
+                    <div class="kpi-sub">1–10 units left</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🕒 Recent Sales <span class="count" id="recentCount">0</span></h2>
+                <div id="recentSales"><div class="empty">Loading…</div></div>
+            </div>
+
+            <div class="card">
+                <h2>⚠️ Low Stock <span class="count" id="lowStockCount">0</span></h2>
+                <div id="lowStockList"><div class="empty">Loading…</div></div>
+            </div>
         </div>
-        <div class="kpi blue">
-            <div class="kpi-label">📊 Batches</div>
-            <div class="kpi-value" id="kpiBatches">—</div>
-            <div class="kpi-sub">&nbsp;</div>
-        </div>
-        <div class="kpi teal">
-            <div class="kpi-label">💰 Sales Today</div>
-            <div class="kpi-value" id="kpiSales">—</div>
-            <div class="kpi-sub" id="kpiSalesSub"></div>
-        </div>
-        <div class="kpi red">
-            <div class="kpi-label">⚠️ Low Stock</div>
-            <div class="kpi-value" id="kpiLowStock">—</div>
-            <div class="kpi-sub">1–10 units left</div>
-        </div>
+
+        <!-- Dynamic view (injected) -->
+        <div id="viewDynamic" class="hidden"></div>
     </div>
 
-    <div class="card fade-in">
-        <h2>🕒 Recent Sales <span class="count" id="recentCount">0</span></h2>
-        <div id="recentSales"><div class="empty">Loading…</div></div>
-    </div>
-
-    <div class="card fade-in">
-        <h2>⚠️ Low Stock <span class="count" id="lowStockCount">0</span></h2>
-        <div id="lowStockList"><div class="empty">Loading…</div></div>
-    </div>
-
-    <div class="actions fade-in">
+    <div class="actions">
         <button id="syncBtn" class="btn-primary" onclick="syncNow()">
             <span id="syncBtnIcon">🔄</span>
             <span id="syncBtnText">Sync Now</span>
@@ -482,6 +660,19 @@
     <div class="footnote" id="syncStatus">Checking…</div>
 </div>
 
+<!-- MENU DRAWER -->
+<div id="menuOverlay" onclick="closeMenu()"></div>
+<aside id="menuDrawer">
+    <div class="menu-header">
+        <div class="brand-icon">🧾</div>
+        <div>
+            <div class="menu-header-title">OX Smart POS</div>
+            <div class="menu-header-sub" id="menuUserSub">—</div>
+        </div>
+    </div>
+    <nav id="menuNav"></nav>
+</aside>
+
 <script src="dexie.min.js"></script>
 <script src="db.js"></script>
 <script src="sync.js"></script>
@@ -489,7 +680,6 @@
 <script>
 // ============================================================
 //  BUNDLED SHELL — runs from https://localhost
-//  Reads Dexie locally, syncs to Render via bearer token
 // ============================================================
 const RENDER_URL = 'https://ox-smart-pos-release-version.onrender.com';
 const TOKEN_KEY  = 'ox_api_token';
@@ -504,10 +694,29 @@ const loginBtn    = $('loginBtn');
 const loginError  = $('loginError');
 
 // ============================================================
-//  TOAST — transient notification at the bottom of the screen
+//  VIEW REGISTRY
+//
+//  path: null + onlineOnly: true → opens in system browser via Full App
+//  path: 'views/X.html'          → bundled, works offline
+// ============================================================
+const VIEWS = {
+    dashboard: { title: 'Dashboard',     icon: '📊', path: null },
+    products:  { title: 'Products',      icon: '📦', path: 'views/products.html' },
+    sales:     { title: 'Sales',         icon: '💰', path: null, onlineOnly: true },
+    today:     { title: "Today's Sales", icon: '📅', path: null, onlineOnly: true },
+    purchases: { title: 'Purchases',     icon: '🛒', path: null, onlineOnly: true },
+    analytics: { title: 'Analytics',     icon: '📈', path: null, onlineOnly: true },
+    archive:   { title: 'Archive',       icon: '🗄️', path: null, onlineOnly: true },
+    claims:    { title: 'Claims',        icon: '⚠️', path: null, onlineOnly: true },
+    settings:  { title: 'Settings',      icon: '⚙️', path: null, onlineOnly: true },
+};
+
+let currentView = 'dashboard';
+
+// ============================================================
+//  TOAST
 // ============================================================
 let _toastTimer = null;
-
 function showToast(msg, opts) {
     opts = opts || {};
     let toast = $('toast');
@@ -519,18 +728,14 @@ function showToast(msg, opts) {
     }
     toast.textContent = msg;
     toast.className = 'toast' + (opts.error ? ' error' : '');
-    // Force reflow so the transition restarts if it was already showing
     void toast.offsetWidth;
     toast.classList.add('show');
-
     if (_toastTimer) clearTimeout(_toastTimer);
-    _toastTimer = setTimeout(() => {
-        toast.classList.remove('show');
-    }, opts.duration || 2200);
+    _toastTimer = setTimeout(() => toast.classList.remove('show'), opts.duration || 2200);
 }
 
 // ============================================================
-//  NETWORK STATUS — real HTTP probe as source of truth
+//  NETWORK STATUS — HTTP probe as source of truth
 // ============================================================
 let _isOnline = null;
 
@@ -557,29 +762,20 @@ function setNetBadge(isOnline) {
 async function probeNetwork() {
     try {
         await fetch(RENDER_URL + '/sw.js?_=' + Date.now(), {
-            method: 'HEAD',
-            mode: 'no-cors',
-            cache: 'no-store',
-            credentials: 'omit'
+            method: 'HEAD', mode: 'no-cors', cache: 'no-store', credentials: 'omit'
         });
         return true;
-    } catch (e) {
-        return false;
-    }
+    } catch (e) { return false; }
 }
 
 async function refreshNetStatus(opts) {
     opts = opts || {};
     const previous = _isOnline;
     const online = await probeNetwork();
-
     if (online !== previous) {
         _isOnline = online;
         setNetBadge(online);
-
-        if (online && opts.syncOnRecover !== false) {
-            maybeSyncOnReconnect();
-        }
+        if (online && opts.syncOnRecover !== false) maybeSyncOnReconnect();
     } else if (previous === null) {
         setNetBadge(online);
     }
@@ -587,22 +783,20 @@ async function refreshNetStatus(opts) {
 
 window.addEventListener('online',  () => refreshNetStatus({ syncOnRecover: true }));
 window.addEventListener('offline', () => refreshNetStatus({ syncOnRecover: false }));
-
 setInterval(() => refreshNetStatus({ syncOnRecover: true }), 5000);
 
 // ============================================================
-//  TOKEN / USER HELPERS
+//  TOKEN / USER
 // ============================================================
 function getToken()   { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } }
 function setToken(t)  { try { localStorage.setItem(TOKEN_KEY, t); } catch {} }
 function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch {} }
-
 function getStoredUser()   { try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch { return null; } }
 function setStoredUser(u)  { try { localStorage.setItem(USER_KEY, JSON.stringify(u)); } catch {} }
 function clearStoredUser() { try { localStorage.removeItem(USER_KEY); } catch {} }
 
 // ============================================================
-//  LOGIN
+//  LOGIN / LOGOUT
 // ============================================================
 async function doLogin() {
     const username = $('loginUser').value.trim();
@@ -612,7 +806,6 @@ async function doLogin() {
 
     loginBtn.disabled = true;
     loginBtn.textContent = 'Signing in…';
-
     try {
         const res = await fetch(RENDER_URL + '/api/auth/login-token', {
             method: 'POST',
@@ -628,18 +821,13 @@ async function doLogin() {
         setStoredUser(data.user || { username });
         await enterApp(true);
     } catch (e) {
-        loginError.textContent = navigator.onLine
-            ? 'Network error: ' + e.message
-            : 'No connection — first sign-in requires Wi-Fi.';
+        loginError.textContent = 'Network error: ' + e.message;
     } finally {
         loginBtn.disabled = false;
         loginBtn.textContent = 'Sign In';
     }
 }
 
-// ============================================================
-//  LOGOUT
-// ============================================================
 function doLogout() {
     if (!confirm('Sign out? You will need to log in again to sync.')) return;
     clearToken();
@@ -659,10 +847,7 @@ async function enterApp(knownOnline) {
     loginView.classList.add('hidden');
     loadingView.classList.remove('hidden');
 
-    const online = (typeof knownOnline === 'boolean')
-        ? knownOnline
-        : await probeNetwork();
-
+    const online = (typeof knownOnline === 'boolean') ? knownOnline : await probeNetwork();
     _isOnline = online;
     setNetBadge(online);
 
@@ -670,30 +855,24 @@ async function enterApp(knownOnline) {
         const count = await db.products.count();
         if (count === 0 && online) {
             $('loadingText').textContent = 'Downloading your data…';
-            try {
-                await pullData();
-            } catch (e) {
+            try { await pullData(); }
+            catch (e) {
                 console.warn('Initial pull failed:', e);
                 $('loadingText').textContent = 'Could not download data. Showing cached view.';
                 await new Promise(r => setTimeout(r, 1000));
             }
         }
-    } catch (e) {
-        console.warn('Dexie count failed:', e);
-    }
+    } catch (e) { console.warn('Dexie count failed:', e); }
 
     loadingView.classList.add('hidden');
     appView.classList.remove('hidden');
 
     renderUserChip();
+    renderMenu();
     await renderDashboard();
-
     if (online) syncInBackground();
 }
 
-// ============================================================
-//  RENDER: user chip
-// ============================================================
 function renderUserChip() {
     const u = getStoredUser();
     if (!u || !u.username) return;
@@ -701,17 +880,16 @@ function renderUserChip() {
     $('userName').textContent = u.username;
     $('userRole').textContent = u.role || 'user';
     $('userChip').classList.remove('hidden');
+    $('menuUserSub').textContent = u.username + ' · ' + (u.role || 'user');
 }
 
 // ============================================================
-//  RENDER: dashboard
+//  RENDER: dashboard (built-in view)
 // ============================================================
 async function renderDashboard() {
     try {
         const [products, batches, allSales] = await Promise.all([
-            db.products.toArray(),
-            db.batches.toArray(),
-            db.sales.toArray()
+            db.products.toArray(), db.batches.toArray(), db.sales.toArray()
         ]);
 
         if (products.length === 0 && batches.length === 0 && allSales.length === 0) {
@@ -724,13 +902,11 @@ async function renderDashboard() {
             $('recentCount').textContent = '0';
             $('lowStockCount').textContent = '0';
             $('lowStockCount').classList.remove('alert');
-
-            const noDataMsg = (_isOnline === false)
+            const msg = (_isOnline === false)
                 ? '<div class="empty">No data yet.<br>Connect to Wi-Fi to download your inventory.</div>'
                 : '<div class="empty">Sync in progress…<br>Tap Sync Now if it doesn\'t fill in.</div>';
-            $('recentSales').innerHTML = noDataMsg;
-            $('lowStockList').innerHTML = noDataMsg;
-
+            $('recentSales').innerHTML = msg;
+            $('lowStockList').innerHTML = msg;
             updateSyncStatus();
             hideError();
             return;
@@ -738,11 +914,8 @@ async function renderDashboard() {
 
         $('kpiProducts').textContent = products.length;
         $('kpiBatches').textContent  = batches.length;
-
         let inStock = 0, outOfStock = 0;
-        products.forEach(p => {
-            if ((p.stock || 0) > 0) inStock++; else outOfStock++;
-        });
+        products.forEach(p => { if ((p.stock || 0) > 0) inStock++; else outOfStock++; });
         $('kpiProductsSub').textContent = inStock + ' in stock · ' + outOfStock + ' out';
 
         const today = new Date().toISOString().slice(0, 10);
@@ -757,38 +930,30 @@ async function renderDashboard() {
             if (good > 0) goodByProduct[b.product_id] = (goodByProduct[b.product_id] || 0) + good;
         });
         const lowStock = products
-            .map(p => ({
-                name: p.name,
-                brand: p.brand,
-                good: goodByProduct[p.id] || 0
-            }))
+            .map(p => ({ name: p.name, brand: p.brand, good: goodByProduct[p.id] || 0 }))
             .filter(p => p.good > 0 && p.good <= 10)
             .sort((a, b) => a.good - b.good);
-
         $('kpiLowStock').textContent = lowStock.length;
         $('lowStockCount').textContent = lowStock.length;
         if (lowStock.length > 0) $('lowStockCount').classList.add('alert');
         else $('lowStockCount').classList.remove('alert');
 
-        const recent = [...allSales]
-            .filter(s => !s.reversed)
+        const recent = [...allSales].filter(s => !s.reversed)
             .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
             .slice(0, 5);
         $('recentCount').textContent = recent.length;
-
         if (recent.length === 0) {
             $('recentSales').innerHTML = '<div class="empty">No sales yet.</div>';
         } else {
             $('recentSales').innerHTML = recent.map(s => {
                 const total = parseFloat(s.total || 0).toFixed(2);
                 const dateStr = String(s.date || '').slice(0, 16).replace('T', ' ');
-                const method = (s.payment_method || 'cash');
                 return '<div class="list-item">' +
                     '<div class="left">' +
                         '<div class="name">₵' + total + '</div>' +
                         '<div class="meta">' + dateStr + '</div>' +
                     '</div>' +
-                    '<div class="right">' + method + '</div>' +
+                    '<div class="right">' + (s.payment_method || 'cash') + '</div>' +
                 '</div>';
             }).join('');
         }
@@ -822,11 +987,7 @@ function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, m =>
         ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
 }
-
-function showError(msg) {
-    $('errorMessage').textContent = msg;
-    $('errorCard').classList.remove('hidden');
-}
+function showError(msg) { $('errorMessage').textContent = msg; $('errorCard').classList.remove('hidden'); }
 function hideError() { $('errorCard').classList.add('hidden'); }
 
 // ============================================================
@@ -836,45 +997,39 @@ async function syncNow() {
     const online = await probeNetwork();
     _isOnline = online;
     setNetBadge(online);
+    if (!online) { showToast('No connection — sync paused', { error: true }); return; }
 
-    if (!online) {
-        showToast('No connection — sync paused', { error: true });
-        return;
-    }
-
-    const btn = $('syncBtn');
-    const icon = $('syncBtnIcon');
-    const text = $('syncBtnText');
+    const btn = $('syncBtn'), icon = $('syncBtnIcon'), text = $('syncBtnText');
     const topIcon = $('syncIconBtn');
-
-    btn.disabled = true;
-    icon.classList.add('spinning');
-    text.textContent = 'Syncing…';
-    topIcon.classList.add('spinning');
-    topIcon.disabled = true;
+    btn.disabled = true; icon.classList.add('spinning'); text.textContent = 'Syncing…';
+    topIcon.classList.add('spinning'); topIcon.disabled = true;
 
     try {
         await fullSync();
         await renderDashboard();
+        // Also refresh dynamic view if present
+        if (currentView === 'products' && typeof window.__refreshProductsView === 'function') {
+            window.__refreshProductsView();
+        }
         showToast('✅ Sync complete');
     } catch (e) {
         showError('Sync failed: ' + e.message);
         showToast('Sync failed', { error: true });
     } finally {
-        btn.disabled = false;
-        icon.classList.remove('spinning');
-        text.textContent = 'Sync Now';
-        topIcon.classList.remove('spinning');
-        topIcon.disabled = false;
+        btn.disabled = false; icon.classList.remove('spinning'); text.textContent = 'Sync Now';
+        topIcon.classList.remove('spinning'); topIcon.disabled = false;
         refreshNetStatus({ syncOnRecover: false });
     }
 }
 
 function syncInBackground() {
     $('syncStatus').innerHTML = 'Syncing in background…';
-    fullSync()
-        .then(renderDashboard)
-        .catch(e => console.warn('Background sync failed:', e));
+    fullSync().then(() => {
+        renderDashboard();
+        if (currentView === 'products' && typeof window.__refreshProductsView === 'function') {
+            window.__refreshProductsView();
+        }
+    }).catch(e => console.warn('Background sync failed:', e));
 }
 
 function maybeSyncOnReconnect() {
@@ -886,67 +1041,41 @@ function maybeSyncOnReconnect() {
 async function updateSyncStatus() {
     let pending = 0;
     try { pending = await getPendingCount(); } catch (e) {}
-
     const last = localStorage.getItem('lastSyncTime');
     const ago = last ? Math.floor((Date.now() - parseInt(last, 10)) / 1000) : null;
 
-    let dotClass = 'red';
-    let text = '';
-
-    if (_isOnline === false) {
-        dotClass = 'red';
-        text = 'Offline — data is cached locally';
-    } else if (pending > 0) {
-        dotClass = 'amber';
-        text = pending + ' change' + (pending === 1 ? '' : 's') + ' waiting to sync';
-    } else if (ago !== null) {
+    let dotClass = 'red', text = '';
+    if (_isOnline === false) { dotClass = 'red'; text = 'Offline — data is cached locally'; }
+    else if (pending > 0) { dotClass = 'amber'; text = pending + ' change' + (pending === 1 ? '' : 's') + ' waiting to sync'; }
+    else if (ago !== null) {
         dotClass = 'green';
-        const agoText = ago < 5 ? 'just now'
-                      : ago < 60 ? ago + 's ago'
-                      : ago < 3600 ? Math.floor(ago / 60) + 'm ago'
-                      : Math.floor(ago / 3600) + 'h ago';
+        const agoText = ago < 5 ? 'just now' : ago < 60 ? ago + 's ago' : ago < 3600 ? Math.floor(ago / 60) + 'm ago' : Math.floor(ago / 3600) + 'h ago';
         text = 'Last sync ' + agoText;
-    } else {
-        dotClass = 'amber';
-        text = 'Not yet synced';
-    }
+    } else { dotClass = 'amber'; text = 'Not yet synced'; }
 
     $('syncStatus').innerHTML =
-        '<span class="dot ' + dotClass + '"></span>' +
-        text +
-        '<span class="dot"></span>' +
-        'APK · Dexie';
+        '<span class="dot ' + dotClass + '"></span>' + text +
+        '<span class="dot"></span>APK · Dexie';
 }
 
 // ============================================================
-//  OPEN FULL WEB APP
+//  OPEN FULL APP
 // ============================================================
 async function openFullApp() {
-    const btn = $('openFullAppBtn');
-    const icon = $('openFullAppIcon');
-    const text = $('openFullAppText');
-
+    const btn = $('openFullAppBtn'), icon = $('openFullAppIcon'), text = $('openFullAppText');
     const online = await probeNetwork();
     _isOnline = online;
     setNetBadge(online);
-
-    if (!online) {
-        showToast('No connection — full app needs Wi-Fi', { error: true });
-        return;
-    }
+    if (!online) { showToast('No connection — full app needs Wi-Fi', { error: true }); return; }
 
     icon.classList.add('spinning');
     text.textContent = 'Opening…';
     btn.disabled = true;
-
     showToast('🌐 Loading full app…');
 
     setTimeout(() => {
-        try {
-            window.open(RENDER_URL + '/', '_system');
-        } catch (e) {
-            showToast('Could not open full app', { error: true });
-        }
+        try { window.open(RENDER_URL + '/', '_system'); }
+        catch (e) { showToast('Could not open full app', { error: true }); }
         setTimeout(() => {
             icon.classList.remove('spinning');
             text.textContent = 'Full App';
@@ -956,7 +1085,122 @@ async function openFullApp() {
 }
 
 // ============================================================
-//  BOOT — parallelize to minimize startup delay
+//  MENU DRAWER
+// ============================================================
+function openMenu() {
+    $('menuOverlay').classList.add('open');
+    $('menuDrawer').classList.add('open');
+}
+function closeMenu() {
+    $('menuOverlay').classList.remove('open');
+    $('menuDrawer').classList.remove('open');
+}
+
+function renderMenu() {
+    const nav = $('menuNav');
+    const items = [];
+
+    // Dashboard first
+    items.push(menuItemHtml('dashboard'));
+
+    // Section: Inventory & Sales
+    items.push('<div class="menu-section-label">Inventory & Sales</div>');
+    items.push(menuItemHtml('products'));
+    items.push(menuItemHtml('sales'));
+    items.push(menuItemHtml('today'));
+    items.push(menuItemHtml('purchases'));
+
+    // Section: Reports & Admin
+    items.push('<div class="menu-section-label">Reports & Admin</div>');
+    items.push(menuItemHtml('analytics'));
+    items.push(menuItemHtml('archive'));
+    items.push(menuItemHtml('claims'));
+    items.push(menuItemHtml('settings'));
+
+    nav.innerHTML = items.join('');
+}
+
+function menuItemHtml(key) {
+    const v = VIEWS[key];
+    if (!v) return '';
+    const active = (key === currentView) ? ' active' : '';
+    const tag = v.onlineOnly ? '<span class="tag">ONLINE</span>' : '';
+    return '<div class="menu-item' + active + '" onclick="switchView(\'' + key + '\')">' +
+        '<span class="icon">' + v.icon + '</span>' +
+        '<span class="label">' + v.title + '</span>' +
+        tag +
+    '</div>';
+}
+
+// ============================================================
+//  ROUTER — switch between views
+// ============================================================
+async function switchView(name) {
+    closeMenu();
+    if (name === currentView) return;
+    const v = VIEWS[name];
+    if (!v) { showToast('Unknown view', { error: true }); return; }
+
+    // Online-only views launch the system browser instead
+    if (v.onlineOnly) {
+        showToast('🌐 Opening in full app…');
+        setTimeout(() => openFullApp(), 200);
+        return;
+    }
+
+    // Dashboard is inline
+    if (name === 'dashboard') {
+        $('viewDashboard').classList.remove('hidden');
+        $('viewDynamic').classList.add('hidden');
+        $('viewDynamic').innerHTML = '';
+        currentView = 'dashboard';
+        renderMenu();
+        await renderDashboard();
+        return;
+    }
+
+    // Bundled view — fetch and inject
+    if (!v.path) { showToast('View not implemented yet', { error: true }); return; }
+
+    try {
+        $('viewDynamic').innerHTML = '<div class="empty">Loading ' + escapeHtml(v.title) + '…</div>';
+        $('viewDashboard').classList.add('hidden');
+        $('viewDynamic').classList.remove('hidden');
+
+        const res = await fetch(v.path + '?_=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const html = await res.text();
+
+        const container = $('viewDynamic');
+        container.innerHTML = html;
+
+        // Re-execute scripts (innerHTML doesn't run them)
+        container.querySelectorAll('script').forEach(oldScript => {
+            const newScript = document.createElement('script');
+            if (oldScript.src) {
+                newScript.src = oldScript.src;
+            } else {
+                newScript.textContent = oldScript.textContent;
+            }
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+        });
+
+        currentView = name;
+        renderMenu();
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    } catch (e) {
+        console.error('View load failed:', e);
+        $('viewDynamic').innerHTML = '<div class="empty">Could not load view.<br>' + escapeHtml(e.message) + '</div>';
+        showToast('Failed to load ' + v.title, { error: true });
+    }
+}
+window.switchView = switchView;
+
+function backToDashboard() { switchView('dashboard'); }
+window.backToDashboard = backToDashboard;
+
+// ============================================================
+//  BOOT
 // ============================================================
 (async function boot() {
     const token = getToken();
@@ -992,16 +1236,13 @@ async function openFullApp() {
                 $('loginUser').focus();
                 return;
             }
-        } catch (e) {
-            // Network blip — trust local token, proceed
-        }
+        } catch (e) {}
     }
 
     if (online && count === 0) {
         $('loadingText').textContent = 'Downloading your data…';
-        try {
-            await pullData();
-        } catch (e) {
+        try { await pullData(); }
+        catch (e) {
             console.warn('Initial pull failed:', e);
             $('loadingText').textContent = 'Could not download data. Showing cached view.';
             await new Promise(r => setTimeout(r, 1000));
@@ -1012,14 +1253,15 @@ async function openFullApp() {
     appView.classList.remove('hidden');
 
     renderUserChip();
+    renderMenu();
     await renderDashboard();
-
     if (online) syncInBackground();
 })();
 
-// Keyboard shortcuts for login
+// Keyboard shortcuts
 document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginPass').focus(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
 </script>
 </body>
 </html>
