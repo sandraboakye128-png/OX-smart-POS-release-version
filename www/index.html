@@ -531,15 +531,6 @@ function showToast(msg, opts) {
 
 // ============================================================
 //  NETWORK STATUS — real HTTP probe as source of truth
-//
-//  Android WebView's navigator.onLine is unreliable: it can
-//  report "online" for many seconds after airplane mode toggles,
-//  and sometimes never flips at all. We probe the server with a
-//  no-cors HEAD request. A resolved promise = network is up;
-//  a rejection = genuinely offline.
-//
-//  _isOnline is the single source of truth for the entire shell.
-//  null = unknown until the first probe completes.
 // ============================================================
 let _isOnline = null;
 
@@ -565,8 +556,6 @@ function setNetBadge(isOnline) {
 
 async function probeNetwork() {
     try {
-        // no-cors HEAD — we can't read the response (opaque), but a
-        // resolved promise means the network accepted the request.
         await fetch(RENDER_URL + '/sw.js?_=' + Date.now(), {
             method: 'HEAD',
             mode: 'no-cors',
@@ -596,11 +585,9 @@ async function refreshNetStatus(opts) {
     }
 }
 
-// Events are triggers, not truth
 window.addEventListener('online',  () => refreshNetStatus({ syncOnRecover: true }));
 window.addEventListener('offline', () => refreshNetStatus({ syncOnRecover: false }));
 
-// Background poller — every 5 seconds
 setInterval(() => refreshNetStatus({ syncOnRecover: true }), 5000);
 
 // ============================================================
@@ -639,7 +626,6 @@ async function doLogin() {
         }
         setToken(data.token);
         setStoredUser(data.user || { username });
-        // We just proved we're online — pass it through
         await enterApp(true);
     } catch (e) {
         loginError.textContent = navigator.onLine
@@ -662,8 +648,7 @@ function doLogout() {
 }
 
 // ============================================================
-//  ENTER APP — called from doLogin OR from boot
-//  Pass knownOnline=true to skip an extra network probe.
+//  ENTER APP
 // ============================================================
 async function enterApp(knownOnline) {
     if (typeof db === 'undefined' || !db) {
@@ -674,7 +659,6 @@ async function enterApp(knownOnline) {
     loginView.classList.add('hidden');
     loadingView.classList.remove('hidden');
 
-    // Use caller-provided online state if we have one, otherwise probe.
     const online = (typeof knownOnline === 'boolean')
         ? knownOnline
         : await probeNetwork();
@@ -730,9 +714,6 @@ async function renderDashboard() {
             db.sales.toArray()
         ]);
 
-        // ── Empty-Dexie state ──
-        // Fresh install with no network yet: show an actionable
-        // message instead of a "Loading…" that never resolves.
         if (products.length === 0 && batches.length === 0 && allSales.length === 0) {
             $('kpiProducts').textContent = '—';
             $('kpiBatches').textContent  = '—';
@@ -852,7 +833,6 @@ function hideError() { $('errorCard').classList.add('hidden'); }
 //  SYNC
 // ============================================================
 async function syncNow() {
-    // Fresh probe — never trust stale state
     const online = await probeNetwork();
     _isOnline = online;
     setNetBadge(online);
@@ -946,7 +926,6 @@ async function openFullApp() {
     const icon = $('openFullAppIcon');
     const text = $('openFullAppText');
 
-    // Fresh probe before launching the system browser
     const online = await probeNetwork();
     _isOnline = online;
     setNetBadge(online);
@@ -956,23 +935,18 @@ async function openFullApp() {
         return;
     }
 
-    // Give the user visible feedback — the WebView stays visible
-    // in the background while the browser takes focus.
     icon.classList.add('spinning');
     text.textContent = 'Opening…';
     btn.disabled = true;
 
-    showToast('🌐 Opening in browser…');
+    showToast('🌐 Loading full app…');
 
-    // Small delay so the toast paints before the intent fires.
-    // Then launch the external browser via Capacitor.
     setTimeout(() => {
         try {
             window.open(RENDER_URL + '/', '_system');
         } catch (e) {
-            showToast('Could not open browser', { error: true });
+            showToast('Could not open full app', { error: true });
         }
-        // Restore button after a moment — the user may come back
         setTimeout(() => {
             icon.classList.remove('spinning');
             text.textContent = 'Full App';
@@ -985,22 +959,18 @@ async function openFullApp() {
 //  BOOT — parallelize to minimize startup delay
 // ============================================================
 (async function boot() {
-    // No token → show login immediately, no probing in the way
     const token = getToken();
     if (!token) {
         loginView.classList.remove('hidden');
         $('loginUser').focus();
-        // Background probe so the badge is ready when the user logs in
         refreshNetStatus({ syncOnRecover: false });
         return;
     }
 
-    // Token present → show loading screen while we work
     loginView.classList.add('hidden');
     loadingView.classList.remove('hidden');
     $('loadingText').textContent = 'Starting…';
 
-    // Parallelize: probe network + read Dexie count + verify token
     const [online, count] = await Promise.all([
         probeNetwork(),
         db.products.count().catch(() => 0)
@@ -1008,7 +978,6 @@ async function openFullApp() {
     _isOnline = online;
     setNetBadge(online);
 
-    // Token validity check only if we have real network
     if (online) {
         try {
             const res = await fetch(RENDER_URL + '/api/auth/check', {
@@ -1028,7 +997,6 @@ async function openFullApp() {
         }
     }
 
-    // First-install download only if needed
     if (online && count === 0) {
         $('loadingText').textContent = 'Downloading your data…';
         try {
@@ -1040,7 +1008,6 @@ async function openFullApp() {
         }
     }
 
-    // Show the app
     loadingView.classList.add('hidden');
     appView.classList.remove('hidden');
 
