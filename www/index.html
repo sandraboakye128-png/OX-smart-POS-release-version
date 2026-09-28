@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-        <title>OX Smart POS</title>
+    <title>OX Smart POS</title>
     <link rel="stylesheet" href="tailwind.min.css">
     <style>
         :root {
@@ -23,6 +23,7 @@
             --red:         #f87171;
             --red-dim:     #fecaca;
             --amber:       #fbbf24;
+            --purple:      #c4b5fd;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { min-height: 100%; }
@@ -42,17 +43,102 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        /* LOGIN */
+        /* ============================================================
+           LANDING — mode selection screen
+           ============================================================ */
+        #landingView {
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; padding: 24px;
+        }
+        .landing-box {
+            background: var(--bg-card); border-radius: 20px;
+            padding: 40px 26px 32px; width: 100%; max-width: 420px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+            border: 1px solid var(--border-soft);
+            text-align: center;
+        }
+        .landing-logo {
+            width: 72px; height: 72px; border-radius: 20px;
+            background: linear-gradient(135deg, #00CFCF, #0891b2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px; margin: 0 auto 20px;
+            box-shadow: 0 10px 28px rgba(0, 207, 207, 0.35);
+        }
+        .landing-box h1 {
+            font-size: 1.55rem; font-weight: 700; color: var(--indigo);
+            text-align: center; margin-bottom: 6px;
+        }
+        .landing-box .landing-sub {
+            color: var(--text-dim); font-size: 0.875rem;
+            text-align: center; margin-bottom: 28px;
+        }
+        .landing-btn {
+            display: flex; align-items: center; gap: 14px;
+            width: 100%; padding: 16px 18px;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 14px; color: var(--text);
+            cursor: pointer; text-align: left;
+            transition: border-color 0.15s, background 0.15s, transform 0.1s;
+            margin-bottom: 12px;
+        }
+        .landing-btn:hover {
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+        .landing-btn:active { transform: scale(0.99); }
+        .landing-btn-offline {
+            border-color: rgba(0, 207, 207, 0.45);
+            background: linear-gradient(135deg, rgba(0,207,207,0.10), rgba(0,207,207,0.02));
+        }
+        .landing-btn-offline:hover {
+            background: linear-gradient(135deg, rgba(0,207,207,0.18), rgba(0,207,207,0.04));
+        }
+        .landing-btn-icon {
+            font-size: 26px; line-height: 1;
+            width: 48px; height: 48px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--bg-hover); border-radius: 12px;
+        }
+        .landing-btn-offline .landing-btn-icon {
+            background: rgba(0,207,207,0.16);
+        }
+        .landing-btn-text { flex: 1; min-width: 0; }
+        .landing-btn-title {
+            display: block; font-size: 1rem; font-weight: 700;
+            color: var(--text); margin-bottom: 2px;
+        }
+        .landing-btn-desc {
+            display: block; font-size: 0.72rem; color: var(--text-dim);
+            line-height: 1.4;
+        }
+        .landing-hint {
+            color: var(--text-faint); font-size: 0.72rem;
+            text-align: center; margin-top: 18px; line-height: 1.5;
+        }
+
+        /* ============================================================
+           LOGIN
+           ============================================================ */
         #loginView {
             display: flex; align-items: center; justify-content: center;
             min-height: 100vh; padding: 24px;
         }
         .login-box {
+            position: relative;
             background: var(--bg-card); border-radius: 20px;
             padding: 36px 28px 32px; width: 100%; max-width: 380px;
             box-shadow: 0 24px 64px rgba(0,0,0,0.55);
             border: 1px solid var(--border-soft);
         }
+        .login-back {
+            position: absolute; top: 14px; left: 14px;
+            background: transparent; border: 0;
+            color: var(--text-dim); font-size: 0.75rem;
+            cursor: pointer; padding: 6px 10px;
+            border-radius: 8px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .login-back:hover { background: var(--bg-hover); color: var(--text); }
         .login-logo {
             width: 64px; height: 64px; border-radius: 18px;
             background: linear-gradient(135deg, #00CFCF, #0891b2);
@@ -83,6 +169,30 @@
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(0, 207, 207, 0.15);
         }
+        /* Password field wrapper with eye toggle */
+        .password-wrap {
+            position: relative;
+            margin-bottom: 16px;
+        }
+        .password-wrap input {
+            margin-bottom: 0;
+            padding-right: 48px;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 10px; top: 50%;
+            transform: translateY(-50%);
+            background: transparent; border: 0;
+            width: 34px; height: 34px;
+            border-radius: 8px;
+            color: var(--text-dim); font-size: 17px;
+            cursor: pointer; line-height: 1;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s, color 0.15s;
+        }
+        .password-toggle:hover { background: var(--bg-hover); color: var(--text); }
+        .password-toggle:active { transform: translateY(-50%) scale(0.94); }
+
         .login-box button#loginBtn {
             width: 100%; padding: 14px; margin-top: 4px;
             background: var(--accent); color: #0f172a;
@@ -93,16 +203,12 @@
         }
         .login-box button#loginBtn:active { transform: scale(0.98); }
         .login-box button#loginBtn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .login-error {
-            color: var(--red); font-size: 0.85rem; margin-top: 12px;
-            text-align: center; min-height: 18px;
-        }
-        .login-hint {
-            color: var(--text-faint); font-size: 0.75rem;
-            text-align: center; margin-top: 20px; line-height: 1.5;
-        }
+        .login-error { color: var(--red); font-size: 0.85rem; margin-top: 12px; text-align: center; min-height: 18px; }
+        .login-hint { color: var(--text-faint); font-size: 0.75rem; text-align: center; margin-top: 20px; line-height: 1.5; }
 
-        /* LOADING */
+        /* ============================================================
+           LOADING
+           ============================================================ */
         #loadingView {
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
@@ -117,18 +223,16 @@
             margin-bottom: 20px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .loading-text {
-            color: var(--text-dim); font-size: 0.95rem;
-            text-align: center; max-width: 280px;
-        }
+        .loading-text { color: var(--text-dim); font-size: 0.95rem; text-align: center; max-width: 280px; }
 
-        /* APP SHELL */
+        /* ============================================================
+           APP SHELL
+           ============================================================ */
         #appView {
             padding: 12px 14px 24px;
             padding-top: calc(12px + env(safe-area-inset-top));
             max-width: 720px; margin: 0 auto;
         }
-
         .shell-topbar {
             display: flex; align-items: center; justify-content: space-between;
             gap: 10px; padding: 8px 4px 14px;
@@ -161,17 +265,6 @@
         .badge.online  { background: #14532d; color: var(--green-dim); }
         .badge.offline { background: #7f1d1d; color: var(--red-dim); }
         .badge.unknown { background: var(--bg-hover); color: var(--text-faint); }
-        .badge.unknown::before {
-            content: ''; display: inline-block;
-            width: 7px; height: 7px; margin-right: 5px;
-            border-radius: 50%; background: var(--text-faint);
-            animation: pulse 1.2s ease-in-out infinite;
-            vertical-align: middle;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50%      { opacity: 0.4; transform: scale(0.85); }
-        }
 
         .icon-btn {
             background: var(--bg-card); border: 1px solid var(--border);
@@ -213,7 +306,6 @@
             display: flex; align-items: center; gap: 9px;
             border: 1px solid rgba(248, 113, 113, 0.3);
         }
-
         .error-card {
             background: #450a0a; border: 1px solid #7f1d1d;
             color: var(--red-dim); padding: 12px 14px;
@@ -223,37 +315,60 @@
         }
         .error-card .icon { flex-shrink: 0; font-size: 16px; }
 
-        /* DASHBOARD VIEW (in view container) */
+        /* ============================================================
+           DASHBOARD
+           ============================================================ */
+        .dash-header {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; margin-bottom: 12px;
+        }
+        .dash-title {
+            font-size: 1.2rem; font-weight: 700; color: var(--text);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .dash-title .src-badge {
+            font-size: 0.6rem; font-family: monospace;
+            padding: 2px 8px; border-radius: 8px;
+            background: var(--bg-hover); color: var(--text-faint);
+            font-weight: 600;
+        }
         .kpis {
-            display: grid; grid-template-columns: repeat(2, 1fr);
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
             gap: 10px; margin-bottom: 16px;
+        }
+        @media (min-width: 520px) {
+            .kpis { grid-template-columns: repeat(3, 1fr); }
         }
         .kpi {
             background: var(--bg-card); border-radius: 14px;
-            padding: 14px 15px; border: 1px solid var(--border-soft);
+            padding: 13px 14px; border: 1px solid var(--border-soft);
             transition: border-color 0.15s, transform 0.1s;
         }
         .kpi:active { transform: scale(0.99); }
         .kpi-label {
-            font-size: 0.68rem; font-weight: 700;
+            font-size: 0.66rem; font-weight: 700;
             color: var(--text-dim); margin-bottom: 6px;
             text-transform: uppercase; letter-spacing: 0.5px;
             display: flex; align-items: center; gap: 6px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .kpi-value {
-            font-size: 1.65rem; font-weight: 700;
+            font-size: 1.5rem; font-weight: 700;
             color: var(--text); line-height: 1.1;
             font-variant-numeric: tabular-nums;
         }
         .kpi.indigo .kpi-value { color: var(--indigo); }
         .kpi.blue   .kpi-value { color: #93c5fd; }
         .kpi.teal   .kpi-value { color: #5eead4; }
+        .kpi.green  .kpi-value { color: var(--green); }
+        .kpi.purple .kpi-value { color: var(--purple); }
         .kpi.red    .kpi-value { color: var(--red); }
-        .kpi-sub { font-size: 0.7rem; color: var(--text-faint); margin-top: 4px; }
+        .kpi-sub { font-size: 0.68rem; color: var(--text-faint); margin-top: 4px; }
 
         .card {
             background: var(--bg-card); border-radius: 14px;
-            padding: 15px 16px; margin-bottom: 12px;
+            padding: 14px 16px; margin-bottom: 12px;
             border: 1px solid var(--border-soft);
         }
         .card h2 {
@@ -270,7 +385,7 @@
 
         .list-item {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 0; border-bottom: 1px solid var(--border-soft);
+            padding: 9px 0; border-bottom: 1px solid var(--border-soft);
             font-size: 0.85rem; gap: 10px;
         }
         .list-item:last-child { border-bottom: 0; padding-bottom: 0; }
@@ -286,16 +401,19 @@
         }
         .list-item .right {
             color: var(--text-dim); font-size: 0.78rem;
-            font-weight: 600; flex-shrink: 0; text-transform: capitalize;
+            font-weight: 600; flex-shrink: 0;
         }
         .list-item .right.alert { color: var(--red); }
+        .list-item .right.medal { color: var(--amber); font-size: 0.85rem; }
 
         .empty {
             color: var(--text-faint); font-size: 0.85rem;
             text-align: center; padding: 16px 8px; line-height: 1.6;
         }
 
-        /* PERSISTENT ACTIONS */
+        /* ============================================================
+           PERSISTENT ACTIONS
+           ============================================================ */
         .actions {
             display: grid; grid-template-columns: 1fr 1fr;
             gap: 10px; margin-top: 16px; margin-bottom: 12px;
@@ -344,7 +462,9 @@
         .footnote .dot.red   { background: var(--red); }
         .footnote .dot.amber { background: var(--amber); }
 
-        /* TOAST */
+        /* ============================================================
+           TOAST
+           ============================================================ */
         .toast {
             position: fixed;
             bottom: calc(24px + env(safe-area-inset-bottom));
@@ -367,10 +487,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         .toast.error {
             background: var(--red);
             color: #450a0a;
@@ -383,7 +500,9 @@
         }
         .fade-in { animation: fadeIn 0.25s ease-out; }
 
-        /* MENU DRAWER */
+        /* ============================================================
+           MENU DRAWER
+           ============================================================ */
         #menuOverlay {
             display: none;
             position: fixed; inset: 0;
@@ -392,10 +511,7 @@
             opacity: 0;
             transition: opacity 0.2s ease;
         }
-        #menuOverlay.open {
-            display: block;
-            opacity: 1;
-        }
+        #menuOverlay.open { display: block; opacity: 1; }
         #menuDrawer {
             position: fixed;
             top: 0; left: 0; bottom: 0;
@@ -416,18 +532,10 @@
             border-bottom: 1px solid var(--border-soft);
             display: flex; align-items: center; gap: 10px;
         }
-        .menu-header .brand-icon {
-            width: 40px; height: 40px; font-size: 20px;
-        }
-        .menu-header-title {
-            font-size: 0.9rem; font-weight: 700; color: var(--indigo);
-        }
-        .menu-header-sub {
-            font-size: 0.7rem; color: var(--text-faint); margin-top: 2px;
-        }
-        #menuNav {
-            padding: 10px 8px;
-        }
+        .menu-header .brand-icon { width: 40px; height: 40px; font-size: 20px; }
+        .menu-header-title { font-size: 0.9rem; font-weight: 700; color: var(--indigo); }
+        .menu-header-sub { font-size: 0.7rem; color: var(--text-faint); margin-top: 2px; }
+        #menuNav { padding: 10px 8px; }
         .menu-item {
             display: flex; align-items: center; gap: 12px;
             padding: 13px 14px;
@@ -439,13 +547,8 @@
             margin-bottom: 2px;
         }
         .menu-item:hover { background: var(--bg-hover); color: var(--text); }
-        .menu-item.active {
-            background: var(--accent); color: #0f172a; font-weight: 700;
-        }
-        .menu-item .icon {
-            font-size: 18px; width: 24px; text-align: center;
-            flex-shrink: 0;
-        }
+        .menu-item.active { background: var(--accent); color: #0f172a; font-weight: 700; }
+        .menu-item .icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
         .menu-item .label { flex: 1; }
         .menu-item .tag {
             font-size: 0.6rem;
@@ -465,111 +568,130 @@
             padding: 14px 14px 6px;
         }
 
-        /* VIEW container */
+        /* ============================================================
+           VIEW container
+           ============================================================ */
         #viewContainer > * { animation: fadeIn 0.2s ease-out; }
 
-        /* Shared view styles — used by injected views */
-        .view-header {
-            display: flex; align-items: center; gap: 10px;
-            margin-bottom: 14px;
+        /* ============================================================
+           BUNDLED VIEW CONTAINER — light theme
+           ============================================================ */
+        .bundled-light {
+            background: #f3f4f6;
+            color: #1f2937;
+            padding: 14px;
+            border-radius: 14px;
+            font-size: 15px;
+            line-height: 1.45;
+            min-height: calc(100vh - 220px);
         }
-        .view-title {
-            font-size: 1.2rem; font-weight: 700;
-            color: var(--text);
+        .bundled-light h1,
+        .bundled-light h2,
+        .bundled-light h3,
+        .bundled-light h4 { color: inherit; }
+        .bundled-light p,
+        .bundled-light span,
+        .bundled-light div,
+        .bundled-light label,
+        .bundled-light td,
+        .bundled-light th { color: inherit; }
+        .bundled-light input,
+        .bundled-light select,
+        .bundled-light textarea {
+            background: #ffffff;
+            color: #1f2937;
+            border-color: #d1d5db;
         }
-        .view-back {
-            background: var(--bg-card); border: 1px solid var(--border);
-            color: var(--text-dim); border-radius: 10px;
-            padding: 7px 12px; font-size: 0.8rem; font-weight: 600;
-            cursor: pointer;
-        }
-        .view-back:hover { background: var(--bg-hover); color: var(--text); }
-
-        .search-box {
-            width: 100%; padding: 12px 14px;
-            background: var(--bg-card); border: 1px solid var(--border);
-            border-radius: 12px; color: var(--text);
-            font-size: 0.9rem; outline: none;
-            margin-bottom: 10px;
-        }
-        .search-box:focus { border-color: var(--accent); }
-
-        .view-card {
-            background: var(--bg-card); border-radius: 14px;
-            padding: 14px 15px; margin-bottom: 10px;
-            border: 1px solid var(--border-soft);
-            cursor: pointer; transition: border-color 0.15s, transform 0.1s;
-        }
-        .view-card:active { transform: scale(0.995); }
-        .view-card .row1 {
-            display: flex; justify-content: space-between;
-            align-items: baseline; gap: 8px;
-            margin-bottom: 5px;
-        }
-        .view-card .title {
-            font-weight: 600; color: var(--text);
-            font-size: 0.92rem;
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-        .view-card .status {
-            font-size: 0.7rem; font-weight: 700;
-            padding: 2px 8px; border-radius: 8px;
-            white-space: nowrap; flex-shrink: 0;
-        }
-        .view-card .status.in  { background: #14532d; color: var(--green-dim); }
-        .view-card .status.out { background: #7f1d1d; color: var(--red-dim); }
-        .view-card .row2 {
-            font-size: 0.78rem; color: var(--text-dim);
-            display: flex; gap: 12px; flex-wrap: wrap;
-        }
-        .view-card .row3 {
-            font-size: 0.72rem; color: var(--text-faint);
-            margin-top: 4px;
-        }
-
-        .btn-row {
-            display: grid; grid-template-columns: 1fr 1fr;
-            gap: 10px; margin-top: 14px;
-        }
-        .btn {
-            padding: 11px 14px; border: 0; border-radius: 11px;
-            font-size: 0.85rem; font-weight: 700;
-            cursor: pointer; transition: transform 0.1s, opacity 0.15s;
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-        }
-        .btn:active { transform: scale(0.97); }
-        .btn:disabled { opacity: 0.5; }
-        .btn-cyan { background: var(--accent); color: #0f172a; }
-        .btn-gray { background: var(--bg-card); color: var(--text); border: 1px solid var(--border) !important; }
-        .btn-red  { background: var(--red); color: #450a0a; }
-        .btn-green{ background: #16a34a; color: #f0fdf4; }
+        .bundled-light input::placeholder { color: #9ca3af; }
+        .bundled-light .bg-white   { background: #ffffff !important; color: #1f2937; }
+        .bundled-light .bg-gray-50 { background: #f9fafb !important; }
+        .bundled-light .bg-gray-100{ background: #f3f4f6 !important; }
+        .bundled-light .text-gray-500 { color: #6b7280 !important; }
+        .bundled-light .text-gray-600 { color: #4b5563 !important; }
+        .bundled-light .text-gray-700 { color: #374151 !important; }
+        .bundled-light .text-gray-800 { color: #1f2937 !important; }
+        .bundled-light .text-indigo-600,
+        .bundled-light .text-indigo-700 { color: #4f46e5 !important; }
     </style>
 </head>
 <body>
 
-<!-- LOGIN VIEW -->
-<div id="loginView">
+<!-- ============================================================
+     LANDING VIEW — mode selection (shown on every cold start)
+     ============================================================ -->
+<div id="landingView">
+    <div class="landing-box">
+        <div class="landing-logo">🧾</div>
+        <h1>OX Smart POS</h1>
+        <p class="landing-sub">Choose how to use the app</p>
+
+        <button class="landing-btn landing-btn-offline" onclick="goOffline()" type="button">
+            <span class="landing-btn-icon">📴</span>
+            <span class="landing-btn-text">
+                <span class="landing-btn-title">Use App Offline</span>
+                <span class="landing-btn-desc">Works without internet · sales sync later</span>
+            </span>
+        </button>
+
+        <button class="landing-btn" onclick="goOnline()" type="button">
+            <span class="landing-btn-icon">🌐</span>
+            <span class="landing-btn-text">
+                <span class="landing-btn-title">Use App Online</span>
+                <span class="landing-btn-desc">Full web app in your browser · needs Wi-Fi</span>
+            </span>
+        </button>
+
+        <div class="landing-hint">
+            Tip: offline mode keeps working when Wi-Fi drops.
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     LOGIN VIEW — bundled sign-in with password visibility toggle
+     ============================================================ -->
+<div id="loginView" class="hidden">
     <div class="login-box">
+        <button type="button" class="login-back" onclick="backToLanding()" aria-label="Back to mode selection">
+            ← Mode
+        </button>
         <div class="login-logo">🧾</div>
         <h1>OX Smart POS</h1>
         <p class="subtitle">Sign in to enable offline mode</p>
+
         <label for="loginUser">Username</label>
         <input type="text" id="loginUser" autocomplete="username" autocapitalize="none" spellcheck="false">
+
         <label for="loginPass">Password</label>
-        <input type="password" id="loginPass" autocomplete="current-password">
+        <div class="password-wrap">
+            <input type="password" id="loginPass" autocomplete="current-password">
+            <button type="button"
+                    class="password-toggle"
+                    id="passwordToggleBtn"
+                    onclick="togglePasswordVisibility()"
+                    aria-label="Show password"
+                    title="Show/hide password">
+                <span id="passwordEye">👁</span>
+            </button>
+        </div>
+
         <button id="loginBtn" onclick="doLogin()">Sign In</button>
         <div class="login-error" id="loginError"></div>
         <div class="login-hint">First sign-in requires Wi-Fi.<br>After that, the app works offline.</div>
     </div>
 </div>
 
-<!-- LOADING VIEW -->
+<!-- ============================================================
+     LOADING VIEW
+     ============================================================ -->
 <div id="loadingView" class="hidden">
     <div class="loading-spinner"></div>
     <div class="loading-text" id="loadingText">Starting…</div>
 </div>
 
-<!-- APP SHELL -->
+<!-- ============================================================
+     APP SHELL
+     ============================================================ -->
 <div id="appView" class="hidden">
 
     <div class="shell-topbar">
@@ -602,23 +724,35 @@
     </div>
 
     <div id="viewContainer">
-        <!-- Inline dashboard view (default) -->
         <div id="viewDashboard">
+
+            <div class="dash-header">
+                <div class="dash-title">
+                    Dashboard
+                    <span class="src-badge">APK · Dexie</span>
+                </div>
+            </div>
+
             <div class="kpis">
-                <div class="kpi indigo">
-                    <div class="kpi-label">📦 Products</div>
-                    <div class="kpi-value" id="kpiProducts">—</div>
-                    <div class="kpi-sub" id="kpiProductsSub"></div>
-                </div>
-                <div class="kpi blue">
-                    <div class="kpi-label">📊 Batches</div>
-                    <div class="kpi-value" id="kpiBatches">—</div>
-                    <div class="kpi-sub">&nbsp;</div>
-                </div>
                 <div class="kpi teal">
                     <div class="kpi-label">💰 Sales Today</div>
                     <div class="kpi-value" id="kpiSales">—</div>
                     <div class="kpi-sub" id="kpiSalesSub"></div>
+                </div>
+                <div class="kpi green">
+                    <div class="kpi-label">📈 Profit Today</div>
+                    <div class="kpi-value" id="kpiProfit">—</div>
+                    <div class="kpi-sub" id="kpiProfitSub"></div>
+                </div>
+                <div class="kpi blue">
+                    <div class="kpi-label">📦 Products</div>
+                    <div class="kpi-value" id="kpiProducts">—</div>
+                    <div class="kpi-sub" id="kpiProductsSub"></div>
+                </div>
+                <div class="kpi purple">
+                    <div class="kpi-label">📊 Batches</div>
+                    <div class="kpi-value" id="kpiBatches">—</div>
+                    <div class="kpi-sub">&nbsp;</div>
                 </div>
                 <div class="kpi red">
                     <div class="kpi-label">⚠️ Low Stock</div>
@@ -628,17 +762,24 @@
             </div>
 
             <div class="card">
-                <h2>🕒 Recent Sales <span class="count" id="recentCount">0</span></h2>
-                <div id="recentSales"><div class="empty">Loading…</div></div>
+                <h2>🏆 Top Products <span class="count" id="topProductsCount">0</span></h2>
+                <div id="topProductsList"><div class="empty">Loading…</div></div>
+                <p style="font-size:0.68rem;color:var(--text-faint);margin-top:8px;">
+                    * Based on total quantity sold today
+                </p>
             </div>
 
             <div class="card">
                 <h2>⚠️ Low Stock <span class="count" id="lowStockCount">0</span></h2>
                 <div id="lowStockList"><div class="empty">Loading…</div></div>
             </div>
+
+            <div class="card">
+                <h2>🕒 Recent Sales <span class="count" id="recentCount">0</span></h2>
+                <div id="recentSales"><div class="empty">Loading…</div></div>
+            </div>
         </div>
 
-        <!-- Dynamic view (injected) -->
         <div id="viewDynamic" class="hidden"></div>
     </div>
 
@@ -687,6 +828,7 @@ const USER_KEY   = 'ox_shell_user';
 
 const $ = id => document.getElementById(id);
 
+const landingView = $('landingView');
 const loginView   = $('loginView');
 const loadingView = $('loadingView');
 const appView     = $('appView');
@@ -695,16 +837,16 @@ const loginError  = $('loginError');
 
 // ============================================================
 //  VIEW REGISTRY
-//
-//  path: null + onlineOnly: true → opens in system browser via Full App
-//  path: 'views/X.html'          → bundled, works offline
 // ============================================================
 const VIEWS = {
     dashboard: { title: 'Dashboard',     icon: '📊', path: null },
-    products:  { title: 'Products',      icon: '📦', path: 'views/products.html' },
-    sales:     { title: 'Sales',         icon: '💰', path: null, onlineOnly: true },
-    today:     { title: "Today's Sales", icon: '📅', path: null, onlineOnly: true },
-    purchases: { title: 'Purchases',     icon: '🛒', path: null, onlineOnly: true },
+    products:  { title: 'Products (Acc.)',   icon: '📦', path: 'views/products_accessories.html' },
+    'products-screen': { title: 'Products (Screens)', icon: '📱', path: 'views/products_screen.html' },
+    sales:     { title: 'Sales (Acc.)',      icon: '💰', path: null, onlineOnly: true },
+    'sales-screen': { title: 'Sales (Screens)', icon: '💵', path: null, onlineOnly: true },
+    today:     { title: "Today's Sales",     icon: '📅', path: null, onlineOnly: true },
+    purchases: { title: 'Purchases (Acc.)',  icon: '🛒', path: 'views/purchases_accessories.html' },
+    'purchases-screen': { title: 'Purchases (Screens)', icon: '📥', path: 'views/purchases_screen.html' },
     analytics: { title: 'Analytics',     icon: '📈', path: null, onlineOnly: true },
     archive:   { title: 'Archive',       icon: '🗄️', path: null, onlineOnly: true },
     claims:    { title: 'Claims',        icon: '⚠️', path: null, onlineOnly: true },
@@ -735,7 +877,7 @@ function showToast(msg, opts) {
 }
 
 // ============================================================
-//  NETWORK STATUS — HTTP probe as source of truth
+//  NETWORK STATUS
 // ============================================================
 let _isOnline = null;
 
@@ -796,6 +938,80 @@ function setStoredUser(u)  { try { localStorage.setItem(USER_KEY, JSON.stringify
 function clearStoredUser() { try { localStorage.removeItem(USER_KEY); } catch {} }
 
 // ============================================================
+//  LANDING → choose mode
+// ============================================================
+function backToLanding() {
+    loginView.classList.add('hidden');
+    appView.classList.add('hidden');
+    loadingView.classList.add('hidden');
+    landingView.classList.remove('hidden');
+    // Reset the password field visibility to hidden whenever we come back
+    const pw = $('loginPass');
+    if (pw) pw.type = 'password';
+    const eye = $('passwordEye');
+    if (eye) eye.textContent = '👁';
+}
+window.backToLanding = backToLanding;
+
+async function goOffline() {
+    landingView.classList.add('hidden');
+
+    const token = getToken();
+    if (token) {
+        // Existing session — go straight into the shell
+        await enterApp();
+        return;
+    }
+
+    // No session — show bundled login
+    loginView.classList.remove('hidden');
+    $('loginUser').focus();
+    refreshNetStatus({ syncOnRecover: false });
+}
+window.goOffline = goOffline;
+
+async function goOnline() {
+    const online = await probeNetwork();
+    _isOnline = online;
+    if (!online) {
+        showToast('No connection — check your Wi-Fi', { error: true });
+        return;
+    }
+    try {
+        // Opens the Render web app in the system browser.
+        // Flask will redirect to /login if not authenticated there.
+        window.open(RENDER_URL + '/', '_system');
+        showToast('🌐 Opening web app…');
+    } catch (e) {
+        showToast('Could not open browser', { error: true });
+    }
+}
+window.goOnline = goOnline;
+
+// ============================================================
+//  PASSWORD VISIBILITY TOGGLE
+// ============================================================
+function togglePasswordVisibility() {
+    const input = $('loginPass');
+    const eye   = $('passwordEye');
+    const btn   = $('passwordToggleBtn');
+    if (!input || !eye) return;
+
+    if (input.type === 'password') {
+        input.type = 'text';
+        eye.textContent = '🙈';
+        if (btn) btn.setAttribute('aria-label', 'Hide password');
+    } else {
+        input.type = 'password';
+        eye.textContent = '👁';
+        if (btn) btn.setAttribute('aria-label', 'Show password');
+    }
+    // Keep focus on the field so the user can keep typing
+    input.focus();
+}
+window.togglePasswordVisibility = togglePasswordVisibility;
+
+// ============================================================
 //  LOGIN / LOGOUT
 // ============================================================
 async function doLogin() {
@@ -827,13 +1043,15 @@ async function doLogin() {
         loginBtn.textContent = 'Sign In';
     }
 }
+window.doLogin = doLogin;
 
 function doLogout() {
     if (!confirm('Sign out? You will need to log in again to sync.')) return;
     clearToken();
     clearStoredUser();
-    location.reload();
+    location.reload();   // reboots to landing
 }
+window.doLogout = doLogout;
 
 // ============================================================
 //  ENTER APP
@@ -844,13 +1062,36 @@ async function enterApp(knownOnline) {
         return;
     }
 
+    landingView.classList.add('hidden');
     loginView.classList.add('hidden');
     loadingView.classList.remove('hidden');
+    $('loadingText').textContent = 'Starting…';
 
     const online = (typeof knownOnline === 'boolean') ? knownOnline : await probeNetwork();
     _isOnline = online;
     setNetBadge(online);
 
+    const token = getToken();
+
+    // Online: verify token is still good
+    if (online && token) {
+        try {
+            const res = await fetch(RENDER_URL + '/api/auth/check', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            if (!data.logged_in) {
+                clearToken();
+                clearStoredUser();
+                loadingView.classList.add('hidden');
+                loginView.classList.remove('hidden');
+                $('loginUser').focus();
+                return;
+            }
+        } catch (e) { /* keep going offline */ }
+    }
+
+    // First-time data download
     try {
         const count = await db.products.count();
         if (count === 0 && online) {
@@ -884,45 +1125,70 @@ function renderUserChip() {
 }
 
 // ============================================================
-//  RENDER: dashboard (built-in view)
+//  RENDER: DASHBOARD
 // ============================================================
 async function renderDashboard() {
     try {
         const [products, batches, allSales] = await Promise.all([
-            db.products.toArray(), db.batches.toArray(), db.sales.toArray()
+            db.products.toArray().catch(() => []),
+            db.batches.toArray().catch(() => []),
+            db.sales.toArray().catch(() => [])
         ]);
 
-        if (products.length === 0 && batches.length === 0 && allSales.length === 0) {
-            $('kpiProducts').textContent = '—';
-            $('kpiBatches').textContent  = '—';
-            $('kpiSales').textContent    = '—';
-            $('kpiLowStock').textContent = '—';
-            $('kpiProductsSub').textContent = '';
+        let allItems = [];
+        try { allItems = await db.sales_items.toArray(); }
+        catch (e) {
+            console.warn('[dashboard] sales_items unavailable — top products will be empty');
+        }
+
+        const isEmpty = products.length === 0 && batches.length === 0 && allSales.length === 0;
+        if (isEmpty) {
+            ['kpiSales','kpiProfit','kpiProducts','kpiBatches','kpiLowStock'].forEach(id => {
+                const el = $(id); if (el) el.textContent = '—';
+            });
             $('kpiSalesSub').textContent = '';
-            $('recentCount').textContent = '0';
+            $('kpiProfitSub').textContent = '';
+            $('kpiProductsSub').textContent = '';
+            $('topProductsCount').textContent = '0';
             $('lowStockCount').textContent = '0';
-            $('lowStockCount').classList.remove('alert');
+            $('recentCount').textContent = '0';
             const msg = (_isOnline === false)
                 ? '<div class="empty">No data yet.<br>Connect to Wi-Fi to download your inventory.</div>'
                 : '<div class="empty">Sync in progress…<br>Tap Sync Now if it doesn\'t fill in.</div>';
-            $('recentSales').innerHTML = msg;
+            $('topProductsList').innerHTML = msg;
             $('lowStockList').innerHTML = msg;
+            $('recentSales').innerHTML = msg;
             updateSyncStatus();
             hideError();
             return;
         }
 
+        const todayStr = new Date().toISOString().slice(0, 10);
+
+        const todaySales = allSales.filter(s => !s.reversed && s.date && String(s.date).slice(0, 10) === todayStr);
+        const totalToday = todaySales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
+        const profitToday = todaySales.reduce((sum, s) => {
+            const p = parseFloat(s.profit);
+            if (!isNaN(p)) return sum + p;
+            const tp = parseFloat(s.total_profit);
+            if (!isNaN(tp)) return sum + tp;
+            return sum;
+        }, 0);
+
+        $('kpiSales').textContent  = '₵' + totalToday.toFixed(2);
+        $('kpiSalesSub').textContent = todaySales.length + ' sale' + (todaySales.length === 1 ? '' : 's');
+
+        $('kpiProfit').textContent = '₵' + profitToday.toFixed(2);
+        $('kpiProfitSub').textContent = totalToday > 0
+            ? (profitToday / totalToday * 100).toFixed(1) + '% margin'
+            : '';
+
         $('kpiProducts').textContent = products.length;
-        $('kpiBatches').textContent  = batches.length;
         let inStock = 0, outOfStock = 0;
         products.forEach(p => { if ((p.stock || 0) > 0) inStock++; else outOfStock++; });
         $('kpiProductsSub').textContent = inStock + ' in stock · ' + outOfStock + ' out';
 
-        const today = new Date().toISOString().slice(0, 10);
-        const todaySales = allSales.filter(s => !s.reversed && s.date && String(s.date).slice(0, 10) === today);
-        const totalToday = todaySales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
-        $('kpiSales').textContent = '₵' + totalToday.toFixed(2);
-        $('kpiSalesSub').textContent = todaySales.length + ' sale' + (todaySales.length === 1 ? '' : 's');
+        $('kpiBatches').textContent = batches.length;
 
         const goodByProduct = {};
         batches.forEach(b => {
@@ -930,15 +1196,71 @@ async function renderDashboard() {
             if (good > 0) goodByProduct[b.product_id] = (goodByProduct[b.product_id] || 0) + good;
         });
         const lowStock = products
-            .map(p => ({ name: p.name, brand: p.brand, good: goodByProduct[p.id] || 0 }))
+            .map(p => ({
+                name: p.name,
+                brand: p.brand || '',
+                good: goodByProduct[p.id] || 0
+            }))
             .filter(p => p.good > 0 && p.good <= 10)
             .sort((a, b) => a.good - b.good);
+
         $('kpiLowStock').textContent = lowStock.length;
         $('lowStockCount').textContent = lowStock.length;
         if (lowStock.length > 0) $('lowStockCount').classList.add('alert');
-        else $('lowStockCount').classList.remove('alert');
+        else                     $('lowStockCount').classList.remove('alert');
 
-        const recent = [...allSales].filter(s => !s.reversed)
+        if (lowStock.length === 0) {
+            $('lowStockList').innerHTML = '<div class="empty">All good — nothing low.</div>';
+        } else {
+            $('lowStockList').innerHTML = lowStock.slice(0, 8).map(p =>
+                '<div class="list-item">' +
+                    '<div class="left">' +
+                        '<div class="name">' + escapeHtml(p.name) + '</div>' +
+                        '<div class="meta">' + escapeHtml(p.brand || '') + '</div>' +
+                    '</div>' +
+                    '<div class="right alert">' + p.good + ' left</div>' +
+                '</div>'
+            ).join('');
+        }
+
+        const todaySaleIds = new Set(todaySales.map(s => s.id));
+        const qtyByProduct = {};
+        allItems.forEach(it => {
+            if (!it.sale_id || !todaySaleIds.has(it.sale_id)) return;
+            qtyByProduct[it.product_id] = (qtyByProduct[it.product_id] || 0) + (it.quantity || 0);
+        });
+        const productsById = Object.fromEntries(products.map(p => [p.id, p]));
+        const topProducts = Object.entries(qtyByProduct)
+            .map(([pid, qty]) => {
+                const p = productsById[pid];
+                if (!p) return null;
+                return { name: p.name, brand: p.brand || '', category: p.category || '', qty };
+            })
+            .filter(Boolean)
+            .sort((a, b) => b.qty - a.qty)
+            .slice(0, 8);
+
+        $('topProductsCount').textContent = topProducts.length;
+        if (topProducts.length === 0) {
+            $('topProductsList').innerHTML = '<div class="empty">No sales yet today.</div>';
+        } else {
+            $('topProductsList').innerHTML = topProducts.map((p, i) => {
+                let medal = '';
+                if (i === 0) medal = '🥇 ';
+                else if (i === 1) medal = '🥈 ';
+                else if (i === 2) medal = '🥉 ';
+                return '<div class="list-item">' +
+                    '<div class="left">' +
+                        '<div class="name">' + medal + escapeHtml(p.name) + '</div>' +
+                        '<div class="meta">' + escapeHtml(p.brand) + (p.category ? ' · ' + escapeHtml(p.category) : '') + '</div>' +
+                    '</div>' +
+                    '<div class="right">' + p.qty + ' sold</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        const recent = [...allSales]
+            .filter(s => !s.reversed)
             .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
             .slice(0, 5);
         $('recentCount').textContent = recent.length;
@@ -956,20 +1278,6 @@ async function renderDashboard() {
                     '<div class="right">' + (s.payment_method || 'cash') + '</div>' +
                 '</div>';
             }).join('');
-        }
-
-        if (lowStock.length === 0) {
-            $('lowStockList').innerHTML = '<div class="empty">All good — nothing low.</div>';
-        } else {
-            $('lowStockList').innerHTML = lowStock.slice(0, 8).map(p =>
-                '<div class="list-item">' +
-                    '<div class="left">' +
-                        '<div class="name">' + escapeHtml(p.name) + '</div>' +
-                        '<div class="meta">' + escapeHtml(p.brand || '') + '</div>' +
-                    '</div>' +
-                    '<div class="right alert">' + p.good + ' left</div>' +
-                '</div>'
-            ).join('');
         }
 
         updateSyncStatus();
@@ -1007,9 +1315,8 @@ async function syncNow() {
     try {
         await fullSync();
         await renderDashboard();
-        // Also refresh dynamic view if present
-        if (currentView === 'products' && typeof window.__refreshProductsView === 'function') {
-            window.__refreshProductsView();
+        if (currentView !== 'dashboard' && typeof window.__refreshProductsView === 'function') {
+            try { window.__refreshProductsView(); } catch (e) {}
         }
         showToast('✅ Sync complete');
     } catch (e) {
@@ -1021,14 +1328,12 @@ async function syncNow() {
         refreshNetStatus({ syncOnRecover: false });
     }
 }
+window.syncNow = syncNow;
 
 function syncInBackground() {
     $('syncStatus').innerHTML = 'Syncing in background…';
     fullSync().then(() => {
         renderDashboard();
-        if (currentView === 'products' && typeof window.__refreshProductsView === 'function') {
-            window.__refreshProductsView();
-        }
     }).catch(e => console.warn('Background sync failed:', e));
 }
 
@@ -1083,6 +1388,7 @@ async function openFullApp() {
         }, 1500);
     }, 180);
 }
+window.openFullApp = openFullApp;
 
 // ============================================================
 //  MENU DRAWER
@@ -1095,23 +1401,25 @@ function closeMenu() {
     $('menuOverlay').classList.remove('open');
     $('menuDrawer').classList.remove('open');
 }
+window.openMenu = openMenu;
+window.closeMenu = closeMenu;
 
 function renderMenu() {
     const nav = $('menuNav');
     const items = [];
 
-    // Dashboard first
     items.push(menuItemHtml('dashboard'));
 
-    // Section: Inventory & Sales
-    items.push('<div class="menu-section-label">Inventory & Sales</div>');
+    items.push('<div class="menu-section-label">Inventory &amp; Sales</div>');
     items.push(menuItemHtml('products'));
+    items.push(menuItemHtml('products-screen'));
     items.push(menuItemHtml('sales'));
+    items.push(menuItemHtml('sales-screen'));
     items.push(menuItemHtml('today'));
     items.push(menuItemHtml('purchases'));
+    items.push(menuItemHtml('purchases-screen'));
 
-    // Section: Reports & Admin
-    items.push('<div class="menu-section-label">Reports & Admin</div>');
+    items.push('<div class="menu-section-label">Reports &amp; Admin</div>');
     items.push(menuItemHtml('analytics'));
     items.push(menuItemHtml('archive'));
     items.push(menuItemHtml('claims'));
@@ -1133,7 +1441,7 @@ function menuItemHtml(key) {
 }
 
 // ============================================================
-//  ROUTER — switch between views
+//  ROUTER
 // ============================================================
 async function switchView(name) {
     closeMenu();
@@ -1141,14 +1449,12 @@ async function switchView(name) {
     const v = VIEWS[name];
     if (!v) { showToast('Unknown view', { error: true }); return; }
 
-    // Online-only views launch the system browser instead
     if (v.onlineOnly) {
         showToast('🌐 Opening in full app…');
         setTimeout(() => openFullApp(), 200);
         return;
     }
 
-    // Dashboard is inline
     if (name === 'dashboard') {
         $('viewDashboard').classList.remove('hidden');
         $('viewDynamic').classList.add('hidden');
@@ -1159,7 +1465,6 @@ async function switchView(name) {
         return;
     }
 
-    // Bundled view — fetch and inject
     if (!v.path) { showToast('View not implemented yet', { error: true }); return; }
 
     try {
@@ -1172,16 +1477,20 @@ async function switchView(name) {
         const html = await res.text();
 
         const container = $('viewDynamic');
-        container.innerHTML = html;
+        container.innerHTML = '';
 
-        // Re-execute scripts (innerHTML doesn't run them)
-        container.querySelectorAll('script').forEach(oldScript => {
+        const wrap = document.createElement('div');
+        wrap.className = 'bundled-light';
+
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        while (tmp.firstChild) wrap.appendChild(tmp.firstChild);
+        container.appendChild(wrap);
+
+        wrap.querySelectorAll('script').forEach(oldScript => {
             const newScript = document.createElement('script');
-            if (oldScript.src) {
-                newScript.src = oldScript.src;
-            } else {
-                newScript.textContent = oldScript.textContent;
-            }
+            if (oldScript.src) newScript.src = oldScript.src;
+            else newScript.textContent = oldScript.textContent;
             oldScript.parentNode.replaceChild(newScript, oldScript);
         });
 
@@ -1200,68 +1509,26 @@ function backToDashboard() { switchView('dashboard'); }
 window.backToDashboard = backToDashboard;
 
 // ============================================================
-//  BOOT
+//  BOOT — always show the landing page first
 // ============================================================
-(async function boot() {
-    const token = getToken();
-    if (!token) {
-        loginView.classList.remove('hidden');
-        $('loginUser').focus();
-        refreshNetStatus({ syncOnRecover: false });
-        return;
-    }
-
+(function boot() {
+    landingView.classList.remove('hidden');
     loginView.classList.add('hidden');
-    loadingView.classList.remove('hidden');
-    $('loadingText').textContent = 'Starting…';
-
-    const [online, count] = await Promise.all([
-        probeNetwork(),
-        db.products.count().catch(() => 0)
-    ]);
-    _isOnline = online;
-    setNetBadge(online);
-
-    if (online) {
-        try {
-            const res = await fetch(RENDER_URL + '/api/auth/check', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            const data = await res.json();
-            if (!data.logged_in) {
-                clearToken();
-                clearStoredUser();
-                loadingView.classList.add('hidden');
-                loginView.classList.remove('hidden');
-                $('loginUser').focus();
-                return;
-            }
-        } catch (e) {}
-    }
-
-    if (online && count === 0) {
-        $('loadingText').textContent = 'Downloading your data…';
-        try { await pullData(); }
-        catch (e) {
-            console.warn('Initial pull failed:', e);
-            $('loadingText').textContent = 'Could not download data. Showing cached view.';
-            await new Promise(r => setTimeout(r, 1000));
-        }
-    }
-
     loadingView.classList.add('hidden');
-    appView.classList.remove('hidden');
-
-    renderUserChip();
-    renderMenu();
-    await renderDashboard();
-    if (online) syncInBackground();
+    appView.classList.add('hidden');
+    refreshNetStatus({ syncOnRecover: false });
 })();
 
 // Keyboard shortcuts
-document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginPass').focus(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+document.getElementById('loginPass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+});
+document.getElementById('loginUser').addEventListener('keydown', e => {
+    if (e.key === 'Enter') $('loginPass').focus();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeMenu();
+});
 </script>
 </body>
 </html>
