@@ -1,0 +1,1159 @@
+<!-- ============================================================ -->
+<!-- VIEW: Today's Sales (Accessories) — bundled, offline-first   -->
+<!-- Layout mirrors templates/today_sales.html (accessories)      -->
+<!-- ============================================================ -->
+
+<!-- Header -->
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <button onclick="backToDashboard()"
+            class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
+        ← Back
+    </button>
+    <h2 class="text-xl md:text-2xl font-bold text-indigo-600">📊 Sales Overview</h2>
+    <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">Accessories &amp; Phones</span>
+    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">APK · Dexie</span>
+</div>
+
+<!-- Batch Filter Banner -->
+<div id="tsBatchFilterBanner" class="mb-4 bg-indigo-50 border border-indigo-300 text-indigo-800 px-4 py-3 rounded-lg hidden">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 text-sm">
+            <span>🎯</span>
+            <span>Showing sales for <strong id="tsBatchFilterLabel">Batch #--</strong></span>
+        </div>
+        <button id="tsClearBatchFilterBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs md:text-sm">
+            ✕ Clear Batch Filter
+        </button>
+    </div>
+</div>
+
+<!-- Refresh button -->
+<div class="flex justify-end mb-3">
+    <button id="tsRefreshBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-sm md:text-base">🔄 Refresh</button>
+</div>
+
+<!-- Search Bar -->
+<div class="mb-4 bg-white rounded-xl shadow-md p-3 md:p-4">
+    <div class="flex flex-col md:flex-row gap-3">
+        <div class="flex-1">
+            <input type="text" id="tsSearchInput" placeholder="🔍 Search product, brand, user, or category..."
+                   class="w-full border border-gray-300 rounded-lg px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base bg-white text-gray-800">
+        </div>
+        <div class="flex flex-wrap gap-2 items-center">
+            <button id="tsAdvancedToggle" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm">
+                ⚙️ Advanced
+            </button>
+            <button id="tsClearSearchBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm">✕ Clear</button>
+        </div>
+    </div>
+
+    <div id="tsAdvancedSearch" class="hidden mt-3 pt-3 border-t border-gray-200">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+                <label class="block text-xs font-medium text-gray-700">Search Mode</label>
+                <select id="tsSearchMode" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white text-gray-800">
+                    <option value="contains">Contains (Partial Match)</option>
+                    <option value="exact">Exact Match</option>
+                    <option value="starts">Starts With</option>
+                    <option value="ends">Ends With</option>
+                    <option value="words">All Words (AND)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700">Search In</label>
+                <select id="tsSearchField" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white text-gray-800">
+                    <option value="all">All Fields</option>
+                    <option value="name">Product Name</option>
+                    <option value="brand">Brand</option>
+                    <option value="username">User</option>
+                    <option value="category">Category</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700">Case Sensitive</label>
+                <select id="tsCaseSensitive" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white text-gray-800">
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button id="tsApplyAdvancedSearch" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm w-full">
+                    🔍 Apply
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <p class="text-xs text-gray-500 mt-1">🔎 Type to filter sales records | <span id="tsResultCount" class="font-semibold">0</span> sales found</p>
+</div>
+
+<!-- Period Filter Buttons -->
+<div class="flex flex-wrap gap-1.5 md:gap-2 mb-4">
+    <button data-period="daily"   class="ts-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">Today</button>
+    <button data-period="weekly"  class="ts-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">This Week</button>
+    <button data-period="monthly" class="ts-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">This Month</button>
+    <button data-period="yearly"  class="ts-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">This Year</button>
+    <button data-period="all"     class="ts-period-btn bg-purple-500 hover:bg-purple-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">All Time</button>
+</div>
+
+<!-- Date Range Filter -->
+<div class="bg-white rounded-xl shadow-md p-3 md:p-4 mb-6">
+    <div class="flex flex-wrap items-end gap-2 md:gap-4">
+        <div>
+            <label class="block text-xs md:text-sm font-medium text-gray-700">From Date</label>
+            <input type="date" id="tsStartDate" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-sm bg-white text-gray-800">
+        </div>
+        <div>
+            <label class="block text-xs md:text-sm font-medium text-gray-700">To Date</label>
+            <input type="date" id="tsEndDate" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-sm bg-white text-gray-800">
+        </div>
+        <button id="tsApplyDateBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 md:px-5 md:py-2 rounded-lg text-xs md:text-sm">Apply Custom Range</button>
+        <button id="tsPdfBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 md:px-5 md:py-2 rounded-lg text-xs md:text-sm ml-auto">🖨️ PDF</button>
+    </div>
+    <div id="tsFilterInfo" class="text-xs text-gray-500 mt-2 hidden">
+        📋 Currently filtered by: <span id="tsFilterDescription"></span>
+    </div>
+</div>
+
+<!-- Sales List -->
+<div id="tsSalesList" class="ts-scrollable space-y-3 md:space-y-4">
+    <div class="text-center text-gray-400 py-8">Loading sales data…</div>
+</div>
+
+<!-- Summary Bar -->
+<div id="tsSummaryBar" class="mt-6 p-3 md:p-4 bg-gray-900 rounded-xl text-teal-400 text-center font-bold shadow-lg text-xs md:text-sm">
+</div>
+
+<!-- ============================================================ -->
+<!-- Reverse Modal — uses .ts-modal* layout classes (see styles)  -->
+<!-- ============================================================ -->
+<div id="tsReverseModal" class="ts-modal hidden">
+    <div class="ts-modal-box">
+        <div class="ts-modal-header">
+            <h3 class="ts-modal-title" id="tsReverseModalTitle">Select Items to Reverse</h3>
+            <button onclick="tsCloseReverseModal()" class="ts-modal-x">&times;</button>
+        </div>
+        <div id="tsReverseItemList" class="ts-modal-body"></div>
+        <div class="ts-modal-footer ts-modal-footer-split">
+            <div class="flex gap-2">
+                <button onclick="tsSelectAllReverse()"   class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 md:px-3 md:py-1 rounded text-xs md:text-sm">Select All</button>
+                <button onclick="tsDeselectAllReverse()" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 md:px-3 md:py-1 rounded text-xs md:text-sm">Deselect All</button>
+            </div>
+            <div class="flex gap-2">
+                <button id="tsConfirmReverseBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">Reverse Selected</button>
+                <button onclick="tsCloseReverseModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- View Details Modal — pick which item's batch to inspect      -->
+<!-- ============================================================ -->
+<div id="tsViewDetailsModal" class="ts-modal hidden">
+    <div class="ts-modal-box">
+        <div class="ts-modal-header">
+            <h3 class="ts-modal-title" id="tsViewDetailsTitle">Select Item to View Details</h3>
+            <button onclick="tsCloseViewDetailsModal()" class="ts-modal-x">&times;</button>
+        </div>
+        <div id="tsViewDetailsItemList" class="ts-modal-body"></div>
+        <div class="ts-modal-footer ts-modal-footer-right">
+            <button onclick="tsCloseViewDetailsModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Batch Details Modal                                          -->
+<!-- ============================================================ -->
+<div id="tsBatchDetailsModal" class="ts-modal hidden">
+    <div class="ts-modal-box">
+        <div class="ts-modal-header">
+            <h3 class="ts-modal-title" id="tsBatchDetailsTitle">Batch Details</h3>
+            <button onclick="tsCloseBatchDetailsModal()" class="ts-modal-x">&times;</button>
+        </div>
+        <div id="tsBatchDetailsContent" class="ts-modal-body"></div>
+        <div class="ts-modal-footer ts-modal-footer-right">
+            <button onclick="tsCloseBatchDetailsModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== STYLES ===================== -->
+<style>
+    /* ---------- Modal layout (Tailwind-independent) ---------- */
+    .ts-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        z-index: 9000;
+        overscroll-behavior: contain;
+    }
+    .ts-modal.hidden { display: none !important; }
+
+    .ts-modal-box {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15), 0 10px 10px -5px rgba(0,0,0,0.06);
+        width: 100%;
+        max-width: 42rem;               /* 672px */
+        max-height: calc(100vh - 2rem);
+        max-height: calc(100dvh - 2rem);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;               /* key: box itself does NOT scroll */
+        box-sizing: border-box;
+    }
+
+    .ts-modal-header {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #ffffff;
+    }
+    .ts-modal-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #111827;
+        margin: 0;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    @media (min-width: 768px) {
+        .ts-modal-title { font-size: 1.15rem; }
+    }
+    .ts-modal-x {
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        color: #6b7280;
+        font-size: 1.5rem;
+        line-height: 1;
+        padding: 0 4px;
+        flex-shrink: 0;
+    }
+    .ts-modal-x:hover { color: #111827; }
+
+    .ts-modal-body {
+        flex: 1 1 0;
+        min-height: 0;                  /* CRITICAL for scroll in flex */
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        padding: 14px 16px;
+        background: #ffffff;
+    }
+
+    .ts-modal-footer {
+        flex: 0 0 auto;
+        padding: 12px 16px;
+        border-top: 1px solid #e5e7eb;
+        background: #ffffff;
+        display: flex;
+        gap: 8px;
+    }
+    .ts-modal-footer-right { justify-content: flex-end; }
+    .ts-modal-footer-split {
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    /* ---------- Reverse row styles ---------- */
+    .ts-rev-row {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 10px 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #1f2937;
+        font-size: 0.8rem;
+        line-height: 1.4;
+    }
+    .ts-rev-row + .ts-rev-row { margin-top: 8px; }
+    .ts-rev-row .ts-rev-cb {
+        margin-top: 3px;
+        flex-shrink: 0;
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+    .ts-rev-row .ts-rev-info { flex: 1; min-width: 0; word-wrap: break-word; }
+    .ts-rev-row strong { color: #4f46e5; }
+
+    /* ---------- Sales list scrollbar ---------- */
+    .ts-scrollable {
+        max-height: 60vh;
+        overflow-y: auto;
+        padding-right: 4px;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 #f1f1f1;
+    }
+    .ts-scrollable::-webkit-scrollbar { width: 8px; height: 8px; }
+    .ts-scrollable::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    .ts-scrollable::-webkit-scrollbar-thumb {
+        background: #cbd5e1; border-radius: 10px; border: 2px solid #f1f1f1;
+    }
+    .ts-scrollable::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    .ts-highlight { background-color: #fef08a; padding: 0 2px; border-radius: 2px; }
+
+    /* Busy state on reverse button */
+    .ts-btn-busy { opacity: 0.7; pointer-events: none; }
+</style>
+
+<!-- ===================== SCRIPT ===================== -->
+<script>
+(function() {
+'use strict';
+
+const $ = id => document.getElementById(id);
+const RENDER = 'https://ox-smart-pos-release-version.onrender.com';
+
+// ---------- State ----------
+let tsAllSales = [];
+let tsFiltered = [];
+let tsPeriod = 'daily';
+let tsStartDate = null;
+let tsEndDate = null;
+let tsSearchTerm = '';
+let tsBatchId = null;
+let tsSearchMode = 'contains';
+let tsSearchField = 'all';
+let tsCaseSensitive = false;
+let tsReverseSaleId = null;
+let tsReverseItems = [];
+let tsViewSaleId = null;
+let tsViewItems = [];
+let tsIsAdmin = true;
+let tsReversing = false;
+
+// ---------- Utilities ----------
+function safeToFixed(v, d = 2) {
+    const n = parseFloat(v);
+    return isNaN(n) ? '0.00' : n.toFixed(d);
+}
+function formatMoney(amount) { return '₵' + safeToFixed(amount); }
+function escapeHtml(s) {
+    if (!s && s !== 0) return '';
+    return String(s).replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[m]));
+}
+function formatDate(str) {
+    if (!str) return '';
+    try { return new Date(str).toLocaleString(); } catch (e) { return String(str); }
+}
+function toast(msg, isError) {
+    if (typeof window.showToast === 'function') {
+        window.showToast(msg, { error: !!isError });
+    } else {
+        alert(msg);
+    }
+}
+function notifyBell() {
+    if (typeof window.refreshPendingNotifications === 'function') {
+        try { window.refreshPendingNotifications(); } catch (e) {}
+    }
+}
+
+// ---------- Period range helpers ----------
+function getPeriodRange(period) {
+    const now = new Date();
+    const startOfDay = d => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
+    const endOfDay   = d => { const x = new Date(d); x.setHours(23,59,59,999); return x; };
+
+    if (period === 'daily') {
+        return { start: startOfDay(now), end: endOfDay(now) };
+    }
+    if (period === 'weekly') {
+        const day = now.getDay();
+        const start = new Date(now);
+        start.setDate(now.getDate() - day);
+        return { start: startOfDay(start), end: endOfDay(now) };
+    }
+    if (period === 'monthly') {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        return { start: startOfDay(start), end: endOfDay(now) };
+    }
+    if (period === 'yearly') {
+        const start = new Date(now.getFullYear(), 0, 1);
+        return { start: startOfDay(start), end: endOfDay(now) };
+    }
+    return { start: null, end: null };
+}
+
+// ============================================================
+//  LOAD SALES FROM DEXIE
+// ============================================================
+async function tsLoadSales() {
+    const container = $('tsSalesList');
+    container.innerHTML = '<div class="text-center text-gray-400 py-8">⏳ Loading sales data…</div>';
+
+    if (typeof db === 'undefined' || !db) {
+        container.innerHTML = '<div class="text-center text-red-400 py-8">Local database not available.</div>';
+        $('tsSummaryBar').innerHTML = '❌ Local database not available';
+        return;
+    }
+
+    try {
+        const [allSales, allItems, allBatches, allProducts] = await Promise.all([
+            db.sales.toArray().catch(() => []),
+            db.sales_items.toArray().catch(() => []),
+            db.batches.toArray().catch(() => []),
+            db.products.toArray().catch(() => [])
+        ]);
+
+        const salesMap = {};    allSales.forEach(s => { salesMap[s.id] = s; });
+        const batchMap = {};    allBatches.forEach(b => { batchMap[b.id] = b; });
+        const productMap = {};  allProducts.forEach(p => { productMap[p.id] = p; });
+
+        let windowStart = null, windowEnd = null;
+        if (tsStartDate && tsEndDate) {
+            windowStart = new Date(tsStartDate + 'T00:00:00');
+            windowEnd   = new Date(tsEndDate   + 'T23:59:59');
+        } else {
+            const r = getPeriodRange(tsPeriod);
+            windowStart = r.start;
+            windowEnd   = r.end;
+        }
+
+        const flattened = [];
+        for (const item of allItems) {
+            const sale = salesMap[item.sale_id];
+            if (!sale) continue;
+            if (sale.reversed) continue;
+
+            const product = productMap[item.product_id] || {};
+            const category = product.category || '';
+
+            if (category.toLowerCase() === 'screen') continue;
+
+            if (tsBatchId && item.batch_id !== tsBatchId) continue;
+
+            const d = new Date(String(sale.date || '').replace(' ', 'T'));
+            if (windowStart && d < windowStart) continue;
+            if (windowEnd   && d > windowEnd)   continue;
+
+            const batch = item.batch_id ? batchMap[item.batch_id] : null;
+
+            flattened.push({
+                sale_id: sale.id,
+                sale_date: sale.date,
+                username: sale.username || sale.user_name || 'Unknown',
+                payment_method: sale.payment_method || 'cash',
+                cheque_number: sale.cheque_number || null,
+                discount: parseFloat(sale.discount || 0),
+                total: parseFloat(sale.total || 0),
+                net_profit: parseFloat(sale.profit || sale.total_profit || 0),
+                product_id: item.product_id,
+                name: product.name || item.name || 'Unknown',
+                brand: product.brand || item.brand || '',
+                category: category,
+                quantity: item.quantity || 0,
+                selling_price: parseFloat(item.selling_price || 0),
+                cost_price: parseFloat(item.cost_price || 0),
+                subtotal: (item.quantity || 0) * parseFloat(item.selling_price || 0),
+                profit: parseFloat(item.profit || 0),
+                batch_id: item.batch_id || -1,
+                is_deleted_batch: !batch
+            });
+        }
+
+        tsAllSales = flattened;
+        tsApplySearchAndRender();
+        updateTsFilterInfo();
+    } catch (e) {
+        console.error('[today-sales] load failed:', e);
+        container.innerHTML = '<div class="text-center text-red-500 py-8">❌ Error loading sales: ' + escapeHtml(e.message) + '</div>';
+        $('tsSummaryBar').innerHTML = '❌ Failed to load sales data';
+    }
+}
+
+// ============================================================
+//  SEARCH
+// ============================================================
+function tsMatches(value, term, mode, cs) {
+    if (!value) return false;
+    let s = String(value), t = String(term);
+    if (!cs) { s = s.toLowerCase(); t = t.toLowerCase(); }
+    switch (mode) {
+        case 'exact':  return s === t;
+        case 'starts': return s.startsWith(t);
+        case 'ends':   return s.endsWith(t);
+        case 'words':  return t.split(/\s+/).filter(Boolean).every(w => s.includes(w));
+        default:       return s.includes(t);
+    }
+}
+function tsSearchable(item, field) {
+    switch (field) {
+        case 'name':     return item.name || '';
+        case 'brand':    return item.brand || '';
+        case 'username': return item.username || '';
+        case 'category': return item.category || '';
+        default:         return [item.name, item.brand, item.username, item.category].filter(Boolean).join(' ');
+    }
+}
+
+function tsApplySearchAndRender() {
+    const input = $('tsSearchInput');
+    tsSearchTerm = input ? input.value.trim() : '';
+    tsSearchMode    = $('tsSearchMode').value;
+    tsSearchField   = $('tsSearchField').value;
+    tsCaseSensitive = $('tsCaseSensitive').value === 'true';
+
+    let filtered = tsAllSales;
+    if (tsSearchTerm) {
+        filtered = tsAllSales.filter(it => {
+            const text = tsSearchable(it, tsSearchField);
+            return tsMatches(text, tsSearchTerm, tsSearchMode, tsCaseSensitive);
+        });
+    }
+    tsFiltered = filtered;
+    tsRenderSales(filtered, tsSearchTerm);
+
+    const distinct = new Set(filtered.map(x => x.sale_id));
+    const total    = new Set(tsAllSales.map(x => x.sale_id));
+    $('tsResultCount').textContent = tsSearchTerm
+        ? `${distinct.size} (of ${total.size})`
+        : `${distinct.size}`;
+}
+
+// ============================================================
+//  RENDER
+// ============================================================
+function getPaymentBadge(method, cheque) {
+    if (method === 'cash' || !method) {
+        return '<span class="inline-flex items-center bg-green-100 text-green-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">💵 Cash</span>';
+    }
+    if (method === 'momo') {
+        return '<span class="inline-flex items-center bg-blue-100 text-blue-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">📱 MoMo</span>';
+    }
+    if (method === 'cheque') {
+        return `<span class="inline-flex items-center bg-purple-100 text-purple-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">📝 Cheque ${cheque ? '#' + escapeHtml(cheque) : ''}</span>`;
+    }
+    return '<span class="inline-flex items-center bg-gray-100 text-gray-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">❓ Unknown</span>';
+}
+
+function tsRenderSales(items, searchTerm) {
+    const container = $('tsSalesList');
+    if (!items || items.length === 0) {
+        let msg = searchTerm
+            ? `No sales found matching "${escapeHtml(searchTerm)}"`
+            : 'No sales recorded for this period (Accessories & Phones).';
+        if (tsBatchId && !searchTerm) msg = `No sales found for Batch #${tsBatchId} in this period.`;
+        container.innerHTML = `<div class="text-center text-gray-400 py-8">${msg}</div>`;
+        tsUpdateSummary([]);
+        return;
+    }
+
+    const saleMap = new Map();
+    for (const it of items) {
+        if (!saleMap.has(it.sale_id)) {
+            saleMap.set(it.sale_id, {
+                sale_id: it.sale_id,
+                date: it.sale_date,
+                username: it.username,
+                payment_method: it.payment_method,
+                cheque_number: it.cheque_number,
+                discount: it.discount,
+                total: it.total,
+                net_profit: it.net_profit,
+                items: []
+            });
+        }
+        saleMap.get(it.sale_id).items.push(it);
+    }
+
+    let html = '';
+    for (const [saleId, g] of saleMap) {
+        if (!g.items.length) continue;
+        const paymentBadge = getPaymentBadge(g.payment_method, g.cheque_number);
+
+        const itemsHtml = g.items.map(item => {
+            const status = item.is_deleted_batch ? '⚠️ (Batch Deleted - History Only)' : '';
+
+            let dName  = escapeHtml(item.name);
+            let dBrand = escapeHtml(item.brand);
+            if (searchTerm) {
+                const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                if (item.name)  dName  = escapeHtml(item.name).replace(regex, '<span class="ts-highlight">$1</span>');
+                if (item.brand) dBrand = escapeHtml(item.brand).replace(regex, '<span class="ts-highlight">$1</span>');
+            }
+
+            const adminDetails = tsIsAdmin ? `
+                <div>Cost: ${formatMoney(item.cost_price)}</div>
+                <div>Profit: ${formatMoney(item.profit)}</div>
+            ` : '';
+
+            return `
+                <div class="border-b pb-1 md:pb-2 mb-1 md:mb-2 last:border-0">
+                    <div class="font-semibold text-indigo-700 text-sm md:text-base">${dName} (${dBrand}) ${status}</div>
+                    <div class="text-xs md:text-sm grid grid-cols-2 gap-0.5 md:gap-1 text-gray-700">
+                        <div>Qty: ${item.quantity}</div>
+                        <div>Selling: ${formatMoney(item.selling_price)}</div>
+                        <div>Batch: ${item.batch_id === -1 ? 'DELETED' : '#' + item.batch_id}</div>
+                        ${adminDetails}
+                        <div>Subtotal: ${formatMoney(item.subtotal)}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        html += `
+            <div class="bg-white rounded-xl shadow-md p-3 md:p-4 border" data-sale-id="${saleId}">
+                <div class="flex flex-wrap justify-between items-start mb-1 md:mb-2 gap-1">
+                    <div class="text-xs md:text-sm text-gray-500">Sale #${saleId} | ${g.date}</div>
+                    <div>${paymentBadge}</div>
+                </div>
+                <div class="text-xs text-gray-600 mb-1">👤 User: ${escapeHtml(g.username)}</div>
+                ${itemsHtml}
+                <div class="mt-1 md:mt-2 pt-1 md:pt-2 border-t flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex gap-1">
+                        <button class="ts-reverse-btn bg-red-500 hover:bg-red-600 text-white px-2 py-0.5 md:px-3 md:py-1 rounded text-xs md:text-sm"
+                                data-sale-id="${saleId}">↺ Reverse</button>
+                        <button class="ts-batch-details-btn bg-blue-500 hover:bg-blue-600 text-white px-2 py-0.5 md:px-3 md:py-1 rounded text-xs md:text-sm"
+                                data-sale-id="${saleId}">📋 Batch Details</button>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1 md:gap-2">
+                        <span class="text-xs md:text-sm text-gray-700">Discount: ${formatMoney(g.discount)}</span>
+                        <span class="text-base md:text-lg font-bold text-gray-800">Total: ${formatMoney(g.total)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+
+    container.querySelectorAll('.ts-reverse-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const saleId = parseInt(btn.getAttribute('data-sale-id'));
+            const group = saleMap.get(saleId);
+            if (group) tsOpenReverseModal(saleId, group.items);
+        });
+    });
+
+    container.querySelectorAll('.ts-batch-details-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const saleId = parseInt(btn.getAttribute('data-sale-id'));
+            const group = saleMap.get(saleId);
+            if (group && group.items.length > 0) {
+                tsOpenViewDetailsModal(saleId, group.items);
+            }
+        });
+    });
+
+    tsUpdateSummary(items);
+}
+
+// ============================================================
+//  SUMMARY
+// ============================================================
+function tsUpdateSummary(items) {
+    const seen = new Set();
+    let totalSales = 0, totalDiscount = 0, totalProfit = 0, totalItems = 0;
+    let cash = 0, momo = 0, cheque = 0;
+
+    for (const it of items) {
+        if (!seen.has(it.sale_id)) {
+            totalSales    += it.total || 0;
+            totalDiscount += it.discount || 0;
+            totalProfit   += it.net_profit || 0;
+            seen.add(it.sale_id);
+            const m = (it.payment_method || 'cash').toLowerCase();
+            if (m === 'cash' || m === '') cash += it.total || 0;
+            else if (m === 'momo') momo += it.total || 0;
+            else if (m === 'cheque') cheque += it.total || 0;
+            else cash += it.total || 0;
+        }
+        totalItems += it.quantity || 0;
+    }
+
+    let periodText = '';
+    if (tsStartDate && tsEndDate) {
+        periodText = `📅 ${tsStartDate} to ${tsEndDate}`;
+    } else {
+        const names = { daily: 'Today', weekly: 'This Week', monthly: 'This Month', yearly: 'This Year', all: 'All Time' };
+        periodText = `📅 ${names[tsPeriod] || tsPeriod}`;
+    }
+    const filterSummary =
+        (tsSearchTerm ? ` | 🔍 "${tsSearchTerm}"` : '') +
+        (tsBatchId ? ` | 🎯 Batch #${tsBatchId}` : '');
+
+    const profitHtml = tsIsAdmin
+        ? `<span class="text-gray-500">|</span>
+           <span>📈 Profit: <strong class="${totalProfit >= 0 ? 'text-teal-400' : 'text-red-400'}">${formatMoney(totalProfit)}</strong></span>`
+        : '';
+
+    $('tsSummaryBar').innerHTML = `
+        <div class="flex flex-wrap justify-center items-center gap-1 md:gap-2 text-[10px] md:text-xs">
+            <span class="text-teal-300">${periodText}</span>
+            <span class="text-gray-500">|</span>
+            <span>🧾 Sales: <strong>${seen.size}</strong></span>
+            <span class="text-gray-500">|</span>
+            <span>📦 Items: <strong>${totalItems}</strong></span>
+            <span class="text-gray-500">|</span>
+            <span>💰 Sales: <strong class="text-green-400">${formatMoney(totalSales)}</strong></span>
+            <span class="text-gray-500">|</span>
+            <span>📉 Disc: <strong class="text-red-400">${formatMoney(totalDiscount)}</strong></span>
+            ${profitHtml}
+            ${filterSummary}
+        </div>
+        <div class="flex flex-wrap justify-center items-center gap-1 md:gap-2 text-[9px] md:text-xs mt-0.5">
+            <span class="text-green-400">💵 Cash: ${formatMoney(cash)}</span>
+            <span class="text-gray-600">|</span>
+            <span class="text-blue-400">📱 MoMo: ${formatMoney(momo)}</span>
+            <span class="text-gray-600">|</span>
+            <span class="text-purple-400">📝 Cheque: ${formatMoney(cheque)}</span>
+        </div>
+    `;
+}
+
+// ============================================================
+//  FILTER INFO
+// ============================================================
+function updateTsFilterInfo() {
+    const info = $('tsFilterInfo');
+    const desc = $('tsFilterDescription');
+    const parts = [];
+
+    if (tsSearchTerm) {
+        const modeText = { contains:'contains', exact:'exactly matches', starts:'starts with', ends:'ends with', words:'contains all words' }[tsSearchMode] || 'contains';
+        const fieldText = { all:'all fields', name:'product name', brand:'brand', username:'user', category:'category' }[tsSearchField] || 'all fields';
+        parts.push(`Search: "${tsSearchTerm}" (${modeText} in ${fieldText})`);
+    }
+    if (tsBatchId) parts.push(`Batch #${tsBatchId}`);
+    if (tsStartDate && tsEndDate) parts.push(`Date: ${tsStartDate} to ${tsEndDate}`);
+    else {
+        const names = { daily:'Today', weekly:'This Week', monthly:'This Month', yearly:'This Year', all:'All Time' };
+        parts.push(`Period: ${names[tsPeriod] || tsPeriod}`);
+    }
+
+    if (parts.length) {
+        info.classList.remove('hidden');
+        desc.textContent = parts.join(' | ');
+    } else {
+        info.classList.add('hidden');
+    }
+}
+
+// ============================================================
+//  BATCH FILTER (URL param ?batch_id=N)
+// ============================================================
+function tsReadBatchIdFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    const bid = params.get('batch_id');
+    if (bid && !isNaN(parseInt(bid))) {
+        tsBatchId = parseInt(bid);
+        $('tsBatchFilterLabel').textContent = `Batch #${tsBatchId}`;
+        $('tsBatchFilterBanner').classList.remove('hidden');
+        return true;
+    }
+    return false;
+}
+function tsClearBatchFilter() {
+    tsBatchId = null;
+    $('tsBatchFilterBanner').classList.add('hidden');
+    try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('batch_id');
+        window.history.replaceState({}, '', url.toString());
+    } catch (e) {}
+    tsLoadSales();
+}
+
+// ============================================================
+//  REVERSE MODAL
+// ============================================================
+function tsOpenReverseModal(saleId, items) {
+    tsReverseSaleId = saleId;
+    tsReverseItems = [];
+
+    const container = $('tsReverseItemList');
+    container.innerHTML = '';
+
+    if (!items || items.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-400 py-6">No items in this sale.</div>';
+        $('tsReverseModalTitle').textContent = `Reverse Items from Sale #${saleId}`;
+        $('tsReverseModal').classList.remove('hidden');
+        return;
+    }
+
+    items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'ts-rev-row';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'ts-rev-cb';
+        cb.dataset.item = JSON.stringify({
+            batch_id: item.batch_id,
+            quantity: item.quantity,
+            product_id: item.product_id
+        });
+
+        const info = document.createElement('div');
+        info.className = 'ts-rev-info';
+        let details = `
+            <strong>${escapeHtml(item.name)} (${escapeHtml(item.brand)})</strong><br>
+            Batch #${item.batch_id === -1 ? 'DELETED' : item.batch_id}<br>
+            Quantity: ${item.quantity}<br>
+            Selling: ${formatMoney(item.selling_price)}
+        `;
+        if (tsIsAdmin) {
+            details += `<br>Cost: ${formatMoney(item.cost_price)}<br>Profit: ${formatMoney(item.profit)}`;
+        }
+        info.innerHTML = details;
+
+        row.appendChild(cb);
+        row.appendChild(info);
+        container.appendChild(row);
+
+        tsReverseItems.push({ checkbox: cb, itemData: item });
+    });
+
+    $('tsReverseModalTitle').textContent = `Reverse Items from Sale #${saleId}`;
+    $('tsReverseModal').classList.remove('hidden');
+}
+function tsCloseReverseModal() {
+    $('tsReverseModal').classList.add('hidden');
+    tsReverseSaleId = null;
+    tsReverseItems = [];
+}
+window.tsCloseReverseModal = tsCloseReverseModal;
+
+function tsSelectAllReverse()   { tsReverseItems.forEach(i => i.checkbox.checked = true); }
+function tsDeselectAllReverse() { tsReverseItems.forEach(i => i.checkbox.checked = false); }
+window.tsSelectAllReverse   = tsSelectAllReverse;
+window.tsDeselectAllReverse = tsDeselectAllReverse;
+
+async function tsConfirmReverse() {
+    if (tsReversing) return;
+    const selected = tsReverseItems.filter(i => i.checkbox.checked);
+    if (!selected.length) { toast('Select at least one item to reverse', true); return; }
+
+    tsReversing = true;
+    const confirmBtn = $('tsConfirmReverseBtn');
+    const originalLabel = confirmBtn ? confirmBtn.textContent : '';
+    if (confirmBtn) {
+        confirmBtn.classList.add('ts-btn-busy');
+        confirmBtn.textContent = 'Reversing…';
+    }
+
+    const itemsToReverse = selected.map(i => JSON.parse(i.checkbox.dataset.item));
+    const payload = { sale_id: tsReverseSaleId, items: itemsToReverse };
+    const saleIdForMsg = tsReverseSaleId;
+
+    try {
+        // ── 1. If online, try direct API first ──
+        let handledOnline = false;
+        if (navigator.onLine) {
+            try {
+                const res = await fetch(RENDER + '/api/sales/reverse_items', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.success) {
+                        toast(`✅ ${selected.length} item(s) reversed`);
+                        handledOnline = true;
+                    } else if (data && data.error) {
+                        // Server rejected — fall through to queue path
+                        console.warn('[today-sales] reverse rejected by server:', data.error);
+                    }
+                }
+            } catch (e) {
+                console.warn('[today-sales] reverse API failed, queuing offline:', e);
+            }
+        }
+
+        // ── 2. Offline OR API failed — queue pending op ──
+        if (!handledOnline) {
+            let queued = false;
+
+            if (typeof savePendingOperation === 'function') {
+                try {
+                    await savePendingOperation('sales', 'reverse', 'reverse_' + Date.now(), payload);
+                    queued = true;
+                } catch (e) {
+                    console.warn('[today-sales] savePendingOperation failed:', e);
+                }
+            }
+
+            if (!queued && typeof db !== 'undefined' && db) {
+                try {
+                    await db.pending_ops.add({
+                        table: 'sales',
+                        operation: 'reverse',
+                        record_id: 'reverse_' + Date.now(),
+                        payload: payload,
+                        timestamp: new Date().toISOString(),
+                        attempts: 0,
+                        synced: 0
+                    });
+                    queued = true;
+                } catch (e) {
+                    console.warn('[today-sales] db.pending_ops.add failed:', e);
+                }
+            }
+
+            if (!queued) {
+                toast('Could not queue reversal — try again', true);
+                return;
+            }
+
+            // ── 3. Apply the reversal to local Dexie so UI reflects it now ──
+            try {
+                for (const it of itemsToReverse) {
+                    if (it.batch_id && it.batch_id !== -1) {
+                        const batch = await db.batches.get(it.batch_id);
+                        if (batch) {
+                            const newRemaining = (batch.remaining_quantity || 0) + (it.quantity || 0);
+                            await db.batches.update(it.batch_id, { remaining_quantity: newRemaining });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[today-sales] local batch restore failed:', e);
+            }
+
+            toast(`✅ ${selected.length} item(s) queued — will sync when online`);
+        }
+
+        tsCloseReverseModal();
+        await tsLoadSales();
+        notifyBell();
+    } finally {
+        tsReversing = false;
+        if (confirmBtn) {
+            confirmBtn.classList.remove('ts-btn-busy');
+            confirmBtn.textContent = originalLabel || 'Reverse Selected';
+        }
+    }
+}
+
+// ============================================================
+//  VIEW DETAILS MODAL — pick which item's batch to inspect
+// ============================================================
+function tsOpenViewDetailsModal(saleId, items) {
+    tsViewSaleId = saleId;
+    tsViewItems = items || [];
+
+    const container = $('tsViewDetailsItemList');
+    container.innerHTML = '';
+
+    if (!tsViewItems.length) {
+        container.innerHTML = '<div class="text-center text-gray-400 py-6">No items in this sale.</div>';
+        $('tsViewDetailsTitle').textContent = `Sale #${saleId} – Select Item`;
+        $('tsViewDetailsModal').classList.remove('hidden');
+        return;
+    }
+
+    tsViewItems.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'border rounded-lg p-2 md:p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2';
+
+        const info = document.createElement('div');
+        info.className = 'flex-1 text-xs md:text-sm text-gray-800 min-w-0';
+        let details = `
+            <strong>${escapeHtml(item.name)} (${escapeHtml(item.brand)})</strong><br>
+            Batch #${item.batch_id === -1 ? 'DELETED' : item.batch_id}<br>
+            Quantity: ${item.quantity}<br>
+            Selling: ${formatMoney(item.selling_price)}
+        `;
+        if (tsIsAdmin) {
+            details += `<br>Cost: ${formatMoney(item.cost_price)}<br>Profit: ${formatMoney(item.profit)}`;
+        }
+        info.innerHTML = details;
+
+        const btn = document.createElement('button');
+        btn.className = 'bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs md:text-sm flex-shrink-0';
+        btn.textContent = '📋 View Batch Details';
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            tsCloseViewDetailsModal();
+            tsShowBatchDetails(
+                item.batch_id,
+                item.name,
+                item.brand,
+                item.quantity,
+                item.selling_price,
+                item.cost_price
+            );
+        });
+
+        row.appendChild(info);
+        row.appendChild(btn);
+        container.appendChild(row);
+    });
+
+    $('tsViewDetailsTitle').textContent = `Sale #${saleId} – Select Item`;
+    $('tsViewDetailsModal').classList.remove('hidden');
+}
+function tsCloseViewDetailsModal() {
+    $('tsViewDetailsModal').classList.add('hidden');
+    tsViewSaleId = null;
+    tsViewItems = [];
+}
+window.tsCloseViewDetailsModal = tsCloseViewDetailsModal;
+
+// ============================================================
+//  BATCH DETAILS MODAL
+// ============================================================
+async function tsShowBatchDetails(batchId, productName, productBrand, quantitySold, sellingPrice, costPrice) {
+    if (batchId === -1 || !batchId) {
+        $('tsBatchDetailsTitle').textContent = `Batch #DELETED – ${productName} (${productBrand})`;
+        $('tsBatchDetailsContent').innerHTML = `
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <p class="text-yellow-700">⚠️ This batch has been deleted. Only sale history is available.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-sm text-gray-800">
+                <div class="bg-gray-50 p-2 rounded">Product: <strong>${escapeHtml(productName)}</strong></div>
+                <div class="bg-gray-50 p-2 rounded">Brand: <strong>${escapeHtml(productBrand)}</strong></div>
+                <div class="bg-gray-50 p-2 rounded">Qty Sold: <strong>${quantitySold}</strong></div>
+                <div class="bg-gray-50 p-2 rounded">Selling: <strong>${formatMoney(sellingPrice)}</strong></div>
+            </div>`;
+        $('tsBatchDetailsModal').classList.remove('hidden');
+        return;
+    }
+
+    try {
+        const batch = await db.batches.get(batchId);
+        if (!batch) {
+            $('tsBatchDetailsTitle').textContent = `Batch #${batchId} – ${productName}`;
+            $('tsBatchDetailsContent').innerHTML =
+                '<div class="text-center text-gray-400 py-6">Batch data not found locally.</div>';
+            $('tsBatchDetailsModal').classList.remove('hidden');
+            return;
+        }
+
+        const totalQty = batch.quantity || 0;
+        const remaining = batch.remaining_quantity || 0;
+        const claimed = batch.claimed_quantity || 0;
+        const sold = Math.max(totalQty - remaining, 0);
+        const good = Math.max(remaining - claimed, 0);
+
+        $('tsBatchDetailsTitle').textContent = `Batch #${batchId} – ${productName} (${productBrand})`;
+        $('tsBatchDetailsContent').innerHTML = `
+            <div class="grid grid-cols-2 gap-2 text-sm text-gray-800">
+                <div class="bg-gray-50 p-2 rounded">Product: <strong>${escapeHtml(productName)}</strong></div>
+                <div class="bg-gray-50 p-2 rounded">Brand: <strong>${escapeHtml(productBrand)}</strong></div>
+                <div class="bg-gray-50 p-2 rounded">Batch ID: <strong>#${batchId}</strong></div>
+                <div class="bg-gray-50 p-2 rounded">Date: <strong>${formatDate(batch.date)}</strong></div>
+                <div class="bg-blue-50 p-2 rounded">Total: <strong>${totalQty}</strong></div>
+                <div class="bg-blue-50 p-2 rounded">Sold: <strong>${sold}</strong></div>
+                <div class="bg-gray-50 p-2 rounded">Remaining: <strong>${remaining}</strong></div>
+                <div class="bg-red-50 p-2 rounded">Claimed: <strong>${claimed}</strong></div>
+                <div class="bg-green-50 p-2 rounded col-span-2">✅ Good Stock: <strong>${good}</strong></div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mt-3 text-sm border-t pt-3 text-gray-800">
+                <div class="bg-gray-50 p-2 rounded">Cost: <strong>${formatMoney(batch.cost_price)}</strong></div>
+                <div class="bg-gray-50 p-2 rounded">Selling: <strong>${formatMoney(batch.selling_price)}</strong></div>
+                ${batch.discount > 0 ? `<div class="bg-gray-50 p-2 rounded col-span-2">Discount: <strong>${formatMoney(batch.discount)}</strong></div>` : ''}
+            </div>
+            <div class="mt-3 text-sm text-gray-800">
+                <div class="bg-yellow-50 p-2 rounded">📌 This sale sold <strong>${quantitySold}</strong> unit(s) from this batch at <strong>${formatMoney(sellingPrice)}</strong> each.</div>
+            </div>
+        `;
+        $('tsBatchDetailsModal').classList.remove('hidden');
+    } catch (e) {
+        $('tsBatchDetailsContent').innerHTML =
+            '<div class="text-center text-red-400 py-6">Error: ' + escapeHtml(e.message) + '</div>';
+        $('tsBatchDetailsModal').classList.remove('hidden');
+    }
+}
+function tsCloseBatchDetailsModal() {
+    $('tsBatchDetailsModal').classList.add('hidden');
+}
+window.tsCloseBatchDetailsModal = tsCloseBatchDetailsModal;
+
+// ============================================================
+//  PDF — opens web version in system browser
+// ============================================================
+function tsExportPDF() {
+    if (!navigator.onLine) {
+        toast('PDF export needs internet', true);
+        return;
+    }
+    if (!confirm('PDF reports are generated on the server.\n\nThis will open the web Today\'s Sales page in your browser.\n\nContinue?')) return;
+    try {
+        window.open(RENDER + '/today-sales', '_system');
+    } catch (e) {
+        toast('Could not open browser: ' + e.message, true);
+    }
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+$('tsRefreshBtn').addEventListener('click', tsLoadSales);
+$('tsPdfBtn').addEventListener('click', tsExportPDF);
+$('tsConfirmReverseBtn').addEventListener('click', tsConfirmReverse);
+
+$('tsSearchInput').addEventListener('input', tsApplySearchAndRender);
+$('tsSearchInput').addEventListener('keydown', e => { if (e.key === 'Enter') tsApplySearchAndRender(); });
+$('tsClearSearchBtn').addEventListener('click', () => {
+    $('tsSearchInput').value = '';
+    tsApplySearchAndRender();
+});
+$('tsAdvancedToggle').addEventListener('click', () => {
+    $('tsAdvancedSearch').classList.toggle('hidden');
+});
+$('tsApplyAdvancedSearch').addEventListener('click', tsApplySearchAndRender);
+
+$('tsApplyDateBtn').addEventListener('click', () => {
+    const s = $('tsStartDate').value;
+    const e = $('tsEndDate').value;
+    if (s && e) {
+        tsStartDate = s;
+        tsEndDate = e;
+        tsPeriod = 'custom';
+        tsLoadSales();
+    } else {
+        toast('Select both start and end dates', true);
+    }
+});
+
+document.querySelectorAll('.ts-period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        tsPeriod = btn.getAttribute('data-period');
+        tsStartDate = null;
+        tsEndDate = null;
+        $('tsStartDate').value = '';
+        $('tsEndDate').value = '';
+        $('tsSearchInput').value = '';
+        tsSearchTerm = '';
+        tsLoadSales();
+    });
+});
+
+$('tsClearBatchFilterBtn').addEventListener('click', tsClearBatchFilter);
+
+// Set default date inputs to today
+const today = new Date().toISOString().split('T')[0];
+$('tsStartDate').value = today;
+$('tsEndDate').value = today;
+
+tsReadBatchIdFromURL();
+tsLoadSales();
+
+// Refresh hook for shell sync engine
+window.__refreshTodaySalesView = tsLoadSales;
+
+})();
+</script>

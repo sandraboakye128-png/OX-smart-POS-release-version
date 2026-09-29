@@ -43,9 +43,7 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        /* ============================================================
-           LANDING — mode selection screen
-           ============================================================ */
+        /* LANDING */
         #landingView {
             display: flex; align-items: center; justify-content: center;
             min-height: 100vh; padding: 24px;
@@ -81,10 +79,7 @@
             transition: border-color 0.15s, background 0.15s, transform 0.1s;
             margin-bottom: 12px;
         }
-        .landing-btn:hover {
-            border-color: var(--accent);
-            transform: translateY(-1px);
-        }
+        .landing-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
         .landing-btn:active { transform: scale(0.99); }
         .landing-btn-offline {
             border-color: rgba(0, 207, 207, 0.45);
@@ -99,9 +94,7 @@
             display: flex; align-items: center; justify-content: center;
             background: var(--bg-hover); border-radius: 12px;
         }
-        .landing-btn-offline .landing-btn-icon {
-            background: rgba(0,207,207,0.16);
-        }
+        .landing-btn-offline .landing-btn-icon { background: rgba(0,207,207,0.16); }
         .landing-btn-text { flex: 1; min-width: 0; }
         .landing-btn-title {
             display: block; font-size: 1rem; font-weight: 700;
@@ -116,9 +109,7 @@
             text-align: center; margin-top: 18px; line-height: 1.5;
         }
 
-        /* ============================================================
-           LOGIN
-           ============================================================ */
+        /* LOGIN */
         #loginView {
             display: flex; align-items: center; justify-content: center;
             min-height: 100vh; padding: 24px;
@@ -169,22 +160,13 @@
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(0, 207, 207, 0.15);
         }
-        /* Password field wrapper with eye toggle */
-        .password-wrap {
-            position: relative;
-            margin-bottom: 16px;
-        }
-        .password-wrap input {
-            margin-bottom: 0;
-            padding-right: 48px;
-        }
+        .password-wrap { position: relative; margin-bottom: 16px; }
+        .password-wrap input { margin-bottom: 0; padding-right: 48px; }
         .password-toggle {
-            position: absolute;
-            right: 10px; top: 50%;
+            position: absolute; right: 10px; top: 50%;
             transform: translateY(-50%);
             background: transparent; border: 0;
-            width: 34px; height: 34px;
-            border-radius: 8px;
+            width: 34px; height: 34px; border-radius: 8px;
             color: var(--text-dim); font-size: 17px;
             cursor: pointer; line-height: 1;
             display: flex; align-items: center; justify-content: center;
@@ -192,7 +174,6 @@
         }
         .password-toggle:hover { background: var(--bg-hover); color: var(--text); }
         .password-toggle:active { transform: translateY(-50%) scale(0.94); }
-
         .login-box button#loginBtn {
             width: 100%; padding: 14px; margin-top: 4px;
             background: var(--accent); color: #0f172a;
@@ -206,9 +187,7 @@
         .login-error { color: var(--red); font-size: 0.85rem; margin-top: 12px; text-align: center; min-height: 18px; }
         .login-hint { color: var(--text-faint); font-size: 0.75rem; text-align: center; margin-top: 20px; line-height: 1.5; }
 
-        /* ============================================================
-           LOADING
-           ============================================================ */
+        /* LOADING */
         #loadingView {
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
@@ -225,9 +204,7 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         .loading-text { color: var(--text-dim); font-size: 0.95rem; text-align: center; max-width: 280px; }
 
-        /* ============================================================
-           APP SHELL
-           ============================================================ */
+        /* APP SHELL */
         #appView {
             padding: 12px 14px 24px;
             padding-top: calc(12px + env(safe-area-inset-top));
@@ -278,6 +255,144 @@
         .icon-btn:disabled { opacity: 0.4; }
         .icon-btn.spinning { animation: spin 0.8s linear infinite; }
 
+        /* NOTIFICATION BELL + DROPDOWN */
+        .notif-wrapper { position: relative; }
+        .notif-bell {
+            position: relative;
+            background: var(--bg-card); border: 1px solid var(--border);
+            width: 40px; height: 40px; border-radius: 11px;
+            cursor: pointer; color: var(--text-dim); font-size: 17px;
+            transition: background 0.15s, color 0.15s, transform 0.1s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .notif-bell:hover  { background: var(--bg-hover); color: var(--text); }
+        .notif-bell:active { transform: scale(0.94); }
+        .notif-bell.active { background: rgba(0,207,207,0.15); color: var(--accent); }
+        .notif-bell.ring   { animation: bell-ring 0.7s ease-in-out; }
+        @keyframes bell-ring {
+            0%, 100% { transform: rotate(0); }
+            15%, 45% { transform: rotate(-14deg); }
+            30%, 60% { transform: rotate(14deg); }
+            75%      { transform: rotate(-6deg); }
+        }
+
+        .notif-badge {
+            position: absolute; top: -4px; right: -4px;
+            background: #ef4444; color: #fff;
+            font-size: 10px; font-weight: 700;
+            min-width: 18px; height: 18px; border-radius: 9px;
+            display: none; align-items: center; justify-content: center;
+            padding: 0 4px; border: 2px solid var(--bg); line-height: 1;
+        }
+
+        .notif-dropdown {
+            position: absolute; top: calc(100% + 8px); right: 0;
+            width: 360px; max-width: calc(100vw - 24px);
+            background: var(--bg-card); border-radius: 14px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+            border: 1px solid var(--border);
+            opacity: 0; visibility: hidden;
+            transform: translateY(-8px);
+            transition: opacity 0.18s, transform 0.18s, visibility 0.18s;
+            z-index: 200; overflow: hidden;
+            display: flex; flex-direction: column;
+            max-height: min(75vh, 540px);
+        }
+        .notif-dropdown.open { opacity: 1; visibility: visible; transform: translateY(0); }
+
+        .notif-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 14px; border-bottom: 1px solid var(--border-soft);
+            background: var(--bg-card); flex-shrink: 0;
+        }
+        .notif-header-title {
+            font-weight: 700; font-size: 0.85rem; color: var(--text);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .notif-header-title .count {
+            background: var(--bg-hover); color: var(--text-dim);
+            font-size: 0.7rem; padding: 1px 7px; border-radius: 8px; font-weight: 600;
+        }
+        .notif-clear {
+            background: none; border: 0; color: var(--text-faint);
+            font-size: 0.72rem; cursor: pointer; padding: 4px 8px;
+            border-radius: 6px; font-weight: 500;
+        }
+        .notif-clear:hover { background: var(--bg-hover); color: var(--text); }
+
+        .notif-list {
+            flex: 1 1 auto; overflow-y: auto; min-height: 0;
+            overscroll-behavior: contain;
+        }
+        .notif-empty {
+            padding: 40px 20px; text-align: center; color: var(--text-faint);
+            font-size: 0.82rem; display: flex; flex-direction: column;
+            align-items: center; gap: 8px;
+        }
+        .notif-empty .icon { font-size: 2rem; opacity: 0.6; }
+
+        .notif-item {
+            display: flex; gap: 10px;
+            padding: 11px 36px 11px 12px;
+            border-bottom: 1px solid var(--border-soft);
+            position: relative;
+        }
+        .notif-item:last-child { border-bottom: 0; }
+        .notif-item.unread { background: rgba(0,207,207,0.06); }
+        .notif-item.unread::before {
+            content: ''; position: absolute; left: 0; top: 10px; bottom: 10px;
+            width: 3px; background: var(--accent); border-radius: 0 3px 3px 0;
+        }
+        .notif-icon {
+            flex-shrink: 0; width: 32px; height: 32px;
+            border-radius: 50%; display: flex;
+            align-items: center; justify-content: center;
+            font-size: 14px; background: var(--bg-hover); line-height: 1;
+        }
+        .notif-item.notif-success  .notif-icon { background: rgba(74,222,128,0.15); }
+        .notif-item.notif-warning  .notif-icon { background: rgba(251,191,36,0.15); }
+        .notif-item.notif-error    .notif-icon { background: rgba(248,113,113,0.15); }
+        .notif-item.notif-progress .notif-icon { background: rgba(0,207,207,0.15); }
+        .notif-item.notif-progress .notif-icon { animation: spin 1.1s linear infinite; display: inline-block; }
+        .notif-item.notif-pending  .notif-icon { background: rgba(251,191,36,0.15); }
+        .notif-item.notif-offline  .notif-icon { background: rgba(248,113,113,0.12); }
+        .notif-item.notif-online   .notif-icon { background: rgba(74,222,128,0.15); }
+
+        .notif-body { flex: 1; min-width: 0; }
+        .notif-title {
+            font-size: 0.82rem; font-weight: 600; color: var(--text);
+            margin-bottom: 2px; line-height: 1.3;
+        }
+        .notif-msg {
+            font-size: 0.76rem; color: var(--text-dim);
+            line-height: 1.4; word-wrap: break-word;
+        }
+        .notif-time { font-size: 0.65rem; color: var(--text-faint); margin-top: 4px; }
+        .notif-progress {
+            margin-top: 6px; height: 3px; background: var(--bg-hover);
+            border-radius: 2px; overflow: hidden;
+        }
+        .notif-progress-fill {
+            height: 100%; background: linear-gradient(90deg, var(--accent), #0ea5e9);
+            border-radius: 2px; transition: width 0.5s ease; width: 0;
+        }
+        .notif-close {
+            position: absolute; top: 6px; right: 6px;
+            background: none; border: 0; color: var(--text-faint);
+            font-size: 16px; cursor: pointer; line-height: 1;
+            padding: 2px 6px; border-radius: 4px; opacity: 0.6;
+        }
+        .notif-close:hover { background: var(--bg-hover); color: var(--text); opacity: 1; }
+
+        @media (max-width: 640px) {
+            .notif-dropdown {
+                position: fixed;
+                top: 62px; left: 8px; right: 8px;
+                width: auto; max-width: none;
+                max-height: calc(100dvh - 78px - env(safe-area-inset-bottom, 0px));
+            }
+        }
+
         .user-chip {
             display: inline-flex; align-items: center; gap: 8px;
             padding: 7px 12px; background: var(--bg-card);
@@ -315,9 +430,7 @@
         }
         .error-card .icon { flex-shrink: 0; font-size: 16px; }
 
-        /* ============================================================
-           DASHBOARD
-           ============================================================ */
+        /* DASHBOARD */
         .dash-header {
             display: flex; align-items: center; justify-content: space-between;
             gap: 8px; margin-bottom: 12px;
@@ -332,6 +445,35 @@
             background: var(--bg-hover); color: var(--text-faint);
             font-weight: 600;
         }
+
+        .dash-filter {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            align-items: center; margin-bottom: 14px;
+            padding: 10px 12px;
+            background: var(--bg-card); border: 1px solid var(--border-soft);
+            border-radius: 12px;
+        }
+        .dash-filter input[type="date"],
+        .dash-filter input[type="time"] {
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; padding: 6px 8px;
+            color: var(--text); font-size: 0.78rem;
+            outline: none; font-family: inherit;
+            color-scheme: dark;
+        }
+        .dash-filter input:focus { border-color: var(--accent); }
+        .dash-filter .sep { color: var(--text-faint); font-size: 0.72rem; }
+        .dash-filter .apply-btn {
+            background: var(--accent); color: #0f172a;
+            border: 0; border-radius: 8px; padding: 6px 14px;
+            font-size: 0.78rem; font-weight: 700; cursor: pointer;
+        }
+        .dash-filter .apply-btn:hover { background: var(--accent-dim); }
+        .dash-filter .clock {
+            margin-left: auto; color: var(--text-faint);
+            font-family: monospace; font-size: 0.75rem;
+        }
+
         .kpis {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -383,6 +525,13 @@
         }
         .card h2 .count.alert { background: #7f1d1d; color: var(--red-dim); }
 
+        .card-scroll {
+            max-height: 280px;
+            overflow-y: auto;
+            padding-right: 4px;
+            -webkit-overflow-scrolling: touch;
+        }
+
         .list-item {
             display: flex; justify-content: space-between; align-items: center;
             padding: 9px 0; border-bottom: 1px solid var(--border-soft);
@@ -390,6 +539,14 @@
         }
         .list-item:last-child { border-bottom: 0; padding-bottom: 0; }
         .list-item:first-of-type { padding-top: 0; }
+        .list-item.clickable {
+            cursor: pointer;
+            border-radius: 8px;
+            padding: 9px 6px;
+            transition: background 0.15s;
+        }
+        .list-item.clickable:hover { background: var(--bg-hover); }
+        .list-item.clickable:active { transform: scale(0.99); }
         .list-item .left { min-width: 0; flex: 1; }
         .list-item .name {
             color: var(--text); font-weight: 500;
@@ -398,6 +555,7 @@
         .list-item .meta {
             color: var(--text-faint); font-size: 0.72rem;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
         }
         .list-item .right {
             color: var(--text-dim); font-size: 0.78rem;
@@ -406,14 +564,63 @@
         .list-item .right.alert { color: var(--red); }
         .list-item .right.medal { color: var(--amber); font-size: 0.85rem; }
 
+        /* Category pill on low stock items */
+        .cat-pill {
+            display: inline-block;
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 1px 7px;
+            border-radius: 6px;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            flex-shrink: 0;
+            line-height: 1.4;
+        }
+        .cat-pill.acc  { background: rgba(0,207,207,0.18); color: #5eead4; }
+        .cat-pill.scr  { background: rgba(196,181,253,0.18); color: #c4b5fd; }
+
         .empty {
             color: var(--text-faint); font-size: 0.85rem;
             text-align: center; padding: 16px 8px; line-height: 1.6;
         }
 
-        /* ============================================================
-           PERSISTENT ACTIONS
-           ============================================================ */
+        /* PIE CHART (SVG-based, no external deps) */
+        .pie-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        .pie-svg-container {
+            width: 100%;
+            max-width: 260px;
+        }
+        .pie-svg-container svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .pie-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 14px;
+            justify-content: center;
+            font-size: 0.72rem;
+            color: var(--text-dim);
+        }
+        .pie-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .pie-legend-dot {
+            display: inline-block;
+            width: 10px; height: 10px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        /* ACTIONS */
         .actions {
             display: grid; grid-template-columns: 1fr 1fr;
             gap: 10px; margin-top: 16px; margin-bottom: 12px;
@@ -448,23 +655,24 @@
         }
         .btn-signout:hover { color: var(--red); border-color: var(--red); }
 
-        .footnote {
-            font-size: 0.72rem; color: var(--text-faint);
-            text-align: center; line-height: 1.6;
-            padding: 8px 0;
+        /* FOOTER */
+        .shell-footer {
+            background: #0b1220;
+            color: var(--text-faint);
+            text-align: center;
+            padding: 12px 14px;
+            font-size: 0.65rem;
+            line-height: 1.55;
+            border-top: 1px solid var(--border);
+            border-radius: 12px;
+            margin-top: 14px;
         }
-        .footnote .dot {
-            display: inline-block; width: 6px; height: 6px;
-            border-radius: 50%; background: var(--text-faint);
-            margin: 0 6px; vertical-align: middle;
-        }
-        .footnote .dot.green { background: var(--green); }
-        .footnote .dot.red   { background: var(--red); }
-        .footnote .dot.amber { background: var(--amber); }
+        .shell-footer .footer-line { padding: 1px 0; }
+        .shell-footer .footer-line strong { color: var(--text-dim); font-weight: 600; }
+        .shell-footer a { color: var(--accent); text-decoration: underline; font-weight: 600; }
+        .shell-footer a:hover { color: var(--accent-dim); }
 
-        /* ============================================================
-           TOAST
-           ============================================================ */
+        /* TOAST */
         .toast {
             position: fixed;
             bottom: calc(24px + env(safe-area-inset-bottom));
@@ -500,9 +708,7 @@
         }
         .fade-in { animation: fadeIn 0.25s ease-out; }
 
-        /* ============================================================
-           MENU DRAWER
-           ============================================================ */
+        /* MENU DRAWER */
         #menuOverlay {
             display: none;
             position: fixed; inset: 0;
@@ -568,18 +774,14 @@
             padding: 14px 14px 6px;
         }
 
-        /* ============================================================
-           VIEW container
-           ============================================================ */
+        /* VIEW container */
         #viewContainer > * { animation: fadeIn 0.2s ease-out; }
 
-        /* ============================================================
-           BUNDLED VIEW CONTAINER — light theme
-           ============================================================ */
+        /* BUNDLED VIEW CONTAINER — light theme */
         .bundled-light {
             background: #f3f4f6;
             color: #1f2937;
-            padding: 14px;
+            padding: 12px 0 4px;
             border-radius: 14px;
             font-size: 15px;
             line-height: 1.45;
@@ -616,9 +818,7 @@
 </head>
 <body>
 
-<!-- ============================================================
-     LANDING VIEW — mode selection (shown on every cold start)
-     ============================================================ -->
+<!-- LANDING VIEW -->
 <div id="landingView">
     <div class="landing-box">
         <div class="landing-logo">🧾</div>
@@ -647,9 +847,7 @@
     </div>
 </div>
 
-<!-- ============================================================
-     LOGIN VIEW — bundled sign-in with password visibility toggle
-     ============================================================ -->
+<!-- LOGIN VIEW -->
 <div id="loginView" class="hidden">
     <div class="login-box">
         <button type="button" class="login-back" onclick="backToLanding()" aria-label="Back to mode selection">
@@ -681,17 +879,13 @@
     </div>
 </div>
 
-<!-- ============================================================
-     LOADING VIEW
-     ============================================================ -->
+<!-- LOADING VIEW -->
 <div id="loadingView" class="hidden">
     <div class="loading-spinner"></div>
     <div class="loading-text" id="loadingText">Starting…</div>
 </div>
 
-<!-- ============================================================
-     APP SHELL
-     ============================================================ -->
+<!-- APP SHELL -->
 <div id="appView" class="hidden">
 
     <div class="shell-topbar">
@@ -702,6 +896,29 @@
         </div>
         <div class="topbar-right">
             <span id="netBadge" class="badge unknown">Checking…</span>
+
+            <div class="notif-wrapper">
+                <button class="notif-bell" id="notifBell" aria-label="Notifications" onclick="toggleNotifications(event)">
+                    🔔
+                    <span class="notif-badge" id="notifBadge">0</span>
+                </button>
+                <div class="notif-dropdown" id="notifDropdown" role="menu">
+                    <div class="notif-header">
+                        <div class="notif-header-title">
+                            🔔 Notifications
+                            <span class="count" id="notifCount">0</span>
+                        </div>
+                        <button class="notif-clear" onclick="Notifications.clearAll()">Clear all</button>
+                    </div>
+                    <div class="notif-list" id="notifList">
+                        <div class="notif-empty">
+                            <span class="icon">🔕</span>
+                            <div>No notifications yet</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <button id="syncIconBtn" class="icon-btn" title="Sync now" onclick="syncNow()">⟳</button>
         </div>
     </div>
@@ -733,14 +950,26 @@
                 </div>
             </div>
 
+            <!-- Date / time filter -->
+            <div class="dash-filter">
+                <input type="date" id="dashStartDate">
+                <span class="sep">to</span>
+                <input type="date" id="dashEndDate">
+                <input type="time" id="dashStartTime" step="60">
+                <span class="sep">to</span>
+                <input type="time" id="dashEndTime" step="60">
+                <button class="apply-btn" id="dashApplyBtn">Apply</button>
+                <span class="clock" id="dashClock">--:--:--</span>
+            </div>
+
             <div class="kpis">
                 <div class="kpi teal">
-                    <div class="kpi-label">💰 Sales Today</div>
+                    <div class="kpi-label">💰 Sales</div>
                     <div class="kpi-value" id="kpiSales">—</div>
                     <div class="kpi-sub" id="kpiSalesSub"></div>
                 </div>
                 <div class="kpi green">
-                    <div class="kpi-label">📈 Profit Today</div>
+                    <div class="kpi-label">📈 Profit</div>
                     <div class="kpi-value" id="kpiProfit">—</div>
                     <div class="kpi-sub" id="kpiProfitSub"></div>
                 </div>
@@ -761,22 +990,39 @@
                 </div>
             </div>
 
+            <!-- Top Products -->
             <div class="card">
                 <h2>🏆 Top Products <span class="count" id="topProductsCount">0</span></h2>
-                <div id="topProductsList"><div class="empty">Loading…</div></div>
+                <div id="topProductsList" class="card-scroll"><div class="empty">Loading…</div></div>
                 <p style="font-size:0.68rem;color:var(--text-faint);margin-top:8px;">
-                    * Based on total quantity sold today
+                    * Based on total quantity sold in the selected range
                 </p>
             </div>
 
+            <!-- Low Stock (scrollable + clickable, shows BOTH accessories and screens) -->
             <div class="card">
-                <h2>⚠️ Low Stock <span class="count" id="lowStockCount">0</span></h2>
-                <div id="lowStockList"><div class="empty">Loading…</div></div>
+                <h2>⚠️ Low Stock <span class="count" id="shellLowStockCount">0</span></h2>
+                <div id="lowStockList" class="card-scroll"><div class="empty">Loading…</div></div>
+                <p style="font-size:0.68rem;color:var(--text-faint);margin-top:8px;">
+                    * Tap any item to open its product page with batch stock highlighted
+                </p>
             </div>
 
+            <!-- Pie chart — sales distribution (top products by qty sold) -->
+            <div class="card">
+                <h2>🥧 Product Distribution <span class="count" id="pieTotal">0</span></h2>
+                <div id="pieChartContainer" class="pie-wrap">
+                    <div class="empty">Loading…</div>
+                </div>
+                <p style="font-size:0.68rem;color:var(--text-faint);margin-top:8px;">
+                    * Based on quantity sold in the selected range (top 8 + Others)
+                </p>
+            </div>
+
+            <!-- Recent Sales -->
             <div class="card">
                 <h2>🕒 Recent Sales <span class="count" id="recentCount">0</span></h2>
-                <div id="recentSales"><div class="empty">Loading…</div></div>
+                <div id="recentSales" class="card-scroll"><div class="empty">Loading…</div></div>
             </div>
         </div>
 
@@ -798,7 +1044,14 @@
         <button class="btn-signout" onclick="doLogout()">Sign out</button>
     </div>
 
-    <div class="footnote" id="syncStatus">Checking…</div>
+    <footer class="shell-footer">
+        <div class="footer-line">
+            <strong>TOMFRIMP MOBICOM SOLUTIONS</strong> | HOME OF COMPUTER, PHONES, AND ACCESSORIES
+        </div>
+        <div class="footer-line">
+            Developed by HUMMNINGBIRD DIGITAL SOLUTIONS © <span id="footerYear">2026</span> - All Rights Reserved
+        </div>
+    </footer>
 </div>
 
 <!-- MENU DRAWER -->
@@ -820,7 +1073,7 @@
 
 <script>
 // ============================================================
-//  BUNDLED SHELL — runs from https://localhost
+//  BUNDLED SHELL
 // ============================================================
 const RENDER_URL = 'https://ox-smart-pos-release-version.onrender.com';
 const TOKEN_KEY  = 'ox_api_token';
@@ -835,6 +1088,11 @@ const appView     = $('appView');
 const loginBtn    = $('loginBtn');
 const loginError  = $('loginError');
 
+(function () {
+    const y = $('footerYear');
+    if (y) y.textContent = new Date().getFullYear();
+})();
+
 // ============================================================
 //  VIEW REGISTRY
 // ============================================================
@@ -842,12 +1100,14 @@ const VIEWS = {
     dashboard: { title: 'Dashboard',     icon: '📊', path: null },
     products:  { title: 'Products (Acc.)',   icon: '📦', path: 'views/products_accessories.html' },
     'products-screen': { title: 'Products (Screens)', icon: '📱', path: 'views/products_screen.html' },
-    sales:     { title: 'Sales (Acc.)',      icon: '💰', path: null, onlineOnly: true },
-    'sales-screen': { title: 'Sales (Screens)', icon: '💵', path: null, onlineOnly: true },
+    sales:     { title: 'Sales (Acc.)',      icon: '💰', path: 'views/sales_accessories.html' },
+    'sales-screen': { title: 'Sales (Screens)', icon: '💵', path: 'views/sales_screen.html' },
     today:     { title: "Today's Sales",     icon: '📅', path: null, onlineOnly: true },
+    'today-accessories': { title: "Today's Sales (Acc.)",     icon: '📅', path: 'views/today_sales_accessories.html' },
+    'today-screens':     { title: "Today's Sales (Screens)", icon: '📅', path: 'views/today_sales_screen.html' },
     purchases: { title: 'Purchases (Acc.)',  icon: '🛒', path: 'views/purchases_accessories.html' },
     'purchases-screen': { title: 'Purchases (Screens)', icon: '📥', path: 'views/purchases_screen.html' },
-    analytics: { title: 'Analytics',     icon: '📈', path: null, onlineOnly: true },
+    analytics: { title: 'Analytics',     icon: '📈', path: 'views/analytics.html' },
     archive:   { title: 'Archive',       icon: '🗄️', path: null, onlineOnly: true },
     claims:    { title: 'Claims',        icon: '⚠️', path: null, onlineOnly: true },
     settings:  { title: 'Settings',      icon: '⚙️', path: null, onlineOnly: true },
@@ -875,6 +1135,246 @@ function showToast(msg, opts) {
     if (_toastTimer) clearTimeout(_toastTimer);
     _toastTimer = setTimeout(() => toast.classList.remove('show'), opts.duration || 2200);
 }
+window.showToast = showToast;
+
+// ============================================================
+//  NOTIFICATIONS
+// ============================================================
+const Notifications = (function () {
+    const STORAGE_KEY = 'ox_shell_notifications_v1';
+    const items = [];
+    let nextId = 1;
+
+    function _save() {
+        try {
+            const toSave = items.map(n => ({
+                id: n.id, type: n.type, title: n.title, message: n.message,
+                progress: n.progress, persistent: n.persistent, timestamp: n.timestamp
+            }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                version: 1, savedAt: Date.now(), items: toSave
+            }));
+        } catch (e) { console.warn('[Notif] save:', e); }
+    }
+
+    function _load() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (!data || data.version !== 1 || !Array.isArray(data.items)) return;
+            for (const n of data.items) {
+                items.push({
+                    id: n.id, type: n.type, title: n.title, message: n.message,
+                    progress: n.progress,
+                    persistent: n.persistent !== false,
+                    timestamp: n.timestamp || Date.now(),
+                    _timer: null
+                });
+            }
+            for (const it of items) {
+                const m = /^n_(\d+)_/.exec(it.id || '');
+                if (m) nextId = Math.max(nextId, parseInt(m[1], 10) + 1);
+            }
+        } catch (e) { console.warn('[Notif] load:', e); }
+    }
+
+    function _esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, m =>
+            ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function _icon(type) {
+        switch (type) {
+            case 'success':  return '✅';
+            case 'warning':  return '⚠️';
+            case 'error':    return '❌';
+            case 'progress': return '🔄';
+            case 'offline':  return '📶';
+            case 'online':   return '🌐';
+            case 'pending':  return '⏳';
+            default:         return 'ℹ️';
+        }
+    }
+    function _timeAgo(ts) {
+        const s = Math.floor((Date.now() - ts) / 1000);
+        if (s < 10) return 'just now';
+        if (s < 60) return s + 's ago';
+        const m = Math.floor(s / 60);
+        if (m < 60) return m + 'm ago';
+        const h = Math.floor(m / 60);
+        if (h < 24) return h + 'h ago';
+        return Math.floor(h / 24) + 'd ago';
+    }
+    function _renderBadge() {
+        const badge = $('notifBadge');
+        const countEl = $('notifCount');
+        const total = items.length;
+        if (badge) {
+            if (total > 0) {
+                badge.textContent = total > 99 ? '99+' : total;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+        if (countEl) countEl.textContent = total;
+    }
+    function _renderList() {
+        const list = $('notifList');
+        if (!list) return;
+        if (items.length === 0) {
+            list.innerHTML = `
+                <div class="notif-empty">
+                    <span class="icon">🔕</span>
+                    <div>No notifications yet</div>
+                </div>`;
+            return;
+        }
+        list.innerHTML = items.map(n => {
+            const progressBar = (n.progress !== null && n.progress !== undefined)
+                ? `<div class="notif-progress"><div class="notif-progress-fill" style="width:${Math.max(0, Math.min(100, n.progress))}%"></div></div>`
+                : '';
+            return `
+                <div class="notif-item notif-${n.type}">
+                    <div class="notif-icon">${_icon(n.type)}</div>
+                    <div class="notif-body">
+                        ${n.title ? `<div class="notif-title">${_esc(n.title)}</div>` : ''}
+                        ${n.message ? `<div class="notif-msg">${_esc(n.message)}</div>` : ''}
+                        ${progressBar}
+                        <div class="notif-time">${_timeAgo(n.timestamp)}</div>
+                    </div>
+                    <button class="notif-close" aria-label="Dismiss"
+                            onclick="event.stopPropagation(); Notifications.remove('${n.id}')">×</button>
+                </div>`;
+        }).join('');
+    }
+    function _refresh() { _renderList(); _renderBadge(); }
+
+    function add(opts) {
+        const { type='info', title='', message='', duration=0, id=null,
+                progress=null, persistent=true } = opts || {};
+        if (id) {
+            const existing = items.find(i => i.id === id);
+            if (existing) return update(id, { type, title, message, progress, persistent });
+        }
+        const notif = {
+            id: id || ('n_' + (nextId++) + '_' + Date.now()),
+            type, title, message, progress,
+            persistent: !!persistent,
+            timestamp: Date.now(), _timer: null
+        };
+        items.unshift(notif);
+        _refresh(); _save();
+        if (!persistent && duration > 0 && type !== 'progress') {
+            notif._timer = setTimeout(() => remove(notif.id), duration);
+        }
+        return notif.id;
+    }
+    function update(id, patch) {
+        const n = items.find(i => i.id === id);
+        if (!n) return;
+        if (patch && patch.persistent === true && n._timer) {
+            clearTimeout(n._timer); n._timer = null;
+        }
+        Object.assign(n, patch || {});
+        n.timestamp = Date.now();
+        _refresh(); _save();
+    }
+    function remove(id) {
+        const idx = items.findIndex(i => i.id === id);
+        if (idx < 0) return;
+        if (items[idx]._timer) clearTimeout(items[idx]._timer);
+        items.splice(idx, 1);
+        _refresh(); _save();
+    }
+    function clearAll() {
+        items.forEach(i => { if (i._timer) clearTimeout(i._timer); });
+        items.length = 0;
+        _refresh(); _save();
+    }
+
+    _load();
+    setTimeout(_refresh, 0);
+    window.addEventListener('storage', (e) => {
+        if (e.key !== STORAGE_KEY) return;
+        items.length = 0;
+        _load();
+        _refresh();
+    });
+
+    return {
+        add, update, remove, clearAll,
+        info:    (t,m) => add({type:'info',    title:t, message:m, persistent:true}),
+        success: (t,m) => add({type:'success', title:t, message:m, persistent:true}),
+        warning: (t,m) => add({type:'warning', title:t, message:m, persistent:true}),
+        error:   (t,m) => add({type:'error',   title:t, message:m, persistent:true}),
+        get items() { return items; },
+        get unreadCount() { return items.length; }
+    };
+})();
+window.Notifications = Notifications;
+
+// ============================================================
+//  NOTIFICATION DROPDOWN
+// ============================================================
+function toggleNotifications(e) {
+    if (e) e.stopPropagation();
+    const dd = $('notifDropdown');
+    const bell = $('notifBell');
+    if (!dd || !bell) return;
+    const isOpen = dd.classList.toggle('open');
+    bell.classList.toggle('active', isOpen);
+}
+window.toggleNotifications = toggleNotifications;
+
+document.addEventListener('click', function (e) {
+    const dd = $('notifDropdown');
+    const wrapper = document.querySelector('.notif-wrapper');
+    if (!dd || !wrapper) return;
+    if (!wrapper.contains(e.target)) {
+        dd.classList.remove('open');
+        const bell = $('notifBell');
+        if (bell) bell.classList.remove('active');
+    }
+});
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        const dd = $('notifDropdown');
+        const bell = $('notifBell');
+        if (dd && dd.classList.contains('open')) {
+            dd.classList.remove('open');
+            if (bell) bell.classList.remove('active');
+        }
+    }
+});
+
+// ============================================================
+//  PENDING OPS NOTIFICATION
+// ============================================================
+async function refreshPendingNotifications() {
+    if (typeof db === 'undefined' || !db) return;
+    try {
+        const count = await db.pending_ops.where('synced').equals(0).count();
+        const existing = Notifications.items.find(i => i.id === 'pending-status');
+        if (count > 0) {
+            const msg = `${count} change${count===1?'':'s'} waiting to sync`;
+            if (existing) {
+                Notifications.update('pending-status', {
+                    type: 'pending', title: 'Pending sync', message: msg, persistent: true
+                });
+            } else {
+                Notifications.add({
+                    id: 'pending-status', type: 'pending',
+                    title: 'Pending sync', message: msg, persistent: true
+                });
+            }
+        } else if (existing) {
+            Notifications.remove('pending-status');
+        }
+    } catch (e) { /* silent */ }
+}
+window.refreshPendingNotifications = refreshPendingNotifications;
+setInterval(refreshPendingNotifications, 8000);
 
 // ============================================================
 //  NETWORK STATUS
@@ -910,20 +1410,28 @@ async function probeNetwork() {
     } catch (e) { return false; }
 }
 
+let _lastOnlineState = null;
 async function refreshNetStatus(opts) {
     opts = opts || {};
-    const previous = _isOnline;
     const online = await probeNetwork();
-    if (online !== previous) {
-        _isOnline = online;
-        setNetBadge(online);
-        if (online && opts.syncOnRecover !== false) maybeSyncOnReconnect();
-    } else if (previous === null) {
-        setNetBadge(online);
+    const changed = (_lastOnlineState !== null && online !== _lastOnlineState);
+    _lastOnlineState = online;
+    _isOnline = online;
+    setNetBadge(online);
+    if (changed) {
+        if (online) {
+            Notifications.add({ type: 'online', title: 'Back online',
+                message: 'Connection restored · refreshing data…', persistent: true });
+            if (opts.syncOnRecover !== false) maybeSyncOnReconnect();
+        } else {
+            Notifications.add({ type: 'offline', title: 'You are offline',
+                message: 'Changes will be saved locally and synced later.',
+                persistent: true });
+        }
     }
 }
 
-window.addEventListener('online',  () => refreshNetStatus({ syncOnRecover: true }));
+window.addEventListener('online', () => refreshNetStatus({ syncOnRecover: true }));
 window.addEventListener('offline', () => refreshNetStatus({ syncOnRecover: false }));
 setInterval(() => refreshNetStatus({ syncOnRecover: true }), 5000);
 
@@ -945,7 +1453,6 @@ function backToLanding() {
     appView.classList.add('hidden');
     loadingView.classList.add('hidden');
     landingView.classList.remove('hidden');
-    // Reset the password field visibility to hidden whenever we come back
     const pw = $('loginPass');
     if (pw) pw.type = 'password';
     const eye = $('passwordEye');
@@ -955,15 +1462,11 @@ window.backToLanding = backToLanding;
 
 async function goOffline() {
     landingView.classList.add('hidden');
-
     const token = getToken();
     if (token) {
-        // Existing session — go straight into the shell
         await enterApp();
         return;
     }
-
-    // No session — show bundled login
     loginView.classList.remove('hidden');
     $('loginUser').focus();
     refreshNetStatus({ syncOnRecover: false });
@@ -978,8 +1481,6 @@ async function goOnline() {
         return;
     }
     try {
-        // Opens the Render web app in the system browser.
-        // Flask will redirect to /login if not authenticated there.
         window.open(RENDER_URL + '/', '_system');
         showToast('🌐 Opening web app…');
     } catch (e) {
@@ -1006,7 +1507,6 @@ function togglePasswordVisibility() {
         eye.textContent = '👁';
         if (btn) btn.setAttribute('aria-label', 'Show password');
     }
-    // Keep focus on the field so the user can keep typing
     input.focus();
 }
 window.togglePasswordVisibility = togglePasswordVisibility;
@@ -1035,7 +1535,8 @@ async function doLogin() {
         }
         setToken(data.token);
         setStoredUser(data.user || { username });
-        await enterApp(true);
+        Notifications.success('Signed in', 'Welcome, ' + username + '!');
+        await enterApp(true, { skipAuthCheck: true });
     } catch (e) {
         loginError.textContent = 'Network error: ' + e.message;
     } finally {
@@ -1049,14 +1550,16 @@ function doLogout() {
     if (!confirm('Sign out? You will need to log in again to sync.')) return;
     clearToken();
     clearStoredUser();
-    location.reload();   // reboots to landing
+    location.reload();
 }
 window.doLogout = doLogout;
 
 // ============================================================
 //  ENTER APP
 // ============================================================
-async function enterApp(knownOnline) {
+async function enterApp(knownOnline, opts) {
+    opts = opts || {};
+
     if (typeof db === 'undefined' || !db) {
         showError('Local database failed to initialise. Try reinstalling the app.');
         return;
@@ -1073,14 +1576,13 @@ async function enterApp(knownOnline) {
 
     const token = getToken();
 
-    // Online: verify token is still good
-    if (online && token) {
+    if (online && token && !opts.skipAuthCheck) {
         try {
             const res = await fetch(RENDER_URL + '/api/auth/check', {
+                credentials: 'include',
                 headers: { 'Authorization': 'Bearer ' + token }
             });
-            const data = await res.json();
-            if (!data.logged_in) {
+            if (res.status === 401) {
                 clearToken();
                 clearStoredUser();
                 loadingView.classList.add('hidden');
@@ -1091,7 +1593,6 @@ async function enterApp(knownOnline) {
         } catch (e) { /* keep going offline */ }
     }
 
-    // First-time data download
     try {
         const count = await db.products.count();
         if (count === 0 && online) {
@@ -1111,6 +1612,7 @@ async function enterApp(knownOnline) {
     renderUserChip();
     renderMenu();
     await renderDashboard();
+    refreshPendingNotifications();
     if (online) syncInBackground();
 }
 
@@ -1125,9 +1627,210 @@ function renderUserChip() {
 }
 
 // ============================================================
+//  CATEGORY HELPERS
+// ============================================================
+function _isScreenCategory(cat) {
+    return String(cat || '').trim().toLowerCase() === 'screen';
+}
+function _catPill(cat) {
+    if (_isScreenCategory(cat)) {
+        return '<span class="cat-pill scr">Screens</span>';
+    }
+    return '<span class="cat-pill acc">Acc</span>';
+}
+function _catLabelShort(cat) {
+    return _isScreenCategory(cat) ? 'Screens' : 'Accessories';
+}
+
+// ============================================================
+//  DASHBOARD FILTER
+// ============================================================
+let _dashStartDate = null;
+let _dashEndDate   = null;
+let _dashStartTime = null;
+let _dashEndTime   = null;
+
+function _dashInit() {
+    const today = new Date().toISOString().slice(0, 10);
+    const sd = $('dashStartDate'), ed = $('dashEndDate');
+    const st = $('dashStartTime'), et = $('dashEndTime');
+    if (!sd || !ed || !st || !et) return;
+
+    if (!sd.value) sd.value = today;
+    if (!ed.value) ed.value = today;
+    if (!st.value) st.value = '00:00';
+    if (!et.value) et.value = '23:59';
+
+    _dashStartDate = sd.value;
+    _dashEndDate   = ed.value;
+    _dashStartTime = st.value;
+    _dashEndTime   = et.value;
+
+    const btn = $('dashApplyBtn');
+    if (btn && !btn._wired) {
+        btn._wired = true;
+        btn.addEventListener('click', () => {
+            _dashStartDate = sd.value || null;
+            _dashEndDate   = ed.value || null;
+            _dashStartTime = st.value || null;
+            _dashEndTime   = et.value || null;
+            renderDashboard();
+        });
+    }
+
+    const clock = $('dashClock');
+    if (clock && !clock._wired) {
+        clock._wired = true;
+        const tick = () => {
+            clock.textContent = new Date().toLocaleTimeString([], {
+                hour:'2-digit', minute:'2-digit', second:'2-digit'
+            });
+        };
+        tick();
+        setInterval(tick, 1000);
+    }
+}
+
+function _rangeLabel() {
+    const today = new Date().toISOString().slice(0, 10);
+    if (_dashStartDate === today && _dashEndDate === today) return 'today';
+    if (_dashStartDate && _dashEndDate) return _dashStartDate + ' → ' + _dashEndDate;
+    if (_dashStartDate) return 'from ' + _dashStartDate;
+    if (_dashEndDate)   return 'until ' + _dashEndDate;
+    return 'all time';
+}
+
+// ============================================================
+//  LOW STOCK CLICK — open the correct products view AND flag
+//  the product so the view can auto-open its batch stock.
+// ============================================================
+function openProductFromLowStock(productName, category) {
+    const cat = String(category || '');
+    const isScreen = _isScreenCategory(cat);
+
+    try {
+        // Pre-fill the search box in the products view
+        sessionStorage.setItem('oxPendingProductSearch', productName);
+        // Signal for the products view to auto-select the product
+        // and open its batch-stock modal, with the item highlighted.
+        sessionStorage.setItem('oxPendingAutoOpenBatch', JSON.stringify({
+            name: productName,
+            category: cat,
+            at: Date.now()
+        }));
+        sessionStorage.setItem('oxPendingProductCategory', isScreen ? 'screen' : 'accessory');
+    } catch (e) {}
+
+    switchView(isScreen ? 'products-screen' : 'products');
+}
+window.openProductFromLowStock = openProductFromLowStock;
+
+// After a products view loads, dispatch the pending auto-open event
+// so the view can react (select the product + open batch modal).
+function _dispatchPendingAutoOpenBatch(viewName) {
+    if (viewName !== 'products' && viewName !== 'products-screen') return;
+    setTimeout(() => {
+        try {
+            const raw = sessionStorage.getItem('oxPendingAutoOpenBatch');
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            // Only honour if fresh (< 30 s old)
+            if (!data.at || (Date.now() - data.at) > 30000) {
+                sessionStorage.removeItem('oxPendingAutoOpenBatch');
+                return;
+            }
+            window.dispatchEvent(new CustomEvent('ox:autoOpenBatch', { detail: data }));
+            sessionStorage.removeItem('oxPendingAutoOpenBatch');
+        } catch (e) { /* silent */ }
+    }, 500);
+}
+
+// ============================================================
+//  SVG PIE CHART (offline, no dependencies)
+// ============================================================
+function renderSvgPieChart(container, data) {
+    if (!container) return;
+    if (!data || data.length === 0) {
+        container.innerHTML = '<div class="empty">No data to display</div>';
+        return;
+    }
+
+    const total = data.reduce((s, d) => s + (d.value || 0), 0);
+    if (total <= 0) {
+        container.innerHTML = '<div class="empty">No data to display</div>';
+        return;
+    }
+
+    const size = 240;
+    const cx = size / 2, cy = size / 2, r = 100, innerR = 50;
+    let angle = -Math.PI / 2;
+
+    const colors = data.map((_, i) => {
+        const hue = (i * 360 / data.length + 15) % 360;
+        return `hsl(${hue}, 65%, 55%)`;
+    });
+
+    let paths = '';
+    if (data.length === 1) {
+        paths = `
+            <circle cx="${cx}" cy="${cy}" r="${r}" fill="${colors[0]}"/>
+            <circle cx="${cx}" cy="${cy}" r="${innerR}" fill="#1e293b"/>
+        `;
+    } else {
+        data.forEach((d, i) => {
+            const sliceAngle = (d.value / total) * Math.PI * 2;
+            const a1 = angle;
+            const a2 = angle + sliceAngle;
+
+            const x1o = cx + r * Math.cos(a1);
+            const y1o = cy + r * Math.sin(a1);
+            const x2o = cx + r * Math.cos(a2);
+            const y2o = cy + r * Math.sin(a2);
+            const x1i = cx + innerR * Math.cos(a1);
+            const y1i = cy + innerR * Math.sin(a1);
+            const x2i = cx + innerR * Math.cos(a2);
+            const y2i = cy + innerR * Math.sin(a2);
+
+            const largeArc = sliceAngle > Math.PI ? 1 : 0;
+
+            const path = `M ${x1o} ${y1o}
+                          A ${r} ${r} 0 ${largeArc} 1 ${x2o} ${y2o}
+                          L ${x2i} ${y2i}
+                          A ${innerR} ${innerR} 0 ${largeArc} 0 ${x1i} ${y1i} Z`;
+            paths += `<path d="${path}" fill="${colors[i]}" stroke="#1e293b" stroke-width="1.5"/>`;
+            angle += sliceAngle;
+        });
+    }
+
+    const svg = `
+        <svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+            ${paths}
+            <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="#e2e8f0" font-size="18" font-weight="700">${total}</text>
+            <text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="#94a3b8" font-size="10">sold</text>
+        </svg>
+    `;
+
+    let legend = '<div class="pie-legend">';
+    data.forEach((d, i) => {
+        legend += `
+            <div class="pie-legend-item">
+                <span class="pie-legend-dot" style="background:${colors[i]};"></span>
+                <span>${escapeHtml(d.label)} (${d.value})</span>
+            </div>`;
+    });
+    legend += '</div>';
+
+    container.innerHTML = `
+        <div class="pie-svg-container">${svg}</div>
+        ${legend}
+    `;
+}
+
+// ============================================================
 //  RENDER: DASHBOARD
 // ============================================================
 async function renderDashboard() {
+    _dashInit();
     try {
         const [products, batches, allSales] = await Promise.all([
             db.products.toArray().catch(() => []),
@@ -1150,24 +1853,40 @@ async function renderDashboard() {
             $('kpiProfitSub').textContent = '';
             $('kpiProductsSub').textContent = '';
             $('topProductsCount').textContent = '0';
-            $('lowStockCount').textContent = '0';
+            $('shellLowStockCount').textContent = '0';
             $('recentCount').textContent = '0';
+            $('pieTotal').textContent = '0';
             const msg = (_isOnline === false)
                 ? '<div class="empty">No data yet.<br>Connect to Wi-Fi to download your inventory.</div>'
                 : '<div class="empty">Sync in progress…<br>Tap Sync Now if it doesn\'t fill in.</div>';
             $('topProductsList').innerHTML = msg;
             $('lowStockList').innerHTML = msg;
             $('recentSales').innerHTML = msg;
-            updateSyncStatus();
-            hideError();
+            renderSvgPieChart($('pieChartContainer'), []);
             return;
         }
 
-        const todayStr = new Date().toISOString().slice(0, 10);
+        // Apply dashboard date filter
+        const dashStart = _dashStartDate
+            ? new Date(`${_dashStartDate}T${_dashStartTime || '00:00'}:00`)
+            : null;
+        const dashEnd = _dashEndDate
+            ? new Date(`${_dashEndDate}T${_dashEndTime || '23:59'}:59`)
+            : null;
 
-        const todaySales = allSales.filter(s => !s.reversed && s.date && String(s.date).slice(0, 10) === todayStr);
-        const totalToday = todaySales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
-        const profitToday = todaySales.reduce((sum, s) => {
+        const filteredSales = allSales.filter(s => {
+            if (s.reversed) return false;
+            if (!s.date) return false;
+            const d = new Date(String(s.date).replace(' ', 'T'));
+            if (dashStart && d < dashStart) return false;
+            if (dashEnd   && d > dashEnd)   return false;
+            return true;
+        });
+
+        const rangeLabel = _rangeLabel();
+
+        const totalSales = filteredSales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
+        const totalProfit = filteredSales.reduce((sum, s) => {
             const p = parseFloat(s.profit);
             if (!isNaN(p)) return sum + p;
             const tp = parseFloat(s.total_profit);
@@ -1175,12 +1894,13 @@ async function renderDashboard() {
             return sum;
         }, 0);
 
-        $('kpiSales').textContent  = '₵' + totalToday.toFixed(2);
-        $('kpiSalesSub').textContent = todaySales.length + ' sale' + (todaySales.length === 1 ? '' : 's');
+        $('kpiSales').textContent  = '₵' + totalSales.toFixed(2);
+        $('kpiSalesSub').textContent = filteredSales.length + ' sale' +
+            (filteredSales.length === 1 ? '' : 's') + ' · ' + rangeLabel;
 
-        $('kpiProfit').textContent = '₵' + profitToday.toFixed(2);
-        $('kpiProfitSub').textContent = totalToday > 0
-            ? (profitToday / totalToday * 100).toFixed(1) + '% margin'
+        $('kpiProfit').textContent = '₵' + totalProfit.toFixed(2);
+        $('kpiProfitSub').textContent = totalSales > 0
+            ? (totalProfit / totalSales * 100).toFixed(1) + '% margin'
             : '';
 
         $('kpiProducts').textContent = products.length;
@@ -1190,6 +1910,8 @@ async function renderDashboard() {
 
         $('kpiBatches').textContent = batches.length;
 
+        // ---- Low stock: BOTH accessories AND screens ----
+        const productsById = Object.fromEntries(products.map(p => [p.id, p]));
         const goodByProduct = {};
         batches.forEach(b => {
             const good = (b.remaining_quantity || 0) - (b.claimed_quantity || 0);
@@ -1197,39 +1919,47 @@ async function renderDashboard() {
         });
         const lowStock = products
             .map(p => ({
+                id: p.id,
                 name: p.name,
                 brand: p.brand || '',
+                category: p.category || '',
                 good: goodByProduct[p.id] || 0
             }))
             .filter(p => p.good > 0 && p.good <= 10)
             .sort((a, b) => a.good - b.good);
 
         $('kpiLowStock').textContent = lowStock.length;
-        $('lowStockCount').textContent = lowStock.length;
-        if (lowStock.length > 0) $('lowStockCount').classList.add('alert');
-        else                     $('lowStockCount').classList.remove('alert');
+        $('shellLowStockCount').textContent = lowStock.length;
+        if (lowStock.length > 0) $('shellLowStockCount').classList.add('alert');
+        else                     $('shellLowStockCount').classList.remove('alert');
 
         if (lowStock.length === 0) {
             $('lowStockList').innerHTML = '<div class="empty">All good — nothing low.</div>';
         } else {
-            $('lowStockList').innerHTML = lowStock.slice(0, 8).map(p =>
-                '<div class="list-item">' +
+            $('lowStockList').innerHTML = lowStock.map(p => {
+                const pill = _catPill(p.category);
+                const safeName = escapeHtml(p.name).replace(/'/g, "\\'");
+                const safeCat  = escapeHtml(p.category || '').replace(/'/g, "\\'");
+                return '<div class="list-item clickable" onclick="openProductFromLowStock(\'' +
+                        safeName + '\', \'' + safeCat + '\')">' +
                     '<div class="left">' +
                         '<div class="name">' + escapeHtml(p.name) + '</div>' +
-                        '<div class="meta">' + escapeHtml(p.brand || '') + '</div>' +
+                        '<div class="meta">' + pill +
+                            (p.brand ? '<span>' + escapeHtml(p.brand) + '</span>' : '') +
+                        '</div>' +
                     '</div>' +
-                    '<div class="right alert">' + p.good + ' left</div>' +
-                '</div>'
-            ).join('');
+                    '<div class="right alert">' + p.good + ' left ›</div>' +
+                '</div>';
+            }).join('');
         }
 
-        const todaySaleIds = new Set(todaySales.map(s => s.id));
+        // ---- Top products (by qty sold in filtered range) ----
+        const filteredSaleIds = new Set(filteredSales.map(s => s.id));
         const qtyByProduct = {};
         allItems.forEach(it => {
-            if (!it.sale_id || !todaySaleIds.has(it.sale_id)) return;
+            if (!it.sale_id || !filteredSaleIds.has(it.sale_id)) return;
             qtyByProduct[it.product_id] = (qtyByProduct[it.product_id] || 0) + (it.quantity || 0);
         });
-        const productsById = Object.fromEntries(products.map(p => [p.id, p]));
         const topProducts = Object.entries(qtyByProduct)
             .map(([pid, qty]) => {
                 const p = productsById[pid];
@@ -1238,11 +1968,11 @@ async function renderDashboard() {
             })
             .filter(Boolean)
             .sort((a, b) => b.qty - a.qty)
-            .slice(0, 8);
+            .slice(0, 10);
 
         $('topProductsCount').textContent = topProducts.length;
         if (topProducts.length === 0) {
-            $('topProductsList').innerHTML = '<div class="empty">No sales yet today.</div>';
+            $('topProductsList').innerHTML = '<div class="empty">No sales in this period.</div>';
         } else {
             $('topProductsList').innerHTML = topProducts.map((p, i) => {
                 let medal = '';
@@ -1252,17 +1982,38 @@ async function renderDashboard() {
                 return '<div class="list-item">' +
                     '<div class="left">' +
                         '<div class="name">' + medal + escapeHtml(p.name) + '</div>' +
-                        '<div class="meta">' + escapeHtml(p.brand) + (p.category ? ' · ' + escapeHtml(p.category) : '') + '</div>' +
+                        '<div class="meta">' + _catPill(p.category) +
+                            '<span>' + escapeHtml(p.brand || '') + '</span>' +
+                        '</div>' +
                     '</div>' +
                     '<div class="right">' + p.qty + ' sold</div>' +
                 '</div>';
             }).join('');
         }
 
+        // ── Pie chart — SALES distribution (matches web dashboard) ──
+        // Uses top products by qty SOLD in the selected range; top 8 + Others.
+        let pieSlices = topProducts.map(p => ({
+            label: p.name,
+            value: p.qty
+        }));
+
+        if (pieSlices.length > 8) {
+            const top8 = pieSlices.slice(0, 8);
+            const others = pieSlices.slice(8).reduce((s, x) => s + x.value, 0);
+            if (others > 0) top8.push({ label: 'Others', value: others });
+            pieSlices = top8;
+        }
+
+        const pieTotalUnits = pieSlices.reduce((s, x) => s + x.value, 0);
+        $('pieTotal').textContent = pieTotalUnits;
+        renderSvgPieChart($('pieChartContainer'), pieSlices);
+
+        // ---- Recent Sales ----
         const recent = [...allSales]
             .filter(s => !s.reversed)
             .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
-            .slice(0, 5);
+            .slice(0, 10);
         $('recentCount').textContent = recent.length;
         if (recent.length === 0) {
             $('recentSales').innerHTML = '<div class="empty">No sales yet.</div>';
@@ -1280,7 +2031,6 @@ async function renderDashboard() {
             }).join('');
         }
 
-        updateSyncStatus();
         hideError();
     } catch (e) {
         console.warn('renderDashboard failed:', e);
@@ -1305,12 +2055,22 @@ async function syncNow() {
     const online = await probeNetwork();
     _isOnline = online;
     setNetBadge(online);
-    if (!online) { showToast('No connection — sync paused', { error: true }); return; }
+    if (!online) {
+        showToast('No connection — sync paused', { error: true });
+        Notifications.warning('Offline', 'Sync skipped — no connection.');
+        return;
+    }
 
     const btn = $('syncBtn'), icon = $('syncBtnIcon'), text = $('syncBtnText');
     const topIcon = $('syncIconBtn');
     btn.disabled = true; icon.classList.add('spinning'); text.textContent = 'Syncing…';
     topIcon.classList.add('spinning'); topIcon.disabled = true;
+
+    Notifications.add({
+        id: 'sync-now', type: 'progress',
+        title: 'Syncing', message: 'Pulling latest data…',
+        progress: 25, persistent: true
+    });
 
     try {
         await fullSync();
@@ -1318,49 +2078,53 @@ async function syncNow() {
         if (currentView !== 'dashboard' && typeof window.__refreshProductsView === 'function') {
             try { window.__refreshProductsView(); } catch (e) {}
         }
+        if (currentView !== 'dashboard' && typeof window.__refreshSalesView === 'function') {
+            try { window.__refreshSalesView(); } catch (e) {}
+        }
+        if (currentView !== 'dashboard' && typeof window.__refreshTodaySalesView === 'function') {
+            try { window.__refreshTodaySalesView(); } catch (e) {}
+        }
+        if (currentView !== 'dashboard' && typeof window.__refreshTodaySalesScreenView === 'function') {
+            try { window.__refreshTodaySalesScreenView(); } catch (e) {}
+        }
+        if (currentView !== 'dashboard' && typeof window.__refreshAnalyticsView === 'function') {
+            try { window.__refreshAnalyticsView(); } catch (e) {}
+        }
+        Notifications.update('sync-now', {
+            type: 'success', title: 'Sync complete',
+            message: 'All data is up to date', progress: 100, persistent: true
+        });
+        refreshPendingNotifications();
         showToast('✅ Sync complete');
     } catch (e) {
+        Notifications.update('sync-now', {
+            type: 'error', title: 'Sync failed',
+            message: (e && e.message) || 'Could not reach server'
+        });
         showError('Sync failed: ' + e.message);
         showToast('Sync failed', { error: true });
     } finally {
         btn.disabled = false; icon.classList.remove('spinning'); text.textContent = 'Sync Now';
         topIcon.classList.remove('spinning'); topIcon.disabled = false;
-        refreshNetStatus({ syncOnRecover: false });
     }
 }
 window.syncNow = syncNow;
 
 function syncInBackground() {
-    $('syncStatus').innerHTML = 'Syncing in background…';
     fullSync().then(() => {
         renderDashboard();
+        refreshPendingNotifications();
+        Notifications.success('Auto-synced', 'Background sync finished');
     }).catch(e => console.warn('Background sync failed:', e));
 }
 
 function maybeSyncOnReconnect() {
     if (getToken() && !appView.classList.contains('hidden')) {
-        fullSync().then(renderDashboard).catch(() => {});
+        fullSync().then(() => {
+            renderDashboard();
+            refreshPendingNotifications();
+        }).catch(() => {});
     }
-}
-
-async function updateSyncStatus() {
-    let pending = 0;
-    try { pending = await getPendingCount(); } catch (e) {}
-    const last = localStorage.getItem('lastSyncTime');
-    const ago = last ? Math.floor((Date.now() - parseInt(last, 10)) / 1000) : null;
-
-    let dotClass = 'red', text = '';
-    if (_isOnline === false) { dotClass = 'red'; text = 'Offline — data is cached locally'; }
-    else if (pending > 0) { dotClass = 'amber'; text = pending + ' change' + (pending === 1 ? '' : 's') + ' waiting to sync'; }
-    else if (ago !== null) {
-        dotClass = 'green';
-        const agoText = ago < 5 ? 'just now' : ago < 60 ? ago + 's ago' : ago < 3600 ? Math.floor(ago / 60) + 'm ago' : Math.floor(ago / 3600) + 'h ago';
-        text = 'Last sync ' + agoText;
-    } else { dotClass = 'amber'; text = 'Not yet synced'; }
-
-    $('syncStatus').innerHTML =
-        '<span class="dot ' + dotClass + '"></span>' + text +
-        '<span class="dot"></span>APK · Dexie';
 }
 
 // ============================================================
@@ -1415,7 +2179,8 @@ function renderMenu() {
     items.push(menuItemHtml('products-screen'));
     items.push(menuItemHtml('sales'));
     items.push(menuItemHtml('sales-screen'));
-    items.push(menuItemHtml('today'));
+    items.push(menuItemHtml('today-accessories'));
+    items.push(menuItemHtml('today-screens'));
     items.push(menuItemHtml('purchases'));
     items.push(menuItemHtml('purchases-screen'));
 
@@ -1497,6 +2262,10 @@ async function switchView(name) {
         currentView = name;
         renderMenu();
         window.scrollTo({ top: 0, behavior: 'instant' });
+
+        // If we were routed here from a low-stock click, notify
+        // the products view so it can auto-open the batch modal.
+        _dispatchPendingAutoOpenBatch(name);
     } catch (e) {
         console.error('View load failed:', e);
         $('viewDynamic').innerHTML = '<div class="empty">Could not load view.<br>' + escapeHtml(e.message) + '</div>';
@@ -1509,7 +2278,7 @@ function backToDashboard() { switchView('dashboard'); }
 window.backToDashboard = backToDashboard;
 
 // ============================================================
-//  BOOT — always show the landing page first
+//  BOOT
 // ============================================================
 (function boot() {
     landingView.classList.remove('hidden');

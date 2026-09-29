@@ -1,0 +1,1271 @@
+<!-- ============================================================ -->
+<!-- VIEW: Sales (Screens) — bundled, offline-first          -->
+<!-- Layout mirrors templates/sales.html (screens)            -->
+<!-- ============================================================ -->
+
+<!-- Header -->
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <button onclick="backToDashboard()"
+            class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
+        ← Back
+    </button>
+    <h2 class="text-xl md:text-2xl font-bold text-indigo-600">🛒 Sales Terminal (Screens)</h2>
+    <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">Screens</span>
+    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-100 text-purple-700">APK · Dexie</span>
+    <span id="productCountBadge" class="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2.5 py-0.5 rounded hidden"></span>
+</div>
+
+<!-- Loading prompt -->
+<div id="loadingProductsPrompt" class="mb-4 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg flex items-center gap-3">
+    <div class="flex-shrink-0">
+        <div class="sale-spinner"></div>
+    </div>
+    <div class="flex-1">
+        <div class="font-semibold">⏳ Loading screens…</div>
+        <div class="text-xs text-blue-600 mt-0.5" id="loadingProductsMessage">
+            Fetching products and batches
+        </div>
+    </div>
+    <div class="text-xs text-blue-500 font-mono" id="loadingProductsElapsed">0.0s</div>
+</div>
+
+<!-- Success prompt -->
+<div id="loadingSuccessPrompt" class="mb-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg hidden">
+    <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <span style="font-size:1.25rem;">✅</span>
+            <div>
+                <div class="font-semibold" id="loadingSuccessTitle">Screens loaded</div>
+                <div class="text-xs text-green-600 mt-0.5" id="loadingSuccessDetail"></div>
+            </div>
+        </div>
+        <button onclick="hideSuccessPrompt()" class="text-green-600 hover:text-green-800 text-xl leading-none">&times;</button>
+    </div>
+</div>
+
+<!-- No products banner -->
+<div id="noProductsBanner" class="mb-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded hidden">
+    <strong>⚠️ No screens found.</strong><br>
+    <span class="text-sm">Please sync purchases from the Full App or add screens first.</span>
+    <div class="mt-3 flex gap-2 flex-wrap">
+        <button onclick="forceRefreshSales()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">
+            🔄 Refresh
+        </button>
+        <button onclick="openFullApp()" class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded text-sm">
+            🌐 Open Full App
+        </button>
+    </div>
+</div>
+
+<!-- Two-column layout -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+    <!-- LEFT: Products & Form -->
+    <div class="bg-white rounded-xl shadow-md p-4">
+        <h3 class="text-lg font-bold text-gray-800 mb-3">📦 Select Product</h3>
+
+        <input type="text" id="saleSearchProduct" placeholder="🔍 Search screen..."
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm bg-white text-gray-800">
+
+        <div id="saleProductList" class="max-h-80 overflow-y-auto border rounded-lg p-2 mb-4 bg-gray-50">
+            <div class="text-center py-6 text-gray-400 text-sm">Loading…</div>
+        </div>
+
+        <div id="selectedProductInfo" class="text-sm text-gray-600 mb-3 p-3 bg-gray-50 rounded-lg">
+            <em>No product selected</em>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Quantity</label>
+                <input type="number" id="saleQuantity" min="1"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Discount (₵)</label>
+                <input type="number" step="0.01" id="saleDiscount" min="0"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Sale Date</label>
+                <input type="date" id="saleDate"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Sale Time</label>
+                <input type="text" id="saleTime" placeholder="e.g. 2:30 PM or 14:30"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+            </div>
+        </div>
+
+        <button id="saleAddToCartBtn"
+                class="w-full bg-teal-500 hover:bg-teal-600 text-white py-2.5 rounded-lg font-semibold">
+            ➕ Add to Cart
+        </button>
+    </div>
+
+    <!-- RIGHT: Cart & Receipt -->
+    <div class="bg-white rounded-xl shadow-md p-4">
+        <h3 class="text-lg font-bold text-gray-800 mb-3">🧾 Cart</h3>
+
+        <div id="saleCartItems" class="max-h-96 overflow-y-auto border rounded-lg p-2 mb-4 bg-gray-50">
+            <div class="text-center py-6 text-gray-400 text-sm">Cart is empty</div>
+        </div>
+
+        <div class="flex justify-between items-center mb-4 p-3 bg-gray-100 rounded-lg">
+            <span class="text-base font-bold text-gray-700">Grand Total:</span>
+            <span id="saleGrandTotal" class="text-2xl font-bold text-green-600">₵0.00</span>
+        </div>
+
+        <button id="saleCompleteBtn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-semibold mb-3 disabled:opacity-50"
+                disabled>
+            💳 Complete Sale
+        </button>
+
+        <button id="saleClearCartBtn"
+                class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg text-sm disabled:opacity-50"
+                disabled>
+            🗑️ Clear Cart
+        </button>
+
+        <div id="saleReceiptPreview"
+             class="mt-4 border rounded-lg p-3 bg-gray-50 font-mono text-xs max-h-60 overflow-y-auto hidden"></div>
+    </div>
+</div>
+
+<!-- ===================== BATCH MODAL ===================== -->
+<div id="saleBatchModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-60 flex items-center justify-center p-2">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden">
+
+        <div class="flex-shrink-0 p-4 border-b flex justify-between items-center bg-white">
+            <h3 class="text-lg font-bold text-gray-800" id="saleBatchModalTitle">Select Batches</h3>
+            <button onclick="closeSaleBatchModal()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 min-h-0">
+            <div id="saleBatchList"></div>
+        </div>
+
+        <div class="flex-shrink-0 p-4 border-t bg-white flex flex-wrap gap-2 justify-between items-center">
+            <div class="flex gap-2">
+                <button onclick="selectAllSaleBatches()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm">Select All</button>
+                <button onclick="deselectAllSaleBatches()" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded text-sm">Deselect All</button>
+            </div>
+            <div class="flex gap-3 items-center flex-wrap">
+                <span id="saleAssignedQty" class="text-sm font-bold text-gray-700">Assigned: 0</span>
+                <span id="saleRemainingQty" class="text-sm font-bold text-gray-700">Remaining: 0</span>
+                <button onclick="confirmSaleBatchSelection()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-semibold">✓ Confirm</button>
+                <button onclick="closeSaleBatchModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded text-sm">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== PAYMENT MODAL ===================== -->
+<div id="salePaymentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">Select Payment Method</h3>
+
+        <div class="space-y-3">
+            <button onclick="selectSalePayment('cash', event)"
+                    class="payment-option w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                <div class="font-bold text-green-600">💵 Cash</div>
+                <div class="text-xs text-gray-500">Pay with cash</div>
+            </button>
+            <button onclick="selectSalePayment('momo', event)"
+                    class="payment-option w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                <div class="font-bold text-blue-600">📱 Mobile Money</div>
+                <div class="text-xs text-gray-500">MTN, Vodafone, AirtelTigo</div>
+            </button>
+            <button onclick="showSaleChequeInput(event)"
+                    class="payment-option w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                <div class="font-bold text-purple-600">📝 Cheque</div>
+                <div class="text-xs text-gray-500">Pay with cheque</div>
+            </button>
+        </div>
+
+        <div id="saleChequeInputContainer" class="hidden mt-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Cheque Number</label>
+            <input type="text" id="saleChequeNumber" placeholder="Enter cheque number"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+        </div>
+
+        <div class="flex justify-end gap-3 mt-6">
+            <button onclick="cancelSalePayment()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded text-sm">Cancel</button>
+            <button onclick="confirmSalePayment()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-semibold">Confirm Sale</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== STYLES ===================== -->
+<style>
+    .z-60 { z-index: 9000 !important; }
+
+    .sale-spinner {
+        display: inline-block;
+        width: 1.25rem;
+        height: 1.25rem;
+        border: 0.2em solid #2563eb;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: sale-spin 0.75s linear infinite;
+    }
+    @keyframes sale-spin { to { transform: rotate(360deg); } }
+
+    .sale-stock-breakdown {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 3px;
+    }
+    @media (max-width: 640px) {
+        .sale-stock-breakdown {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+    .sale-batch-row {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 0.7fr) repeat(4, minmax(0, 0.6fr)) minmax(0, 0.8fr) minmax(0, 0.7fr);
+        gap: 4px;
+        align-items: center;
+        padding: 8px 6px;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 0.78rem;
+        color: #1f2937;
+    }
+    @media (max-width: 640px) {
+        .sale-batch-row {
+            grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+            font-size: 0.72rem;
+        }
+        .sale-batch-row > .cell-stock,
+        .sale-batch-row > .cell-sold,
+        .sale-batch-row > .cell-claimed {
+            display: none;
+        }
+    }
+    .sale-batch-header {
+        background: #f3f4f6;
+        font-weight: 700;
+        color: #4b5563;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    .sale-batch-row.faulty { background: #fef2f2; }
+    .sale-batch-row.good   { background: #f0fdf4; }
+
+    .sale-qty-input {
+        width: 100%;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 4px 6px;
+        text-align: center;
+        font-size: 0.78rem;
+        background: #fff;
+        color: #1f2937;
+    }
+
+    .sale-cart-item {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 10px;
+        background: #fff;
+        margin-bottom: 8px;
+    }
+    .sale-cart-item:last-child { margin-bottom: 0; }
+</style>
+
+<!-- ===================== SCRIPT ===================== -->
+<script>
+(function() {
+'use strict';
+
+const RENDER = 'https://ox-smart-pos-release-version.onrender.com';
+const TOKEN_KEY = 'ox_api_token';
+
+// ---------- State ----------
+let saleProducts = [];
+let currentProduct = null;
+let saleCart = [];
+let lastSale = null;
+let currentBatches = [];
+let currentProductForBatch = null;
+let neededQty = 0;
+let batchSelection = [];
+let selectedPaymentMethod = null;
+let selectedChequeNumber = null;
+let pendingSaleCallback = null;
+let loadingTimerInterval = null;
+let loadingStartTime = null;
+
+// ---------- Helpers ----------
+function safeToFixed(v, d = 2) {
+    const n = parseFloat(v);
+    return isNaN(n) ? '0.00' : n.toFixed(d);
+}
+function escapeHtml(s) {
+    if (!s && s !== 0) return '';
+    return String(s).replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[m]));
+}
+function formatMoney(amount) {
+    return '₵' + safeToFixed(amount);
+}
+function getToken() {
+    try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+}
+function toast(msg, isError) {
+    if (typeof window.showToast === 'function') {
+        window.showToast(msg, { error: !!isError });
+    } else {
+        console.log('[sale]', msg);
+    }
+}
+
+// ---------- Loading prompt ----------
+function showLoadingPrompt(message) {
+    const prompt = document.getElementById('loadingProductsPrompt');
+    const msgEl = document.getElementById('loadingProductsMessage');
+    const elapsedEl = document.getElementById('loadingProductsElapsed');
+    const successPrompt = document.getElementById('loadingSuccessPrompt');
+    if (!prompt) return;
+
+    if (successPrompt) successPrompt.classList.add('hidden');
+    prompt.classList.remove('hidden');
+    if (msgEl && message) msgEl.textContent = message;
+
+    loadingStartTime = Date.now();
+    if (elapsedEl) elapsedEl.textContent = '0.0s';
+    if (loadingTimerInterval) clearInterval(loadingTimerInterval);
+    loadingTimerInterval = setInterval(() => {
+        if (loadingStartTime && elapsedEl) {
+            elapsedEl.textContent = ((Date.now() - loadingStartTime) / 1000).toFixed(1) + 's';
+        }
+    }, 100);
+}
+function updateLoadingMessage(message) {
+    const el = document.getElementById('loadingProductsMessage');
+    if (el) el.textContent = message;
+}
+function hideLoadingPrompt() {
+    const prompt = document.getElementById('loadingProductsPrompt');
+    if (prompt) prompt.classList.add('hidden');
+    if (loadingTimerInterval) {
+        clearInterval(loadingTimerInterval);
+        loadingTimerInterval = null;
+    }
+}
+function showSuccessPrompt(title, detail) {
+    const p = document.getElementById('loadingSuccessPrompt');
+    const t = document.getElementById('loadingSuccessTitle');
+    const d = document.getElementById('loadingSuccessDetail');
+    if (!p) return;
+    hideLoadingPrompt();
+    if (t) t.textContent = title;
+    if (d) d.textContent = detail;
+    p.classList.remove('hidden');
+    setTimeout(() => p.classList.add('hidden'), 4000);
+}
+function hideSuccessPrompt() {
+    const p = document.getElementById('loadingSuccessPrompt');
+    if (p) p.classList.add('hidden');
+}
+window.hideSuccessPrompt = hideSuccessPrompt;
+
+// ============================================================
+//  LOAD PRODUCTS — from Dexie (offline-first)
+// ============================================================
+async function loadProducts(silent) {
+    const noProductsBanner = document.getElementById('noProductsBanner');
+    if (noProductsBanner) noProductsBanner.classList.add('hidden');
+
+    if (typeof db === 'undefined' || !db) {
+        document.getElementById('saleProductList').innerHTML =
+            '<div class="text-center py-6 text-red-400 text-sm">Local database not available.</div>';
+        return;
+    }
+
+    if (!silent) showLoadingPrompt('Reading screens from cache…');
+
+    let prods = [];
+    let sourceLabel = 'cache';
+
+    try {
+        const allProducts = await db.products.toArray().catch(() => []);
+        const allBatches  = await db.batches.toArray().catch(() => []);
+
+        // Group batches by product_id
+        const batchesByProduct = {};
+        allBatches.forEach(b => {
+            if (b.product_id == null) return;
+            (batchesByProduct[b.product_id] = batchesByProduct[b.product_id] || []).push(b);
+        });
+
+        // Filter screens only, attach batches
+        allProducts.forEach(p => {
+            if ((p.category || '').toLowerCase() !== 'screen') return;
+            const batches = batchesByProduct[p.id] || [];
+            const stock = batches.reduce((sum, b) => sum + (b.remaining_quantity || 0), 0);
+            // Skip products with zero batches (no stock to sell)
+            if (batches.length === 0) return;
+            prods.push({
+                ...p,
+                stock,
+                batches
+            });
+        });
+
+        // Group identical name+brand (matches web grouping)
+        const grouped = {};
+        prods.forEach(p => {
+            const key = (p.name || '').toLowerCase() + '|' + (p.brand || '').toLowerCase();
+            if (!grouped[key]) {
+                grouped[key] = {
+                    id: p.id,
+                    product_id: p.id,
+                    name: p.name,
+                    brand: p.brand || '',
+                    category: p.category || '',
+                    cost_price: p.cost_price || 0,
+                    selling_price: p.selling_price || 0,
+                    discount: p.discount || 0,
+                    stock: 0,
+                    batches: []
+                };
+            }
+            grouped[key].stock += p.stock;
+            grouped[key].batches = grouped[key].batches.concat(p.batches);
+        });
+
+        saleProducts = Object.values(grouped)
+            .filter(g => g.batches.length > 0)
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    } catch (e) {
+        console.warn('[sales] loadProducts failed:', e);
+        document.getElementById('saleProductList').innerHTML =
+            '<div class="text-center py-6 text-red-400 text-sm">Could not read local data.</div>';
+        hideLoadingPrompt();
+        return;
+    }
+
+    renderSaleProductList(saleProducts);
+
+    const badge = document.getElementById('productCountBadge');
+    if (badge) {
+        if (saleProducts.length > 0) {
+            badge.textContent = saleProducts.length + ' products';
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+
+    if (saleProducts.length === 0) {
+        hideLoadingPrompt();
+        if (noProductsBanner) noProductsBanner.classList.remove('hidden');
+    } else if (!silent) {
+        const totalBatches = saleProducts.reduce((s, p) => s + p.batches.length, 0);
+        const totalStock = saleProducts.reduce((s, p) => s + (p.stock || 0), 0);
+        const elapsed = ((Date.now() - loadingStartTime) / 1000).toFixed(1);
+        showSuccessPrompt(
+            '✅ Screens loaded',
+            `${saleProducts.length} products · ${totalBatches} batches · ${totalStock} units from ${sourceLabel} in ${elapsed}s`
+        );
+    } else {
+        hideLoadingPrompt();
+    }
+}
+
+async function forceRefreshSales() {
+    // Force a server pull via the shell's sync engine
+    if (navigator.onLine && typeof pullData === 'function') {
+        showLoadingPrompt('Refreshing from server…');
+        try {
+            await pullData();
+        } catch (e) {
+            console.warn('[sales] refresh failed:', e);
+        }
+    }
+    await loadProducts(false);
+}
+window.forceRefreshSales = forceRefreshSales;
+
+// ---------- Render product list ----------
+function renderSaleProductList(prods) {
+    const container = document.getElementById('saleProductList');
+    if (!prods.length) {
+        container.innerHTML = '<div class="text-center py-6 text-gray-400 text-sm">No screens available</div>';
+        return;
+    }
+
+    container.innerHTML = '';
+    prods.forEach(p => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'w-full text-left px-3 py-2 hover:bg-white rounded-lg border-b border-gray-200 transition';
+
+        let hasFaulty = false;
+        let faultyCount = 0;
+        let goodStock = 0;
+        let totalStock = 0;
+
+        p.batches.forEach(b => {
+            const claimed = b.claimed_quantity || 0;
+            const remaining = b.remaining_quantity || 0;
+            totalStock += remaining;
+            if (claimed > 0) { hasFaulty = true; faultyCount += claimed; }
+            goodStock += Math.max(remaining - claimed, 0);
+        });
+
+        const batchCount = p.batches.length;
+        const stockColor = goodStock > 0 ? 'text-green-600' : 'text-red-600';
+
+        btn.innerHTML = `
+            <div class="flex justify-between items-center gap-2">
+                <span class="font-medium text-gray-800 text-sm">${escapeHtml(p.name)} <span class="text-gray-500">(${escapeHtml(p.brand)})</span></span>
+                <span class="text-xs font-bold ${stockColor}">${goodStock}/${totalStock}</span>
+            </div>
+            <div class="text-[11px] text-gray-400 mt-0.5">
+                ₵${safeToFixed(p.selling_price)} · ${batchCount} batch${batchCount!==1?'es':''}
+                ${hasFaulty ? ` · <span class="text-red-500">⚠️ ${faultyCount} claimed</span>` : ''}
+            </div>
+        `;
+        if (hasFaulty) btn.style.borderLeft = '3px solid #ef4444';
+        btn.onclick = () => selectSaleProduct(p);
+        container.appendChild(btn);
+    });
+}
+
+// ---------- Select a product ----------
+function selectSaleProduct(product) {
+    currentProduct = product;
+
+    let hasFaulty = false, faultyCount = 0, goodStock = 0, totalStock = 0;
+    product.batches.forEach(b => {
+        const claimed = b.claimed_quantity || 0;
+        const remaining = b.remaining_quantity || 0;
+        totalStock += remaining;
+        if (claimed > 0) { hasFaulty = true; faultyCount += claimed; }
+        goodStock += Math.max(remaining - claimed, 0);
+    });
+
+    let html = `<strong>Selected:</strong> ${escapeHtml(product.name)} (${escapeHtml(product.brand)}) · ₵${safeToFixed(product.selling_price)} · Stock ${totalStock} (${product.batches.length} batches)`;
+    html += `<br><span class="text-xs text-green-600">📦 ${goodStock} good units</span>`;
+    if (hasFaulty) {
+        html += `<br><span class="text-xs text-red-500">⚠️ ${faultyCount} units claimed as faulty</span>`;
+    }
+    document.getElementById('selectedProductInfo').innerHTML = html;
+    document.getElementById('saleQuantity').value = '';
+    document.getElementById('saleDiscount').value = '';
+    document.getElementById('saleQuantity').focus();
+}
+
+// ============================================================
+//  SEARCH
+// ============================================================
+document.getElementById('saleSearchProduct').addEventListener('input', function(e) {
+    const kw = e.target.value.toLowerCase().trim();
+    if (!kw) { renderSaleProductList(saleProducts); return; }
+    const filtered = saleProducts.filter(p =>
+        (p.name || '').toLowerCase().includes(kw) ||
+        (p.brand || '').toLowerCase().includes(kw)
+    );
+    renderSaleProductList(filtered);
+});
+
+// ============================================================
+//  BATCH SELECTOR
+// ============================================================
+async function openBatchSelector(product, qty) {
+    currentProductForBatch = product;
+    neededQty = qty;
+    let batches = product.batches || [];
+
+    if (batches.length === 0 && typeof db !== 'undefined' && db) {
+        try {
+            batches = await db.batches.where('product_id').equals(product.id).toArray();
+        } catch (e) { /* ignore */ }
+    }
+
+    // Only batches with remaining > 0
+    batches = batches.filter(b => (b.remaining_quantity || 0) > 0);
+
+    if (batches.length === 0) {
+        toast('❌ No stock available for ' + product.name, true);
+        return false;
+    }
+
+    currentBatches = batches;
+
+    const container = document.getElementById('saleBatchList');
+    container.innerHTML = '';
+    batchSelection = [];
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'sale-batch-row sale-batch-header';
+    header.innerHTML = `
+        <div></div>
+        <div>Batch</div>
+        <div class="cell-stock">Stock</div>
+        <div class="cell-sold">Sold</div>
+        <div class="cell-claimed">Claimed</div>
+        <div>Good</div>
+        <div>Price</div>
+        <div>Qty</div>
+    `;
+    container.appendChild(header);
+
+    let totalAvailable = 0, totalGood = 0;
+
+    for (const batch of batches) {
+        const remaining = batch.remaining_quantity || 0;
+        const claimed = batch.claimed_quantity || 0;
+        const totalQty = batch.quantity || (remaining + claimed);
+        const sold = Math.max(totalQty - remaining, 0);
+        const good = Math.max(remaining - claimed, 0);
+        const batchId = batch.id || batch.batch_id;
+        const isFaulty = claimed > 0;
+
+        totalAvailable += remaining;
+        totalGood += good;
+
+        const row = document.createElement('div');
+        row.className = 'sale-batch-row ' + (isFaulty ? 'faulty' : 'good');
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.style.width = '18px';
+        cb.style.height = '18px';
+        cb.style.cursor = 'pointer';
+
+        const batchSpan = document.createElement('span');
+        batchSpan.textContent = '#' + batchId;
+        batchSpan.style.fontWeight = '600';
+        batchSpan.style.color = '#4f46e5';
+
+        const stockSpan = document.createElement('span');
+        stockSpan.textContent = remaining;
+        stockSpan.className = 'cell-stock';
+
+        const soldSpan = document.createElement('span');
+        soldSpan.textContent = sold;
+        soldSpan.className = 'cell-sold';
+        soldSpan.style.color = '#2563eb';
+
+        const claimedSpan = document.createElement('span');
+        claimedSpan.textContent = claimed;
+        claimedSpan.className = 'cell-claimed';
+        claimedSpan.style.color = claimed > 0 ? '#dc2626' : '#9ca3af';
+        if (claimed > 0) claimedSpan.style.fontWeight = '700';
+
+        const goodSpan = document.createElement('span');
+        goodSpan.textContent = good;
+        goodSpan.style.color = good > 0 ? '#16a34a' : '#f87171';
+        goodSpan.style.fontWeight = '700';
+
+        const priceSpan = document.createElement('span');
+        priceSpan.textContent = '₵' + safeToFixed(batch.selling_price);
+        priceSpan.style.color = '#16a34a';
+
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.className = 'sale-qty-input';
+        qtyInput.value = '0';
+        qtyInput.min = 0;
+        qtyInput.max = good;
+        qtyInput.disabled = true;
+
+        row.appendChild(cb);
+        row.appendChild(batchSpan);
+        row.appendChild(stockSpan);
+        row.appendChild(soldSpan);
+        row.appendChild(claimedSpan);
+        row.appendChild(goodSpan);
+        row.appendChild(priceSpan);
+        row.appendChild(qtyInput);
+        container.appendChild(row);
+
+        batchSelection.push({
+            batch, cb, qtyInput, batchId,
+            isFaulty, goodStock: good
+        });
+
+        cb.addEventListener('change', () => {
+            qtyInput.disabled = !cb.checked;
+            if (cb.checked && (parseInt(qtyInput.value) || 0) === 0) {
+                qtyInput.value = '1';
+            } else if (!cb.checked) {
+                qtyInput.value = '0';
+            }
+            updateBatchTotals();
+        });
+        qtyInput.addEventListener('input', updateBatchTotals);
+        qtyInput.addEventListener('blur', function() {
+            let val = parseInt(this.value) || 0;
+            const max = parseInt(this.max) || 0;
+            if (val > max) this.value = max;
+            else if (val < 0) this.value = 0;
+            updateBatchTotals();
+        });
+    }
+
+    // Info row
+    const infoRow = document.createElement('div');
+    infoRow.className = 'mt-3 p-2 rounded text-xs';
+    infoRow.style.background = (totalAvailable - totalGood) > 0 ? '#fffbeb' : '#eff6ff';
+    infoRow.style.color      = (totalAvailable - totalGood) > 0 ? '#92400e' : '#1e40af';
+    infoRow.innerHTML =
+        `<strong>${totalAvailable}</strong> units available ` +
+        `(${totalGood} good${(totalAvailable - totalGood) > 0 ? ', ' + (totalAvailable - totalGood) + ' claimed' : ''})` +
+        (neededQty > totalAvailable
+            ? ` <span style="color:#dc2626;font-weight:700;">⚠️ Need ${neededQty}, only ${totalAvailable} available</span>`
+            : '');
+    container.appendChild(infoRow);
+
+    document.getElementById('saleBatchModalTitle').textContent =
+        `Select batches for ${product.name} — need ${qty} units`;
+    document.getElementById('saleAssignedQty').textContent = 'Assigned: 0';
+    document.getElementById('saleRemainingQty').textContent = 'Remaining: ' + neededQty;
+    document.getElementById('saleBatchModal').classList.remove('hidden');
+
+    return true;
+}
+
+function updateBatchTotals() {
+    let assigned = 0;
+    batchSelection.forEach(sel => {
+        if (sel.cb.checked) {
+            let val = parseInt(sel.qtyInput.value) || 0;
+            const max = Math.max(sel.goodStock, 0);
+            if (val > max) { val = max; sel.qtyInput.value = max; }
+            assigned += val;
+        }
+    });
+    document.getElementById('saleAssignedQty').textContent = 'Assigned: ' + assigned;
+    const rem = neededQty - assigned;
+    const remEl = document.getElementById('saleRemainingQty');
+    remEl.textContent = 'Remaining: ' + rem;
+    remEl.style.color = rem === 0 ? '#16a34a' : (rem < 0 ? '#dc2626' : '#374151');
+}
+window.updateBatchTotals = updateBatchTotals;
+
+function selectAllSaleBatches() {
+    let remaining = neededQty;
+    batchSelection.forEach(sel => {
+        if (remaining <= 0) {
+            sel.cb.checked = false;
+            sel.qtyInput.disabled = true;
+            sel.qtyInput.value = '0';
+            return;
+        }
+        sel.cb.checked = true;
+        sel.qtyInput.disabled = false;
+        const maxAvail = Math.max(sel.goodStock, 0);
+        const assign = Math.min(maxAvail, remaining);
+        sel.qtyInput.value = assign;
+        remaining -= assign;
+    });
+    updateBatchTotals();
+}
+window.selectAllSaleBatches = selectAllSaleBatches;
+
+function deselectAllSaleBatches() {
+    batchSelection.forEach(sel => {
+        sel.cb.checked = false;
+        sel.qtyInput.disabled = true;
+        sel.qtyInput.value = '0';
+    });
+    updateBatchTotals();
+}
+window.deselectAllSaleBatches = deselectAllSaleBatches;
+
+function closeSaleBatchModal() {
+    document.getElementById('saleBatchModal').classList.add('hidden');
+    currentProductForBatch = null;
+    neededQty = 0;
+}
+window.closeSaleBatchModal = closeSaleBatchModal;
+
+function confirmSaleBatchSelection() {
+    let assigned = 0;
+    let selected = [];
+    let faultySelected = false;
+    let totalCost = 0;
+
+    for (const sel of batchSelection) {
+        if (sel.cb.checked) {
+            const qty = parseInt(sel.qtyInput.value) || 0;
+            if (qty > 0) {
+                assigned += qty;
+                selected.push({
+                    batch_id: sel.batchId,
+                    qty,
+                    batch: sel.batch,
+                    is_faulty: sel.isFaulty,
+                    good_stock: sel.goodStock
+                });
+                if (sel.isFaulty) faultySelected = true;
+                totalCost += qty * (sel.batch.cost_price || 0);
+            }
+        }
+    }
+
+    if (assigned !== neededQty) {
+        toast(`Assign exactly ${neededQty} units. Currently: ${assigned}`, true);
+        return;
+    }
+    if (selected.length === 0) {
+        toast('Select at least one batch.', true);
+        return;
+    }
+
+    if (faultySelected) {
+        if (!confirm('⚠️ You are selecting batches with claimed/faulty items.\n\nContinue?')) return;
+    }
+
+    const discount = parseFloat(document.getElementById('saleDiscount').value) || 0;
+    let subtotal = 0;
+    selected.forEach(s => { subtotal += s.qty * (s.batch.selling_price || 0); });
+    const finalTotal = Math.max(subtotal - discount, 0);
+
+    const productWithCost = {
+        ...currentProductForBatch,
+        cost_price: neededQty > 0 ? totalCost / neededQty : 0
+    };
+
+    saleCart.push({
+        product: productWithCost,
+        qty: neededQty,
+        discount,
+        selectedBatches: selected,
+        subtotal,
+        final: finalTotal,
+        totalCost,
+        hasFaulty: faultySelected
+    });
+
+    updateSaleCart();
+    closeSaleBatchModal();
+    document.getElementById('saleQuantity').value = '';
+    document.getElementById('saleDiscount').value = '';
+}
+window.confirmSaleBatchSelection = confirmSaleBatchSelection;
+
+// ============================================================
+//  CART
+// ============================================================
+function updateSaleCart() {
+    const container = document.getElementById('saleCartItems');
+    const completeBtn = document.getElementById('saleCompleteBtn');
+    const clearBtn = document.getElementById('saleClearCartBtn');
+
+    if (!saleCart.length) {
+        container.innerHTML = '<div class="text-center py-6 text-gray-400 text-sm">Cart is empty</div>';
+        document.getElementById('saleGrandTotal').textContent = formatMoney(0);
+        completeBtn.disabled = true;
+        clearBtn.disabled = true;
+        return;
+    }
+
+    let grand = 0;
+    container.innerHTML = '';
+    saleCart.forEach((item, idx) => {
+        grand += item.final;
+
+        const card = document.createElement('div');
+        card.className = 'sale-cart-item';
+
+        const faultyWarn = item.hasFaulty
+            ? '<span class="text-red-500 text-[10px] font-bold ml-2">⚠️ FAULTY</span>' : '';
+
+        const batchLines = item.selectedBatches.map(b =>
+            `Batch #${b.batch_id}: ${b.qty} × ₵${safeToFixed(b.batch.selling_price)}${b.is_faulty ? ' ⚠️' : ''}`
+        ).join('<br>');
+
+        card.innerHTML = `
+            <div class="flex justify-between items-start gap-2">
+                <div class="flex-1 min-w-0">
+                    <div class="text-sm font-semibold text-gray-800">
+                        ${escapeHtml(item.product.name)} <span class="text-gray-500">(${escapeHtml(item.product.brand)})</span>
+                        ${faultyWarn}
+                    </div>
+                    <div class="text-xs text-gray-600 mt-1">Qty: <strong>${item.qty}</strong> · Discount: ₵${safeToFixed(item.discount)}</div>
+                    <div class="text-[10px] text-gray-500 mt-1">${batchLines}</div>
+                </div>
+                <div class="text-right flex-shrink-0">
+                    <div class="font-bold text-gray-800">${formatMoney(item.final)}</div>
+                    <button onclick="removeSaleCartItem(${idx})" class="text-red-500 hover:text-red-700 text-xs mt-1">Remove</button>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+
+    document.getElementById('saleGrandTotal').textContent = formatMoney(grand);
+    completeBtn.disabled = false;
+    clearBtn.disabled = false;
+}
+window.removeSaleCartItem = function(idx) {
+    saleCart.splice(idx, 1);
+    updateSaleCart();
+};
+window.clearSaleCart = function() {
+    if (!saleCart.length) return;
+    if (!confirm('Clear the cart?')) return;
+    saleCart = [];
+    updateSaleCart();
+};
+
+// Add to cart
+document.getElementById('saleAddToCartBtn').addEventListener('click', async () => {
+    if (!currentProduct) { toast('Select a product first', true); return; }
+    const qty = parseInt(document.getElementById('saleQuantity').value);
+    if (!qty || qty <= 0) { toast('Enter a valid quantity', true); return; }
+    if (qty > (currentProduct.stock || 0)) {
+        toast(`Only ${currentProduct.stock} units in stock`, true);
+        return;
+    }
+    await openBatchSelector(currentProduct, qty);
+});
+
+document.getElementById('saleClearCartBtn').addEventListener('click', () => {
+    if (!saleCart.length) return;
+    if (!confirm('Clear the cart?')) return;
+    saleCart = [];
+    updateSaleCart();
+});
+
+// ============================================================
+//  DATE / TIME PARSING
+// ============================================================
+function getSaleDateTime() {
+    const dateVal = document.getElementById('saleDate').value;
+    const timeVal = (document.getElementById('saleTime').value || '').trim();
+
+    let hours = 0, minutes = 0;
+    const now = new Date();
+
+    if (timeVal) {
+        try {
+            const isPM = /pm/i.test(timeVal);
+            const isAM = /am/i.test(timeVal);
+            const clean = timeVal.replace(/[ap]m/gi, '').trim();
+            const parts = clean.split(':');
+            if (parts.length === 2) {
+                hours = parseInt(parts[0]);
+                minutes = parseInt(parts[1]);
+                if (isPM && hours < 12) hours += 12;
+                if (isAM && hours === 12) hours = 0;
+                if (isNaN(hours) || isNaN(minutes) || hours > 23 || minutes > 59) {
+                    throw new Error('invalid');
+                }
+            } else {
+                throw new Error('invalid');
+            }
+        } catch (e) {
+            hours = now.getHours();
+            minutes = now.getMinutes();
+        }
+    } else {
+        hours = now.getHours();
+        minutes = now.getMinutes();
+    }
+
+    const date = dateVal || now.toISOString().split('T')[0];
+    const hh = String(hours).padStart(2, '0');
+    const mm = String(minutes).padStart(2, '0');
+    return `${date} ${hh}:${mm}:00`;
+}
+
+function setDefaultSaleDateTime() {
+    const now = new Date();
+    document.getElementById('saleDate').value = now.toISOString().split('T')[0];
+    let h = now.getHours();
+    const m = now.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    document.getElementById('saleTime').value = `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+// ============================================================
+//  PAYMENT MODAL
+// ============================================================
+function selectSalePayment(method, event) {
+    selectedPaymentMethod = method;
+    selectedChequeNumber = null;
+    document.getElementById('saleChequeInputContainer').classList.add('hidden');
+    document.querySelectorAll('#salePaymentModal .payment-option').forEach(btn => {
+        btn.classList.remove('bg-indigo-50', 'border-indigo-500');
+    });
+    if (event && event.target) {
+        const b = event.target.closest('.payment-option');
+        if (b) b.classList.add('bg-indigo-50', 'border-indigo-500');
+    }
+}
+window.selectSalePayment = selectSalePayment;
+
+function showSaleChequeInput(event) {
+    selectedPaymentMethod = 'cheque';
+    document.getElementById('saleChequeInputContainer').classList.remove('hidden');
+    document.querySelectorAll('#salePaymentModal .payment-option').forEach(btn => {
+        btn.classList.remove('bg-indigo-50', 'border-indigo-500');
+    });
+    if (event && event.target) {
+        const b = event.target.closest('.payment-option');
+        if (b) b.classList.add('bg-indigo-50', 'border-indigo-500');
+    }
+}
+window.showSaleChequeInput = showSaleChequeInput;
+
+function closeSalePaymentModal() {
+    document.getElementById('salePaymentModal').classList.add('hidden');
+    document.getElementById('saleChequeNumber').value = '';
+    document.getElementById('saleChequeInputContainer').classList.add('hidden');
+    document.querySelectorAll('#salePaymentModal .payment-option').forEach(btn => {
+        btn.classList.remove('bg-indigo-50', 'border-indigo-500');
+    });
+}
+
+function cancelSalePayment() {
+    closeSalePaymentModal();
+    pendingSaleCallback = null;
+    selectedPaymentMethod = null;
+    selectedChequeNumber = null;
+}
+window.cancelSalePayment = cancelSalePayment;
+
+function confirmSalePayment() {
+    if (!selectedPaymentMethod) {
+        toast('Select a payment method', true);
+        return;
+    }
+    if (selectedPaymentMethod === 'cheque') {
+        const cn = document.getElementById('saleChequeNumber').value.trim();
+        if (!cn) { toast('Enter cheque number', true); return; }
+        selectedChequeNumber = cn;
+    }
+    const method = selectedPaymentMethod;
+    const cheque = selectedChequeNumber;
+    closeSalePaymentModal();
+    executeSaleWithPayment(method, cheque);
+}
+window.confirmSalePayment = confirmSalePayment;
+
+// ============================================================
+//  COMPLETE SALE — offline-first, queue via pending_ops
+// ============================================================
+document.getElementById('saleCompleteBtn').addEventListener('click', () => {
+    if (!saleCart.length) { toast('Cart is empty', true); return; }
+
+    const hasFaulty = saleCart.some(it => it.hasFaulty);
+    if (hasFaulty) {
+        if (!confirm('⚠️ Cart contains FAULTY batch items.\n\nContinue with sale?')) return;
+    }
+
+    pendingSaleCallback = {
+        cart: saleCart.map(it => ({
+            product: { ...it.product },
+            qty: it.qty,
+            discount: it.discount,
+            selectedBatches: it.selectedBatches.map(b => ({ ...b }))
+        })),
+        saleDatetime: getSaleDateTime()
+    };
+
+    selectedPaymentMethod = null;
+    selectedChequeNumber = null;
+    document.getElementById('saleChequeNumber').value = '';
+    document.getElementById('saleChequeInputContainer').classList.add('hidden');
+    document.getElementById('salePaymentModal').classList.remove('hidden');
+});
+
+async function executeSaleWithPayment(paymentMethod, chequeNum) {
+    if (!pendingSaleCallback) return;
+
+    const cartItems = pendingSaleCallback.cart.map(it => ({
+        product: {
+            product_id: it.product.product_id || it.product.id,
+            id: it.product.product_id || it.product.id,
+            name: it.product.name,
+            brand: it.product.brand,
+            category: it.product.category,
+            selling_price: it.product.selling_price,
+            cost_price: it.product.cost_price
+        },
+        qty: it.qty,
+        discount: it.discount
+    }));
+
+    const selectedBatches = [];
+    pendingSaleCallback.cart.forEach(it => {
+        const productId = it.product.product_id || it.product.id;
+        if (!productId) return;
+        it.selectedBatches.forEach(b => {
+            selectedBatches.push({
+                batch_id: b.batch_id,
+                qty: b.qty,
+                product_id: productId,
+                id: productId
+            });
+        });
+    });
+
+    const payload = {
+        cart_items: cartItems,
+        sale_datetime: pendingSaleCallback.saleDatetime,
+        selected_batches: selectedBatches,
+        payment_method: paymentMethod,
+        cheque_number: chequeNum
+    };
+
+    // Compute total for local receipt
+    const grand = pendingSaleCallback.cart.reduce((s, it) =>
+        s + it.selectedBatches.reduce((ss, b) =>
+            ss + b.qty * (b.batch.selling_price || 0), 0) - (it.discount || 0)
+    , 0);
+
+    // ─────────────────────────────────────────────────────────
+    //  1. Queue the sale via pending_ops (works offline)
+    // ─────────────────────────────────────────────────────────
+    let queued = false;
+    try {
+        if (typeof savePendingOperation === 'function') {
+            await savePendingOperation('sales', 'add', 'temp_' + Date.now(), payload);
+            queued = true;
+        } else if (typeof db !== 'undefined' && db) {
+            await db.pending_ops.add({
+                table: 'sales',
+                operation: 'add',
+                record_id: 'temp_' + Date.now(),
+                payload: payload,
+                timestamp: new Date().toISOString(),
+                attempts: 0,
+                synced: 0
+            });
+            queued = true;
+        }
+    } catch (e) {
+        console.warn('[sale] queue failed:', e);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    //  2. Update local Dexie batches (decrement remaining)
+    // ─────────────────────────────────────────────────────────
+    if (typeof db !== 'undefined' && db) {
+        try {
+            for (const sb of selectedBatches) {
+                const batch = await db.batches.get(sb.batch_id);
+                if (batch) {
+                    const newRemaining = Math.max((batch.remaining_quantity || 0) - sb.qty, 0);
+                    await db.batches.update(sb.batch_id, { remaining_quantity: newRemaining });
+                }
+            }
+        } catch (e) {
+            console.warn('[sale] local batch decrement failed:', e);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────
+    //  3. If online, try to push immediately
+    // ─────────────────────────────────────────────────────────
+    let pushed = false;
+    if (navigator.onLine && typeof pushPending === 'function') {
+        try {
+            await pushPending();
+            pushed = true;
+        } catch (e) {
+            console.warn('[sale] push failed:', e);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────
+    //  4. Show receipt preview + reset cart
+    // ─────────────────────────────────────────────────────────
+    const receipt = buildLocalReceipt(pendingSaleCallback.cart, paymentMethod, chequeNum, grand);
+    const preview = document.getElementById('saleReceiptPreview');
+    preview.innerHTML = receipt;
+    preview.classList.remove('hidden');
+
+    lastSale = { receipt_text: preview.innerText };
+
+    saleCart = [];
+    updateSaleCart();
+
+    // Refresh products (batches changed)
+    await loadProducts(true);
+
+    // Notify
+    if (queued && !pushed) {
+        toast('✅ Sale queued — will sync when online');
+    } else if (queued && pushed) {
+        toast('✅ Sale completed and synced');
+    } else {
+        toast('✅ Sale completed');
+    }
+
+    if (typeof window.refreshPendingNotifications === 'function') {
+        window.refreshPendingNotifications();
+    }
+    if (typeof window.updatePendingBadge === 'function') {
+        window.updatePendingBadge();
+    }
+
+    pendingSaleCallback = null;
+    selectedPaymentMethod = null;
+    selectedChequeNumber = null;
+}
+
+function buildLocalReceipt(cartItems, paymentMethod, chequeNum, grand) {
+    const lines = [];
+    const now = new Date().toLocaleString();
+    lines.push('================================');
+    lines.push('       TOMFRIMP MOBICOM         ');
+    lines.push('   OX SMART INVENTORY & POS     ');
+    lines.push('================================');
+    lines.push('Date: ' + now);
+    lines.push('--------------------------------');
+    cartItems.forEach(it => {
+        lines.push(it.product.name + ' (' + it.product.brand + ')');
+        it.selectedBatches.forEach(b => {
+            lines.push('  Batch #' + b.batch_id + ' x ' + b.qty + ' @ ₵' + safeToFixed(b.batch.selling_price));
+        });
+        if (it.discount > 0) {
+            lines.push('  Discount: ₵' + safeToFixed(it.discount));
+        }
+    });
+    lines.push('--------------------------------');
+    lines.push('TOTAL: ₵' + safeToFixed(grand));
+    lines.push('Payment: ' + (paymentMethod || 'cash').toUpperCase() +
+               (chequeNum ? ' #' + chequeNum : ''));
+    lines.push('================================');
+    lines.push('  Thank you for your business!  ');
+    lines.push('================================');
+    return '<pre style="white-space:pre-wrap;margin:0;">' + escapeHtml(lines.join('\n')) + '</pre>';
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+// NOTE: This view is injected by the shell AFTER DOMContentLoaded
+// has already fired on the document. Do not wrap in a listener.
+setDefaultSaleDateTime();
+updateSaleCart();
+loadProducts(false);
+
+// Refresh hook for shell's sync engine
+window.__refreshProductsView = function() { loadProducts(true); };
+window.__refreshSalesView    = function() { loadProducts(true); };
+
+// Re-run load when the network comes back
+window.addEventListener('online', () => {
+    loadProducts(true);
+});
+
+})();
+</script>

@@ -1,6 +1,6 @@
 <!-- ============================================================ -->
-<!-- VIEW: Products (Accessories) — bundled, reads Dexie         -->
-<!-- Layout mirrors templates/products_accessories.html           -->
+<!-- VIEW: Products (Screens) — bundled, reads Dexie             -->
+<!-- Layout mirrors templates/products_screen.html                -->
 <!-- ============================================================ -->
 
 <!-- Header -->
@@ -118,7 +118,7 @@
         </div>
         <div class="bg-white rounded-xl shadow-md p-3 text-center border border-gray-100">
             <p class="text-xs text-gray-500">⚠️ Low Stock Items</p>
-            <p id="lowStockCount" class="text-xl md:text-2xl font-bold text-red-600">—</p>
+            <p id="lowStockCount" class="text-xl md:text-2xl font-bold" style="color:#9ca3af;">—</p>
         </div>
     </div>
 </div>
@@ -436,7 +436,7 @@ async function loadProducts() {
         try {
             allItems = await db.sales_items.toArray();
         } catch (e) {
-            console.warn('[products-acc] sales_items unavailable — sold counts will be 0');
+            console.warn('[products-screen] sales_items unavailable — sold counts will be 0');
             allItems = [];
         }
 
@@ -542,8 +542,12 @@ function updateSummary(products) {
         if (good > 0 && good <= 10) lowCount++;
     });
 
+    // ── Apply with inline style — independent of Tailwind availability ──
     const lowEl = $('lowStockCount');
-    if (lowEl) lowEl.textContent = lowCount;
+    if (lowEl) {
+        lowEl.textContent = lowCount;
+        lowEl.style.color = (lowCount === 0) ? '#16a34a' : '#dc2626';
+    }
 }
 
 // ============================================================
@@ -578,7 +582,7 @@ function renderLowStockSplit() {
                         escapeHtml(b.product_name) + ' (' + escapeHtml(b.brand) + ')</div>' +
                     '<div class="text-xs text-gray-400">Batch #' + b.batch_id + ' · ' + escapeHtml(b.category) + '</div>' +
                 '</div>' +
-                '<span class="text-red-500 font-bold text-sm flex-shrink-0 ml-2">' + b.remaining + ' left</span>' +
+                '<span class="font-bold text-sm flex-shrink-0 ml-2" style="color:#ef4444;">' + b.remaining + ' left</span>' +
             '</div>'
         ).join('');
 
@@ -602,7 +606,7 @@ function renderLowStockSplit() {
                     '<div class="text-gray-700 font-medium truncate">' + escapeHtml(p.name) + '</div>' +
                     '<div class="text-xs text-gray-400">' + escapeHtml(p.brand || '') + '</div>' +
                 '</div>' +
-                '<span class="text-red-500 font-bold text-sm flex-shrink-0 ml-2">' + p.good + ' left</span>' +
+                '<span class="font-bold text-sm flex-shrink-0 ml-2" style="color:#ef4444;">' + p.good + ' left</span>' +
             '</div>'
         ).join('');
 }
@@ -615,7 +619,7 @@ function renderProducts(products, batchKeyword) {
     if (!products.length) {
         const msg = batchKeyword
             ? `No products found with batch #${batchKeyword.replace('#', '')}`
-            : 'No accessory products found.';
+            : 'No screen products found.';
         container.innerHTML =
             '<div class="text-center text-gray-400 py-8 bg-white rounded-xl shadow-md">' + msg + '</div>';
         return;
@@ -627,7 +631,11 @@ function renderProducts(products, batchKeyword) {
         p.batches.forEach(b => totalClaimed += b.claimed_quantity || 0);
         const displayGood = Math.max(totalStock - totalClaimed, 0);
         const inStock = totalStock > 0;
-        const statusColor = inStock ? 'text-green-600' : 'text-red-600';
+
+        // ── Inline colour — independent of Tailwind bundle ──
+        const statusColor = inStock ? '#16a34a' : '#dc2626';
+        const statusText  = inStock ? '● In Stock' : '● Out of Stock';
+
         const hasSearchedBatch = batchKeyword
             ? p.batches.some(b => b.batch_id === parseInt(batchKeyword.replace('#','')))
             : false;
@@ -650,10 +658,10 @@ function renderProducts(products, batchKeyword) {
                         </div>
                         <p class="text-gray-600 text-sm">Category: ${escapeHtml(p.category)} | Total Stock: ${totalStock}</p>
                         <p class="text-xs md:text-sm text-gray-700">Cost: ₵${safeToFixed(p.cost_price)} | Selling: ₵${safeToFixed(p.selling_price)} | Discount: ₵${safeToFixed(p.discount)}</p>
-                        <p class="text-xs text-green-600 font-bold mt-1">✅ ${displayGood} good units available</p>
+                        <p class="text-xs font-bold mt-1" style="color:#16a34a;">✅ ${displayGood} good units available</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="font-semibold ${statusColor} text-sm">● ${inStock ? 'In Stock' : 'Out of Stock'}</span>
+                        <span class="text-sm font-semibold" style="color:${statusColor};">${statusText}</span>
                     </div>
                 </div>
                 <div class="mt-3 flex flex-wrap justify-end gap-2">
@@ -860,7 +868,6 @@ async function viewBatchClaims(batchId) {
     try {
         claims = await db.claims.where('batch_id').equals(batchId).toArray();
     } catch (e) {
-        // Fallback: read all claims and filter
         try {
             claims = (await db.claims.toArray()).filter(c => c.batch_id === batchId);
         } catch (e2) {
@@ -1014,8 +1021,114 @@ $('applyAdvancedSearch').addEventListener('click', applyAdvancedSearch);
 // ---------- Refresh hook for shell's sync button ----------
 window.__refreshProductsView = loadProducts;
 
+// ============================================================
+//  AUTO-OPEN BATCH — triggered by dashboard low-stock click
+//
+//  The shell sets sessionStorage.oxPendingProductSearch and
+//  oxPendingAutoOpenBatch, then dispatches 'ox:autoOpenBatch'
+//  with { name, category } once the view has been injected.
+//
+//  Here we:
+//    1. Wait for currentProducts to be loaded by loadProducts()
+//    2. Find the product whose name matches
+//    3. Open its batch modal
+//    4. Highlight any batch with good-stock 1..10 (i.e. the
+//       items that were flagged on the dashboard)
+// ============================================================
+function _doAutoOpenBatch(data) {
+    if (!data || !data.name) return false;
+    if (!currentProducts || currentProducts.length === 0) return false;
+
+    const targetName = String(data.name).trim().toLowerCase();
+    const target = currentProducts.find(p =>
+        String(p.name || '').trim().toLowerCase() === targetName
+    );
+
+    if (!target) {
+        console.warn('[products-screen] auto-open: no product match for', data.name);
+        return false;
+    }
+
+    // Prefill the search box so it's clear why we landed here
+    const si = $('searchInput');
+    if (si) si.value = target.name;
+
+    // Open the batch modal for the matched product
+    viewBatchesWithData(target.product_id);
+
+    // Highlight low-stock batches (good = remaining - claimed, 1..10)
+    setTimeout(() => {
+        let scrolled = false;
+        document.querySelectorAll('#batchList .batch-item').forEach(item => {
+            const bid = parseInt(item.getAttribute('data-batch-id'));
+            const batch = (target.batches || []).find(b => b.batch_id === bid);
+            if (!batch) return;
+            const remaining = batch.remaining_quantity || 0;
+            const claimed   = batch.claimed_quantity   || 0;
+            const good      = Math.max(remaining - claimed, 0);
+            if (good > 0 && good <= 10) {
+                item.classList.add('batch-highlight');
+                if (!scrolled) {
+                    scrolled = true;
+                    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                setTimeout(() => item.classList.remove('batch-highlight'), 5000);
+            }
+        });
+    }, 300);
+
+    return true;
+}
+
+function _scheduleAutoOpen() {
+    // Retry up to ~5 s while loadProducts() finishes on slower devices
+    let tries = 20;
+    const attempt = () => {
+        let data = window.__oxPendingAutoOpenData;
+        if (!data) {
+            try {
+                const raw = sessionStorage.getItem('oxPendingAutoOpenBatch');
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && parsed.at && (Date.now() - parsed.at) < 30000) {
+                        data = parsed;
+                        window.__oxPendingAutoOpenData = data;
+                    } else {
+                        sessionStorage.removeItem('oxPendingAutoOpenBatch');
+                        return;
+                    }
+                }
+            } catch (e) { /* silent */ }
+        }
+        if (!data) return;
+
+        if (_doAutoOpenBatch(data)) {
+            window.__oxPendingAutoOpenData = null;
+            try { sessionStorage.removeItem('oxPendingAutoOpenBatch'); } catch (e) {}
+            return;
+        }
+        if (--tries > 0) setTimeout(attempt, 250);
+    };
+    attempt();
+}
+
+window.addEventListener('ox:autoOpenBatch', function (ev) {
+    const data = ev.detail || {};
+    if (!data.name) return;
+    window.__oxPendingAutoOpenData = {
+        name: data.name,
+        category: data.category || '',
+        at: Date.now()
+    };
+    _scheduleAutoOpen();
+});
+
 // ---------- Initial load ----------
 loadProducts();
 
+// Fallback for the case where the shell's event fired before this
+// listener existed (e.g. router dispatched immediately after injection).
+setTimeout(_scheduleAutoOpen, 100);
+
 })();
-</script>
+</script>

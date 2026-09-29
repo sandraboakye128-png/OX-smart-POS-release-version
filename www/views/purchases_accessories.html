@@ -275,12 +275,10 @@
 
 <!-- ===================== STYLES ===================== -->
 <style>
-    /* Raise bundled-view modals above the shell's menu drawer (z=1000/1001) */
     .z-50 { z-index: 9000 !important; }
     .z-60 { z-index: 9001 !important; }
     .z-70 { z-index: 9002 !important; }
 
-    /* Smooth transitions for the sticky summary */
     #summaryContent {
         transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.25s ease;
         overflow-y: auto;
@@ -295,7 +293,6 @@
         overflow: hidden !important;
     }
 
-    /* Loading spinners (light theme) */
     @keyframes loading-rotate { to { transform: rotate(360deg); } }
     .loading-spinner {
         width: 44px; height: 44px;
@@ -314,7 +311,6 @@
         vertical-align: -2px;
     }
 
-    /* Scrollbars inside modals */
     #historyContent::-webkit-scrollbar,
     #pendingList::-webkit-scrollbar { width: 6px; }
     #historyContent::-webkit-scrollbar-track,
@@ -322,13 +318,11 @@
     #historyContent::-webkit-scrollbar-thumb,
     #pendingList::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
 
-    /* Summary stat tiles */
     #summaryContent .bg-gray-800 {
         background: rgba(31, 41, 55, 0.6);
         backdrop-filter: blur(2px);
     }
 
-    /* Ensure history modal content area can shrink and scroll */
     #historyModal .flex-1 { min-height: 0; }
     #historyContent { min-height: 0; }
 
@@ -344,13 +338,11 @@
 
 const RENDER = 'https://ox-smart-pos-release-version.onrender.com';
 
-// ---------- Safe number formatting ----------
 function safeToFixed(val, decimals = 2) {
     const num = parseFloat(val);
     return isNaN(num) ? '0.00' : num.toFixed(decimals);
 }
 
-// ---------- Real-sold helper ----------
 function getRealSold(p) {
     if (p && typeof p.sold_quantity === 'number') return p.sold_quantity;
     const qty = (p && p.quantity) || 0;
@@ -358,7 +350,6 @@ function getRealSold(p) {
     return Math.max(qty - rem, 0);
 }
 
-// ---------- Delta-based remaining calculator (matches server) ----------
 function computeNewRemaining(purchase, newQuantity) {
     const oldQty = parseInt(purchase.quantity || 0, 10);
     const oldRem = parseInt(purchase.remaining_quantity || 0, 10);
@@ -421,7 +412,6 @@ let pendingCreateBatchId = null;
 const SUMMARY_STATE_KEY = 'accessory_summary_collapsed';
 let summaryCollapsed = false;
 
-// ---------- Utilities ----------
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/[&<>"']/g, function(m) {
@@ -462,7 +452,6 @@ function showLoadingState() {
     }
 }
 
-// ---------- Summary toggle ----------
 function initSummaryToggle() {
     const toggle = document.getElementById('summaryToggle');
     const content = document.getElementById('summaryContent');
@@ -501,7 +490,6 @@ function initSummaryToggle() {
     applyState(summaryCollapsed);
 }
 
-// ---------- Search helpers ----------
 function matchesSearch(value, searchTerm, mode, cs) {
     if (!value) return false;
     let s = value, t = searchTerm;
@@ -769,7 +757,10 @@ function checkForBatchEdit() {
     }
 }
 
-// ---------- History modal ----------
+// ============================================================
+//  HISTORY MODAL — API-first, cache update_history on success,
+//  fall back to Dexie cache (with synthesized entry if none).
+// ============================================================
 async function viewPurchaseHistory(batchId) {
     // Try API first when online
     if (navigator.onLine) {
@@ -778,7 +769,16 @@ async function viewPurchaseHistory(batchId) {
             if (res.ok) {
                 const data = await res.json();
                 if (data.success) {
-                    renderHistoryModal(data, batchId);
+                    // ✅ PATCH 1: Cache update history on the batch record
+                    //    so the offline fallback can render it later.
+                    try {
+                        if (typeof db !== 'undefined' && db && db.batches) {
+                            await db.batches.update(batchId, {
+                                update_history: Array.isArray(data.update_history) ? data.update_history : []
+                            });
+                        }
+                    } catch (e) { /* non-fatal */ }
+                    renderHistoryModal(data, batchId, false);
                     return;
                 }
             }
@@ -794,7 +794,6 @@ async function viewPurchaseHistory(batchId) {
         const product = await db.products.get(batch.product_id);
         const items = await db.sales_items.where('batch_id').equals(batchId).toArray().catch(() => []);
 
-        // Enrich items with sale dates / usernames from db.sales
         const saleIds = [...new Set(items.map(i => i.sale_id).filter(Boolean))];
         const salesMap = {};
         for (const sid of saleIds) {
@@ -816,6 +815,41 @@ async function viewPurchaseHistory(batchId) {
 
         const totalSold = soldItems.reduce((sum, i) => sum + (i.quantity || 0), 0);
 
+        // ✅ PATCH 2a: Recover cached update history (saved during last online view)
+        let updateHistory = Array.isArray(batch.update_history) ? batch.update_history : [];
+
+        // ✅ PATCH 2b: If none cached, synthesize one entry from original vs current
+        if (updateHistory.length === 0) {
+            const changes = {};
+            const oQty = batch.original_quantity;
+            const cQty = batch.quantity;
+            if (oQty != null && cQty != null && oQty !== cQty) {
+                changes.quantity = { old: oQty, new: cQty };
+            }
+            const oCost = batch.original_cost_price;
+            const cCost = batch.cost_price;
+            if (oCost != null && cCost != null && Math.abs(oCost - cCost) > 0.001) {
+                changes.cost_price = { old: oCost, new: cCost };
+            }
+            const oSell = batch.original_selling_price;
+            const cSell = batch.selling_price;
+            if (oSell != null && cSell != null && Math.abs(oSell - cSell) > 0.001) {
+                changes.selling_price = { old: oSell, new: cSell };
+            }
+            const oDisc = batch.original_discount || 0;
+            const cDisc = batch.discount || 0;
+            if (Math.abs(oDisc - cDisc) > 0.001) {
+                changes.discount = { old: oDisc, new: cDisc };
+            }
+            if (Object.keys(changes).length > 0) {
+                updateHistory = [{
+                    date: batch.date || batch.original_date,
+                    changes: changes,
+                    synthesized: true
+                }];
+            }
+        }
+
         const fallbackData = {
             purchase: {
                 batch_id: batch.id,
@@ -835,7 +869,7 @@ async function viewPurchaseHistory(batchId) {
             },
             sold_items: soldItems,
             total_sold: totalSold,
-            update_history: []
+            update_history: updateHistory
         };
         renderHistoryModal(fallbackData, batchId, true);
     } catch (e) {
@@ -901,11 +935,13 @@ function renderHistoryModal(data, batchId, isOffline) {
             <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
                 <div class="flex justify-between items-center mb-2">
                     <h4 class="font-bold text-yellow-700">📝 Update History (${updateHistory.length})</h4>
+                    ${updateHistory.length > 2 ? `<button onclick="toggleUpdateHistory()" class="text-sm text-blue-600 underline">Show All</button>` : ''}
                 </div>
-                <div class="space-y-2 max-h-40 overflow-y-auto">
-                    ${updateHistory.slice(0, 5).map(u => `
+                <div id="updatesList" class="space-y-2 max-h-40 overflow-y-auto">
+                    ${updateHistory.slice(0, 2).map(u => `
                         <div class="text-xs text-gray-600 border-b pb-1">
                             <span class="font-medium">${formatDate(u.date)}</span>
+                            ${u.synthesized ? '<span class="ml-2 text-[10px] text-amber-600">(inferred from cached data)</span>' : ''}
                             <ul class="ml-2 mt-1">
                                 ${Object.entries(u.changes || {}).map(([key, val]) =>
                                     `<li>${key}: ${val.old} → ${val.new}</li>`
@@ -913,11 +949,22 @@ function renderHistoryModal(data, batchId, isOffline) {
                             </ul>
                         </div>
                     `).join('')}
+                    ${updateHistory.length > 2 ? `<div id="moreUpdates" class="hidden">${updateHistory.slice(2).map(u => `
+                        <div class="text-xs text-gray-600 border-b pb-1 mt-1">
+                            <span class="font-medium">${formatDate(u.date)}</span>
+                            <ul class="ml-2 mt-1">
+                                ${Object.entries(u.changes || {}).map(([key, val]) =>
+                                    `<li>${key}: ${val.old} → ${val.new}</li>`
+                                ).join('')}
+                            </ul>
+                        </div>
+                    `).join('')}</div>` : ''}
                 </div>
             </div>
         `;
     } else if (isOffline) {
-        html += `<div class="text-xs text-amber-600 text-center">⚠️ Update history requires online connection.</div>`;
+        // ✅ PATCH 2c: Only show this when there is genuinely no history recorded
+        html += `<div class="text-xs text-amber-600 text-center">⚠️ No update history recorded — batch has not been edited since original purchase.</div>`;
     }
 
     html += `
@@ -948,6 +995,16 @@ function closeHistoryModal() {
     document.body.style.overflow = '';
 }
 window.closeHistoryModal = closeHistoryModal;
+
+function toggleUpdateHistory() {
+    const more = document.getElementById('moreUpdates');
+    if (more) {
+        more.classList.toggle('hidden');
+        const btn = document.querySelector('#historyContent .bg-yellow-50 .text-blue-600');
+        if (btn) btn.textContent = more.classList.contains('hidden') ? 'Show All' : 'Show Less';
+    }
+}
+window.toggleUpdateHistory = toggleUpdateHistory;
 
 // ---------- Load purchases ----------
 async function loadPurchases(forceRefreshFlag = false) {
@@ -1085,6 +1142,25 @@ async function storePurchasesInDexie(apiPurchases) {
                 original_discount: p.original_discount || p.discount || 0
             };
         }
+
+        // ✅ PATCH 3: Preserve any cached update_history across refreshes.
+        //    Without this, bulkPut wipes the field and the offline modal
+        //    loses its history cache on every sync.
+        try {
+            const existingBatches = await db.batches.toArray();
+            const existingHistory = {};
+            existingBatches.forEach(b => {
+                if (Array.isArray(b.update_history) && b.update_history.length > 0) {
+                    existingHistory[b.id] = b.update_history;
+                }
+            });
+            for (const b of Object.values(batchMap)) {
+                if (existingHistory[b.id]) {
+                    b.update_history = existingHistory[b.id];
+                }
+            }
+        } catch (e) { /* non-fatal */ }
+
         await db.products.bulkPut(Object.values(productMap));
         await db.batches.bulkPut(Object.values(batchMap));
     } catch (e) {
@@ -1210,7 +1286,6 @@ function updateSummary(purchases) {
     `;
 }
 
-// ---------- Save pending purchase ----------
 async function savePendingPurchase(payload, actionType, batchId) {
     if (typeof db === 'undefined' || !db) return;
     try {
@@ -1229,7 +1304,6 @@ async function savePendingPurchase(payload, actionType, batchId) {
     }
 }
 
-// ---------- Submit ----------
 async function submitPurchase() {
     const payload = {
         name: document.getElementById('name').value.trim(),
@@ -1299,7 +1373,6 @@ async function doSubmitPurchase(payload, actionType, batchId) {
         payload.batch_id = parseInt(batchId, 10);
     }
 
-    // Dexie-first
     if (typeof db !== 'undefined' && db) {
         try {
             let localBatchId = batchId;
@@ -1385,7 +1458,6 @@ async function doSubmitPurchase(payload, actionType, batchId) {
         }
     }
 
-    // API fallback
     try {
         let url = RENDER + '/api/purchases';
         let method = 'POST';
@@ -1471,6 +1543,7 @@ function resetForm() {
     const form = document.querySelector('.bg-white.rounded-xl.shadow-md.p-6.mb-6');
     if (form) form.style.border = 'none';
 }
+window.resetForm = resetForm;
 
 // ---------- Filters ----------
 function clearFilters() {
@@ -1544,7 +1617,7 @@ function generatePDF() {
     }
 }
 
-// ---------- SUGGESTIONS (API when online, Dexie otherwise) ----------
+// ---------- SUGGESTIONS ----------
 let nameTimeout, brandTimeout, catTimeout, sourceTimeout;
 
 async function fetchProductSuggestions(inputId, suggestionsId) {
@@ -1746,61 +1819,59 @@ document.getElementById('createBatchCancelBtn').addEventListener('click', functi
     document.getElementById('updateModeModal').classList.remove('hidden');
 });
 
-// ---------- Init ----------
-document.addEventListener('DOMContentLoaded', function() {
-    initSummaryToggle();
-    loadPurchases();
-    updatePendingBadge();
+// ---------- INIT ----------
+initSummaryToggle();
+loadPurchases();
+updatePendingBadge();
 
-    document.getElementById('submitBtn').addEventListener('click', submitPurchase);
-    document.getElementById('cancelBtn').addEventListener('click', resetForm);
-    document.getElementById('filterBtn').addEventListener('click', filterPurchases);
-    document.getElementById('clearFilterBtn').addEventListener('click', clearFilters);
-    document.getElementById('pdfBtn').addEventListener('click', generatePDF);
-    document.getElementById('viewPendingBtn').addEventListener('click', viewPendingPurchases);
+document.getElementById('submitBtn').addEventListener('click', submitPurchase);
+document.getElementById('cancelBtn').addEventListener('click', resetForm);
+document.getElementById('filterBtn').addEventListener('click', filterPurchases);
+document.getElementById('clearFilterBtn').addEventListener('click', clearFilters);
+document.getElementById('pdfBtn').addEventListener('click', generatePDF);
+document.getElementById('viewPendingBtn').addEventListener('click', viewPendingPurchases);
 
-    document.getElementById('advancedToggle').addEventListener('click', function() {
-        document.getElementById('advancedSearch').classList.toggle('hidden');
-    });
-    document.getElementById('applyAdvancedSearch').addEventListener('click', applyAdvancedSearch);
-    document.getElementById('clearSearchBtn').addEventListener('click', function() {
-        document.getElementById('searchInput').value = '';
-        this.classList.add('hidden');
-        applyAdvancedSearch();
-    });
-    document.getElementById('searchInput').addEventListener('input', function() {
-        const keyword = this.value.trim();
-        if (keyword) document.getElementById('clearSearchBtn').classList.remove('hidden');
-        else document.getElementById('clearSearchBtn').classList.add('hidden');
-        applyAdvancedSearch();
-    });
-    document.getElementById('searchInput').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') applyAdvancedSearch();
-    });
+document.getElementById('advancedToggle').addEventListener('click', function() {
+    document.getElementById('advancedSearch').classList.toggle('hidden');
+});
+document.getElementById('applyAdvancedSearch').addEventListener('click', applyAdvancedSearch);
+document.getElementById('clearSearchBtn').addEventListener('click', function() {
+    document.getElementById('searchInput').value = '';
+    this.classList.add('hidden');
+    applyAdvancedSearch();
+});
+document.getElementById('searchInput').addEventListener('input', function() {
+    const keyword = this.value.trim();
+    if (keyword) document.getElementById('clearSearchBtn').classList.remove('hidden');
+    else document.getElementById('clearSearchBtn').classList.add('hidden');
+    applyAdvancedSearch();
+});
+document.getElementById('searchInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') applyAdvancedSearch();
+});
 
-    document.getElementById('name').addEventListener('input', function() {
-        clearTimeout(nameTimeout);
-        nameTimeout = setTimeout(() => fetchProductSuggestions('name', 'nameSuggestions'), 300);
-    });
-    document.getElementById('brand').addEventListener('input', function() {
-        clearTimeout(brandTimeout);
-        brandTimeout = setTimeout(() => fetchProductSuggestions('brand', 'brandSuggestions'), 300);
-    });
-    document.getElementById('category').addEventListener('input', () => {
-        clearTimeout(catTimeout);
-        catTimeout = setTimeout(fetchCategorySuggestions, 300);
-    });
-    document.getElementById('source').addEventListener('input', () => {
-        clearTimeout(sourceTimeout);
-        sourceTimeout = setTimeout(fetchSourceSuggestions, 300);
-    });
+document.getElementById('name').addEventListener('input', function() {
+    clearTimeout(nameTimeout);
+    nameTimeout = setTimeout(() => fetchProductSuggestions('name', 'nameSuggestions'), 300);
+});
+document.getElementById('brand').addEventListener('input', function() {
+    clearTimeout(brandTimeout);
+    brandTimeout = setTimeout(() => fetchProductSuggestions('brand', 'brandSuggestions'), 300);
+});
+document.getElementById('category').addEventListener('input', () => {
+    clearTimeout(catTimeout);
+    catTimeout = setTimeout(fetchCategorySuggestions, 300);
+});
+document.getElementById('source').addEventListener('input', () => {
+    clearTimeout(sourceTimeout);
+    sourceTimeout = setTimeout(fetchSourceSuggestions, 300);
+});
 
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('#name')) document.getElementById('nameSuggestions').classList.add('hidden');
-        if (!e.target.closest('#brand')) document.getElementById('brandSuggestions').classList.add('hidden');
-        if (!e.target.closest('#category')) document.getElementById('categorySuggestions').classList.add('hidden');
-        if (!e.target.closest('#source')) document.getElementById('sourceSuggestions').classList.add('hidden');
-    });
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#name')) document.getElementById('nameSuggestions').classList.add('hidden');
+    if (!e.target.closest('#brand')) document.getElementById('brandSuggestions').classList.add('hidden');
+    if (!e.target.closest('#category')) document.getElementById('categorySuggestions').classList.add('hidden');
+    if (!e.target.closest('#source')) document.getElementById('sourceSuggestions').classList.add('hidden');
 });
 
 window.addEventListener('online', function() { loadPurchases(true); });

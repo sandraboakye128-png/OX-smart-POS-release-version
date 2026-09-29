@@ -1,0 +1,429 @@
+<!-- ============================================================ -->
+<!-- VIEW: Analytics — bundled, offline-first                     -->
+<!-- Layout mirrors templates/analytics.html                      -->
+<!-- ============================================================ -->
+
+<!-- Header & Period Filter -->
+<div class="flex flex-wrap justify-between items-center gap-3 mb-6">
+    <div class="flex items-center gap-2 flex-wrap">
+        <button onclick="backToDashboard()"
+                class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
+            ← Back
+        </button>
+        <h2 class="text-xl md:text-2xl font-bold text-indigo-600">📊 Analytics Dashboard</h2>
+        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">APK · Dexie</span>
+    </div>
+    <div class="flex gap-1.5 md:gap-2 flex-wrap">
+        <button data-period="daily"   class="an-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">Today</button>
+        <button data-period="weekly"  class="an-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">This Week</button>
+        <button data-period="monthly" class="an-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">This Month</button>
+        <button data-period="yearly"  class="an-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">This Year</button>
+        <button data-period="all"     class="an-period-btn bg-purple-500 hover:bg-purple-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">All Time</button>
+    </div>
+</div>
+
+<!-- Date Range Picker -->
+<div class="bg-white rounded-xl shadow-md p-3 md:p-4 mb-6">
+    <div class="flex flex-wrap items-end gap-2 md:gap-4">
+        <div>
+            <label class="block text-xs md:text-sm font-medium text-gray-700">From Date</label>
+            <input type="date" id="anStartDate" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-sm bg-white text-gray-800">
+        </div>
+        <div>
+            <label class="block text-xs md:text-sm font-medium text-gray-700">To Date</label>
+            <input type="date" id="anEndDate" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-sm bg-white text-gray-800">
+        </div>
+        <button id="anApplyRange" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 md:px-5 md:py-2 rounded-lg text-xs md:text-sm">Apply Range</button>
+        <button id="anRefreshBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm ml-auto">🔄 Refresh</button>
+    </div>
+    <div id="anFilterInfo" class="text-xs text-gray-500 mt-2 hidden">
+        📋 Currently filtered by: <span id="anFilterDescription"></span>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-md p-3 md:p-4">
+        <p class="text-gray-500 text-xs md:text-sm">📦 Items Sold</p>
+        <p id="anItemsSold" class="text-xl md:text-2xl font-bold text-indigo-600">0</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-md p-3 md:p-4">
+        <p class="text-gray-500 text-xs md:text-sm">💰 Revenue</p>
+        <p id="anRevenue" class="text-xl md:text-2xl font-bold text-green-600">₵0</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-md p-3 md:p-4">
+        <p class="text-gray-500 text-xs md:text-sm">📈 Profit</p>
+        <p id="anProfit" class="text-xl md:text-2xl font-bold text-blue-600">₵0</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-md p-3 md:p-4">
+        <p class="text-gray-500 text-xs md:text-sm">🏷 Discount</p>
+        <p id="anDiscount" class="text-xl md:text-2xl font-bold text-red-600">₵0</p>
+    </div>
+</div>
+
+<!-- Trend Chart (SVG — no external deps, works offline) -->
+<div class="bg-white rounded-xl shadow-md p-3 md:p-4 mb-8">
+    <h2 class="text-lg md:text-xl font-semibold mb-3 md:mb-4">📈 Sales &amp; Profit Trend</h2>
+    <div id="anTrendChart" class="an-chart-container">
+        <div class="text-gray-400 text-center py-8 text-sm">Loading chart…</div>
+    </div>
+</div>
+
+<!-- Top Products -->
+<div class="bg-white rounded-xl shadow-md p-3 md:p-4">
+    <h2 class="text-lg md:text-xl font-semibold mb-3 md:mb-4">🏆 Top Products</h2>
+    <div id="anTopProductsList" class="space-y-2 max-h-80 overflow-y-auto an-scrollable">
+        <div class="text-gray-400 text-center py-4 text-sm">Loading…</div>
+    </div>
+</div>
+
+<style>
+    .an-chart-container {
+        width: 100%;
+        overflow-x: auto;
+    }
+    .an-chart-container svg {
+        display: block;
+    }
+    .an-scrollable {
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 #f1f1f1;
+    }
+    .an-scrollable::-webkit-scrollbar { width: 8px; }
+    .an-scrollable::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    .an-scrollable::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid #f1f1f1; }
+    .an-scrollable::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+</style>
+
+<script>
+(function() {
+'use strict';
+
+const $ = id => document.getElementById(id);
+
+// ---------- State ----------
+let anPeriod = 'daily';
+let anStartDate = null;
+let anEndDate = null;
+
+// ---------- Helpers ----------
+function formatMoney(amount) {
+    return '₵' + (parseFloat(amount) || 0).toFixed(2);
+}
+function escapeHtml(s) {
+    if (!s && s !== 0) return '';
+    return String(s).replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[m]));
+}
+function toast(msg, isError) {
+    if (typeof window.showToast === 'function') window.showToast(msg, { error: !!isError });
+}
+
+// ============================================================
+//  LOAD FROM DEXIE
+// ============================================================
+async function anLoadFromDexie() {
+    if (typeof db === 'undefined' || !db) return [];
+    try {
+        const [sales, items, products] = await Promise.all([
+            db.sales.toArray().catch(() => []),
+            db.sales_items.toArray().catch(() => []),
+            db.products.toArray().catch(() => [])
+        ]);
+        const salesMap = {}; sales.forEach(s => { salesMap[s.id] = s; });
+        const productMap = {}; products.forEach(p => { productMap[p.id] = p; });
+
+        const result = [];
+        for (const item of items) {
+            const sale = salesMap[item.sale_id];
+            if (!sale) continue;
+            if (sale.reversed) continue;
+            const product = productMap[item.product_id] || {};
+            result.push({
+                sale_id: sale.id,
+                name: product.name || item.name || 'Unknown',
+                brand: product.brand || item.brand || '',
+                category: product.category || '',
+                quantity: item.quantity || 0,
+                selling_price: parseFloat(item.selling_price || 0),
+                cost_price: parseFloat(item.cost_price || 0),
+                subtotal: (item.quantity || 0) * parseFloat(item.selling_price || 0),
+                discount: parseFloat(sale.discount || 0),
+                total: parseFloat(sale.total || 0),
+                profit: parseFloat(item.profit || 0),
+                batch_id: item.batch_id || -1,
+                sale_date: sale.date,
+                is_deleted_batch: !item.batch_id,
+                net_profit: parseFloat(sale.profit || sale.total_profit || 0),
+                payment_method: sale.payment_method || 'cash',
+                cheque_number: sale.cheque_number || null,
+                username: sale.username || sale.user_name || 'Unknown'
+            });
+        }
+        return result;
+    } catch (e) {
+        console.warn('[analytics] Dexie load failed:', e);
+        return [];
+    }
+}
+
+// ============================================================
+//  DATE FILTER
+// ============================================================
+function anFilterByDate(sales, period, startDate, endDate) {
+    if (!sales || sales.length === 0) return [];
+    if (startDate && endDate) {
+        const start = new Date(startDate + 'T00:00:00');
+        const end = new Date(endDate + 'T23:59:59');
+        return sales.filter(item => {
+            const d = new Date(String(item.sale_date || '').replace(' ', 'T'));
+            return d >= start && d <= end;
+        });
+    }
+    if (period === 'all') return sales;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(today); startOfWeek.setDate(today.getDate() - today.getDay());
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfYear = new Date(today.getFullYear(), 0, 1);
+    return sales.filter(item => {
+        const d = new Date(String(item.sale_date || '').replace(' ', 'T'));
+        if (period === 'daily')   return d >= today;
+        if (period === 'weekly')  return d >= startOfWeek;
+        if (period === 'monthly') return d >= startOfMonth;
+        if (period === 'yearly')  return d >= startOfYear;
+        return true;
+    });
+}
+
+// ============================================================
+//  RENDER SUMMARY
+// ============================================================
+function anRenderSummary(sales) {
+    const seen = new Set();
+    let totalSales = 0, totalProfit = 0, totalDiscount = 0, totalItems = 0;
+    for (const s of sales) {
+        if (!seen.has(s.sale_id)) {
+            totalSales += s.total || 0;
+            totalDiscount += s.discount || 0;
+            totalProfit += s.net_profit || 0;
+            seen.add(s.sale_id);
+        }
+        totalItems += s.quantity || 0;
+    }
+    $('anItemsSold').textContent = totalItems;
+    $('anRevenue').textContent = formatMoney(totalSales);
+    $('anProfit').textContent = formatMoney(totalProfit);
+    $('anDiscount').textContent = formatMoney(totalDiscount);
+}
+
+// ============================================================
+//  RENDER SVG TREND CHART (offline, no Chart.js)
+// ============================================================
+function anRenderTrend(sales) {
+    const container = $('anTrendChart');
+    if (!sales || sales.length === 0) {
+        container.innerHTML = '<div class="text-gray-400 text-center py-8 text-sm">No data for this period</div>';
+        return;
+    }
+
+    // Group by date
+    const trendMap = new Map();
+    for (const s of sales) {
+        const rawDate = String(s.sale_date || '').replace(' ', 'T');
+        if (!rawDate) continue;
+        const date = rawDate.split('T')[0];
+        if (!date) continue;
+        if (!trendMap.has(date)) trendMap.set(date, { sales: 0, profit: 0 });
+        const cur = trendMap.get(date);
+        trendMap.set(date, {
+            sales: cur.sales + (s.total || 0),
+            profit: cur.profit + (s.net_profit || 0)
+        });
+    }
+
+    const dates = Array.from(trendMap.keys()).sort();
+    const salesVals = dates.map(d => trendMap.get(d).sales);
+    const profitVals = dates.map(d => trendMap.get(d).profit);
+
+    const maxVal = Math.max(...salesVals, ...profitVals, 1);
+    const minVal = Math.min(...salesVals, ...profitVals, 0);
+    const range = (maxVal - minVal) || 1;
+
+    const W = 800, H = 300;
+    const P = { top: 20, right: 20, bottom: 50, left: 70 };
+    const cw = W - P.left - P.right;
+    const ch = H - P.top - P.bottom;
+
+    const n = dates.length;
+    const xFor = i => n === 1 ? P.left + cw / 2 : P.left + (i / (n - 1)) * cw;
+    const yFor = v => P.top + ch - ((v - minVal) / range) * ch;
+
+    // Grid + Y-axis labels
+    let grid = '';
+    const yTicks = 5;
+    for (let i = 0; i <= yTicks; i++) {
+        const v = minVal + (range * i / yTicks);
+        const y = yFor(v);
+        grid += `<line x1="${P.left}" y1="${y}" x2="${W - P.right}" y2="${y}" stroke="#e5e7eb" stroke-width="1"/>`;
+        grid += `<text x="${P.left - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="#6b7280">₵${v.toFixed(0)}</text>`;
+    }
+
+    // X-axis labels (sampled)
+    let xLabels = '';
+    const step = Math.max(1, Math.ceil(n / 8));
+    for (let i = 0; i < n; i += step) {
+        const x = xFor(i);
+        const label = dates[i].slice(5); // MM-DD
+        xLabels += `<text x="${x}" y="${H - P.bottom + 15}" text-anchor="middle" font-size="10" fill="#6b7280">${label}</text>`;
+    }
+
+    // Polylines
+    const salesPts = salesVals.map((v, i) => `${xFor(i)},${yFor(v)}`).join(' ');
+    const profitPts = profitVals.map((v, i) => `${xFor(i)},${yFor(v)}`).join(' ');
+
+    // Dots at each data point
+    const salesDots  = salesVals.map((v, i) => `<circle cx="${xFor(i)}" cy="${yFor(v)}" r="3" fill="#3b82f6"/>`).join('');
+    const profitDots = profitVals.map((v, i) => `<circle cx="${xFor(i)}" cy="${yFor(v)}" r="3" fill="#22c55e"/>`).join('');
+
+    const svg = `
+        <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;min-width:480px;">
+            ${grid}
+            ${xLabels}
+            <polyline points="${salesPts}"  fill="none" stroke="#3b82f6" stroke-width="2"/>
+            <polyline points="${profitPts}" fill="none" stroke="#22c55e" stroke-width="2"/>
+            ${salesDots}
+            ${profitDots}
+        </svg>
+    `;
+
+    const legend = `
+        <div class="flex gap-4 justify-center mt-3 text-xs text-gray-600">
+            <div class="flex items-center gap-1.5">
+                <span style="display:inline-block;width:14px;height:3px;background:#3b82f6;border-radius:2px;"></span>
+                <span>Sales (₵)</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <span style="display:inline-block;width:14px;height:3px;background:#22c55e;border-radius:2px;"></span>
+                <span>Profit (₵)</span>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = svg + legend;
+}
+
+// ============================================================
+//  RENDER TOP PRODUCTS
+// ============================================================
+function anRenderTopProducts(sales) {
+    const container = $('anTopProductsList');
+    if (!sales || sales.length === 0) {
+        container.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">No product data available.</div>';
+        return;
+    }
+    const productMap = new Map();
+    for (const s of sales) {
+        const key = `${s.name}|${s.brand}`;
+        if (!productMap.has(key)) {
+            productMap.set(key, { name: s.name, brand: s.brand, category: s.category || '', qty: 0 });
+        }
+        productMap.get(key).qty += s.quantity || 0;
+    }
+    const sorted = Array.from(productMap.values())
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, 10);
+
+    container.innerHTML = sorted.map((p, i) => {
+        let medal = '';
+        if (i === 0) medal = '🥇 ';
+        else if (i === 1) medal = '🥈 ';
+        else if (i === 2) medal = '🥉 ';
+        return `
+            <div class="border-b pb-2 last:border-0 flex justify-between items-center gap-2 text-sm">
+                <div class="min-w-0">
+                    <div class="font-medium text-gray-800 truncate">${medal}${escapeHtml(p.name)}</div>
+                    <div class="text-xs text-gray-500 truncate">${escapeHtml(p.brand || 'No brand')} | ${escapeHtml(p.category || 'No category')}</div>
+                </div>
+                <div class="flex-shrink-0 font-bold text-indigo-600 text-sm">${p.qty} sold</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ============================================================
+//  FILTER INFO
+// ============================================================
+function anUpdateFilterInfo() {
+    const info = $('anFilterInfo');
+    const desc = $('anFilterDescription');
+    const parts = [];
+    if (anStartDate && anEndDate) {
+        parts.push(`Date: ${anStartDate} to ${anEndDate}`);
+    } else {
+        const names = { daily:'Today', weekly:'This Week', monthly:'This Month', yearly:'This Year', all:'All Time' };
+        parts.push(`Period: ${names[anPeriod] || anPeriod}`);
+    }
+    if (parts.length) {
+        info.classList.remove('hidden');
+        desc.textContent = parts.join(' | ');
+    }
+}
+
+// ============================================================
+//  MAIN LOAD
+// ============================================================
+async function anReload() {
+    $('anTrendChart').innerHTML = '<div class="text-gray-400 text-center py-8 text-sm">Loading…</div>';
+    const all = await anLoadFromDexie();
+    const filtered = anFilterByDate(all, anPeriod, anStartDate, anEndDate);
+    anRenderSummary(filtered);
+    anRenderTrend(filtered);
+    anRenderTopProducts(filtered);
+    anUpdateFilterInfo();
+}
+window.__refreshAnalyticsView = anReload;
+
+// ============================================================
+//  EVENT WIRING
+// ============================================================
+document.querySelectorAll('.an-period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        anPeriod = btn.getAttribute('data-period');
+        anStartDate = null;
+        anEndDate = null;
+        $('anStartDate').value = '';
+        $('anEndDate').value = '';
+        anReload();
+    });
+});
+
+$('anApplyRange').addEventListener('click', () => {
+    const s = $('anStartDate').value;
+    const e = $('anEndDate').value;
+    if (s && e) {
+        anStartDate = s;
+        anEndDate = e;
+        anPeriod = 'custom';
+        anReload();
+    } else {
+        toast('Select both start and end dates', true);
+    }
+});
+
+$('anRefreshBtn').addEventListener('click', () => {
+    anReload();
+    toast('🔄 Refreshed');
+});
+
+// ============================================================
+//  INIT
+// ============================================================
+const today = new Date().toISOString().split('T')[0];
+$('anStartDate').value = today;
+$('anEndDate').value = today;
+anReload();
+
+})();
+</script>

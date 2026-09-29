@@ -33,3 +33,7 @@ Thumbs.db
 
 project_files.txt
 pull_users_from_cloud.py
+
+# Local APK shell backups (do not commit)
+www/index.html.bak*
+www/index.html.bak2-*
