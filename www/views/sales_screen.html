@@ -1157,19 +1157,90 @@ async function executeSaleWithPayment(paymentMethod, chequeNum) {
     // ─────────────────────────────────────────────────────────
     //  2. Update local Dexie batches (decrement remaining)
     // ─────────────────────────────────────────────────────────
-    if (typeof db !== 'undefined' && db) {
-        try {
-            for (const sb of selectedBatches) {
-                const batch = await db.batches.get(sb.batch_id);
-                if (batch) {
-                    const newRemaining = Math.max((batch.remaining_quantity || 0) - sb.qty, 0);
-                    await db.batches.update(sb.batch_id, { remaining_quantity: newRemaining });
+    //  2b. Insert local sale + items so every view that reads
+    //      db.sales (Dashboard, Today's Sales, etc.) shows this
+    //      sale IMMEDIATELY — no waiting on sync.
+    // ─────────────────────────────────────────────────────────
+    try {
+        const localSaleId = 'local_' + Date.now();
+        let totalDiscount = 0, totalCost = 0;
+        pendingSaleCallback.cart.forEach(it => {
+            totalDiscount += (it.discount || 0);
+            it.selectedBatches.forEach(b => {
+                totalCost += (b.batch.cost_price || 0) * b.qty;
+            });
+        });
+        const totalProfit = grand + totalDiscount - totalCost;
+
+        const u = (typeof getStoredUser === 'function' && getStoredUser()) || {};
+
+        // Build the items list first — one entry per (product, batch) pair.
+        const itemList = [];
+        for (const it of pendingSaleCallback.cart) {
+            const pid = (it.product && (it.product.product_id || it.product.id)) || null;
+            for (const sb of (it.selectedBatches || [])) {
+                const sp = (sb.batch && sb.batch.selling_price) || 0;
+                const cp = (sb.batch && sb.batch.cost_price) || 0;
+                itemList.push({
+                    sale_id: localSaleId,
+                    product_id: pid,
+                    batch_id: sb.batch_id,
+                    quantity: sb.qty,
+                    selling_price: sp,
+                    cost_price: cp,
+                    profit: (sp - cp) * sb.qty
+                });
+            }
+        }
+
+        await db.sales.add({
+            id: localSaleId,
+            date: payload.sale_datetime,
+            subtotal: grand + totalDiscount,
+            discount: totalDiscount,
+            total: grand,
+            profit: totalProfit,
+            reversed: 0,
+            payment_method: paymentMethod,
+            cheque_number: chequeNum || null,
+            user_id: null,
+            username: u.username || 'offline',
+            pending: 1
+        });
+
+        // Insert items using .put() — matches what the web view uses.
+        // If .put() is rejected, fall back to .add() with an explicit id.
+        for (let i = 0; i < itemList.length; i++) {
+            const item = itemList[i];
+            try {
+                await db.sales_items.put(item);
+            } catch (e1) {
+                console.warn('[sale] sales_items.put failed:', e1 && e1.message);
+                try {
+                    await db.sales_items.add({ ...item, id: localSaleId + '_' + i });
+                } catch (e2) {
+                    console.error('[sale] sales_items.add failed:', e2 && e2.message);
                 }
             }
-        } catch (e) {
-            console.warn('[sale] local batch decrement failed:', e);
         }
+
+        // Verify the insert succeeded — log for debugging.
+        try {
+            const verifyCount = await db.sales_items
+                .where('sale_id').equals(localSaleId).count();
+            console.log('[sale] local insert verified:',
+                'sale', localSaleId,
+                '| items attempted:', itemList.length,
+                '| items readable:', verifyCount);
+        } catch (e) { /* ignore verify errors */ }
+    } catch (e) {
+        console.error('[sale] local insert failed:', e);
     }
+
+    // ─────────────────────────────────────────────────────────
+    //  2b. Insert local sale + items so every view that reads
+    //      db.sales (Dashboard, Today's Sales, etc.) shows this
+    //      sale IMMEDIATELY — no waiting on sync.
 
     // ─────────────────────────────────────────────────────────
     //  3. If online, try to push immediately

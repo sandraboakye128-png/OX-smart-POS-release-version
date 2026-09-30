@@ -814,7 +814,138 @@
         .bundled-light .text-gray-800 { color: #1f2937 !important; }
         .bundled-light .text-indigo-600,
         .bundled-light .text-indigo-700 { color: #4f46e5 !important; }
-    </style>
+    
+        /* PENDING OPS MODAL */
+        .pending-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 9000; overscroll-behavior: contain; }
+        .pending-modal.hidden { display: none !important; }
+        .pending-modal-box { background: #1e293b; border-radius: 14px; border: 1px solid #334155; width: 100%; max-width: 480px; max-height: calc(100vh - 2rem); display: flex; flex-direction: column; overflow: hidden; }
+        .pending-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #334155; flex: 0 0 auto; }
+        .pending-modal-header h3 { font-size: 1rem; font-weight: 700; color: #e2e8f0; margin: 0; }
+        .pending-modal-x { border: 0; background: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; padding: 0 6px; }
+        .pending-modal-x:hover { color: #e2e8f0; }
+        .pending-modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px 16px; -webkit-overflow-scrolling: touch; }
+        .pending-modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid #334155; flex: 0 0 auto; }
+        .pending-op-row { background: #0f172a; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid #1e293b; }
+        .pending-op-row:last-child { margin-bottom: 0; }
+        .pending-op-title { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; margin-bottom: 3px; }
+        .pending-op-sub { font-size: 0.78rem; color: #94a3b8; line-height: 1.35; word-break: break-word; }
+        .pending-op-time { font-size: 0.68rem; color: #64748b; margin-top: 4px; }
+        .pending-modal-empty { text-align: center; color: #64748b; padding: 32px 8px; font-size: 0.85rem; }
+        .pending-modal-footer button { padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border: 0; }
+        .pending-modal-footer .btn-primary { background: #00CFCF; color: #0f172a; }
+        .pending-modal-footer .btn-secondary { background: #334155; color: #e2e8f0; }
+
+        /* ============================================================
+           DASHBOARD CALENDAR
+           ============================================================ */
+        .dash-cal {
+            background: var(--bg-card);
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+        }
+        .dash-cal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .dash-cal-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .dash-cal-nav {
+            background: var(--bg-hover);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+            padding: 0;
+            font-family: inherit;
+        }
+        .dash-cal-nav:hover  { background: var(--border); }
+        .dash-cal-nav:active { transform: scale(0.94); }
+        .dash-cal-today-btn {
+            background: var(--bg-hover);
+            color: var(--accent);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 3px 10px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .dash-cal-today-btn:hover  { background: var(--border); }
+        .dash-cal-today-btn:active { transform: scale(0.96); }
+        .dash-cal-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            margin-bottom: 4px;
+        }
+        .dash-cal-weekdays > div {
+            text-align: center;
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: var(--text-faint);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            padding: 2px 0;
+        }
+        .dash-cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+        .cal-day {
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            color: var(--text);
+            cursor: pointer;
+            background: transparent;
+            position: relative;
+            user-select: none;
+            transition: background 0.12s;
+        }
+        .cal-day.cal-empty { cursor: default; }
+        .cal-day:not(.cal-empty):hover { background: var(--bg-hover); }
+        .cal-day.cal-today {
+            background: rgba(148, 163, 184, 0.18);
+            font-weight: 700;
+        }
+        .cal-day.cal-selected {
+            background: var(--accent) !important;
+            color: #0f172a !important;
+            font-weight: 700;
+        }
+        .cal-day.cal-has-sales::after {
+            content: '';
+            position: absolute;
+            bottom: 3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--green);
+        }
+        .cal-day.cal-selected.cal-has-sales::after { background: #0f172a; }
+</style>
 </head>
 <body>
 
@@ -962,6 +1093,22 @@
                 <span class="clock" id="dashClock">--:--:--</span>
             </div>
 
+            <!-- Dashboard Calendar — click a day to filter -->
+            <div class="dash-cal">
+                <div class="dash-cal-header">
+                    <button type="button" class="dash-cal-nav" id="dashCalPrev" aria-label="Previous month">&#x2039;</button>
+                    <span class="dash-cal-label" id="dashCalLabel">&mdash;</span>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <button type="button" class="dash-cal-today-btn" id="dashCalToday">Today</button>
+                        <button type="button" class="dash-cal-nav" id="dashCalNext" aria-label="Next month">&#x203a;</button>
+                    </div>
+                </div>
+                <div class="dash-cal-weekdays">
+                    <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+                </div>
+                <div class="dash-cal-grid" id="dashCalGrid"></div>
+            </div>
+
             <div class="kpis">
                 <div class="kpi teal">
                     <div class="kpi-label">💰 Sales</div>
@@ -1052,6 +1199,21 @@
             Developed by HUMMNINGBIRD DIGITAL SOLUTIONS © <span id="footerYear">2026</span> - All Rights Reserved
         </div>
     </footer>
+</div>
+
+<!-- PENDING OPS MODAL -->
+<div id="pendingOpsModal" class="pending-modal hidden">
+    <div class="pending-modal-box">
+        <div class="pending-modal-header">
+            <h3>⏳ Pending Actions</h3>
+            <button class="pending-modal-x" onclick="closePendingOpsModal()" aria-label="Close">&times;</button>
+        </div>
+        <div id="pendingOpsList" class="pending-modal-body"></div>
+        <div class="pending-modal-footer">
+            <button class="btn-secondary" onclick="closePendingOpsModal()">Close</button>
+            <button class="btn-primary" onclick="syncFromPendingModal()">Sync Now</button>
+        </div>
+    </div>
 </div>
 
 <!-- MENU DRAWER -->
@@ -1234,12 +1396,16 @@ const Notifications = (function () {
             const progressBar = (n.progress !== null && n.progress !== undefined)
                 ? `<div class="notif-progress"><div class="notif-progress-fill" style="width:${Math.max(0, Math.min(100, n.progress))}%"></div></div>`
                 : '';
+            const isPending = (n.id === 'pending-status');
+            const clickAttr = isPending ? ' onclick="openPendingOpsModal()" style="cursor:pointer"' : '';
+            const hint = isPending ? '<div style="font-size:0.68rem;color:#67e8f9;margin-top:3px;">Tap to view &amp; sync &rsaquo;</div>' : '';
             return `
-                <div class="notif-item notif-${n.type}">
+                <div class="notif-item notif-${n.type}"${clickAttr}>
                     <div class="notif-icon">${_icon(n.type)}</div>
                     <div class="notif-body">
                         ${n.title ? `<div class="notif-title">${_esc(n.title)}</div>` : ''}
                         ${n.message ? `<div class="notif-msg">${_esc(n.message)}</div>` : ''}
+                        ${hint}
                         ${progressBar}
                         <div class="notif-time">${_timeAgo(n.timestamp)}</div>
                     </div>
@@ -1374,6 +1540,81 @@ async function refreshPendingNotifications() {
     } catch (e) { /* silent */ }
 }
 window.refreshPendingNotifications = refreshPendingNotifications;
+
+// ============================================================
+//  PENDING OPS MODAL — tap the pending bell notification to view
+// ============================================================
+async function openPendingOpsModal() {
+    const modal = $('pendingOpsModal');
+    const list = $('pendingOpsList');
+    if (!modal || !list) return;
+
+    list.innerHTML = '<div class="pending-modal-empty">Loading…</div>';
+    modal.classList.remove('hidden');
+
+    if (typeof db === 'undefined' || !db) {
+        list.innerHTML = '<div class="pending-modal-empty">Local database not available.</div>';
+        return;
+    }
+
+    try {
+        const ops = await db.pending_ops.where('synced').equals(0).toArray();
+        if (!ops.length) {
+            list.innerHTML = '<div class="pending-modal-empty">✅ Nothing pending — everything is synced.</div>';
+            return;
+        }
+        list.innerHTML = ops.map(op => {
+            const p = op.payload || {};
+            let title = '📦 Unknown action';
+            let sub = '';
+            if (op.table === 'sales' && op.operation === 'add') {
+                const items = Array.isArray(p.cart_items) ? p.cart_items : [];
+                const total = items.reduce((s, it) =>
+                    s + (it.qty || 0) * ((it.product && it.product.selling_price) || 0), 0);
+                title = '💰 Sale';
+                sub = '₵' + total.toFixed(2) + ' · ' + items.length + ' item' + (items.length === 1 ? '' : 's') + ' · ' + (p.payment_method || 'cash');
+            } else if (op.table === 'sales' && op.operation === 'reverse') {
+                const n = Array.isArray(p.items) ? p.items.length : 0;
+                title = '↺ Reverse items';
+                sub = 'Sale #' + (p.sale_id || '?') + ' · ' + n + ' item' + (n === 1 ? '' : 's');
+            } else if (op.table === 'batches' && op.operation === 'add') {
+                title = '➕ Purchase (add)';
+                sub = (p.name || '?') + ' (' + (p.brand || '?') + ') · Qty ' + (p.quantity || 0);
+            } else if (op.table === 'batches' && op.operation === 'update') {
+                title = '✏️ Purchase (update)';
+                sub = (p.name || '?') + ' (' + (p.brand || '?') + ') · Batch #' + (op.record_id || '?');
+            } else if (op.table === 'products' && op.operation === 'delete') {
+                title = '🗑️ Product delete';
+                sub = 'Product #' + (op.record_id || '?');
+            } else {
+                title = '⚙️ ' + (op.table || '?') + ' · ' + (op.operation || '?');
+                sub = JSON.stringify(p).slice(0, 100);
+            }
+            const ts = op.timestamp ? new Date(op.timestamp).toLocaleString() : '';
+            return '<div class="pending-op-row">'
+                + '<div class="pending-op-title">' + title + '</div>'
+                + '<div class="pending-op-sub">' + sub + '</div>'
+                + '<div class="pending-op-time">' + ts + '</div>'
+                + '</div>';
+        }).join('');
+    } catch (e) {
+        list.innerHTML = '<div class="pending-modal-empty">Could not read queue: ' + e.message + '</div>';
+    }
+}
+window.openPendingOpsModal = openPendingOpsModal;
+
+function closePendingOpsModal() {
+    const modal = $('pendingOpsModal');
+    if (modal) modal.classList.add('hidden');
+}
+window.closePendingOpsModal = closePendingOpsModal;
+
+function syncFromPendingModal() {
+    closePendingOpsModal();
+    if (typeof syncNow === 'function') syncNow();
+}
+window.syncFromPendingModal = syncFromPendingModal;
+
 setInterval(refreshPendingNotifications, 8000);
 
 // ============================================================
@@ -1827,6 +2068,111 @@ function renderSvgPieChart(container, data) {
 }
 
 // ============================================================
+//  DASHBOARD CALENDAR — click a day to filter the dashboard
+// ============================================================
+let _calYear = new Date().getFullYear();
+let _calMonth = new Date().getMonth();
+let _calHasSales = new Set();   // 'YYYY-MM-DD' strings
+
+function _calFormat(d) {
+    return _calYear + '-' +
+        String(_calMonth + 1).padStart(2, '0') + '-' +
+        String(d).padStart(2, '0');
+}
+function _calTodayStr() {
+    const n = new Date();
+    return n.getFullYear() + '-' +
+        String(n.getMonth() + 1).padStart(2, '0') + '-' +
+        String(n.getDate()).padStart(2, '0');
+}
+
+function _calInit() {
+    const prev  = $('dashCalPrev');
+    const next  = $('dashCalNext');
+    const today = $('dashCalToday');
+
+    if (prev && !prev._wired) {
+        prev._wired = true;
+        prev.addEventListener('click', () => {
+            _calMonth--;
+            if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+            _calRender();
+        });
+    }
+    if (next && !next._wired) {
+        next._wired = true;
+        next.addEventListener('click', () => {
+            _calMonth++;
+            if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+            _calRender();
+        });
+    }
+    if (today && !today._wired) {
+        today._wired = true;
+        today.addEventListener('click', () => {
+            const t = _calTodayStr();
+            _dashStartDate = t;
+            _dashEndDate   = t;
+            _dashStartTime = '00:00';
+            _dashEndTime   = '23:59';
+            const sd = $('dashStartDate'); if (sd) sd.value = t;
+            const ed = $('dashEndDate');   if (ed) ed.value = t;
+            const st = $('dashStartTime'); if (st) st.value = '00:00';
+            const et = $('dashEndTime');   if (et) et.value = '23:59';
+            const n = new Date();
+            _calYear  = n.getFullYear();
+            _calMonth = n.getMonth();
+            renderDashboard();
+        });
+    }
+}
+
+function _calRender() {
+    const grid  = $('dashCalGrid');
+    const label = $('dashCalLabel');
+    if (!grid || !label) return;
+
+    const monthNames = ['January','February','March','April','May','June',
+                        'July','August','September','October','November','December'];
+    label.textContent = monthNames[_calMonth] + ' ' + _calYear;
+
+    const firstDay    = new Date(_calYear, _calMonth, 1).getDay();
+    const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+    const todayStr    = _calTodayStr();
+    const selected    = (_dashStartDate && _dashStartDate === _dashEndDate)
+        ? _dashStartDate : null;
+
+    let html = '';
+    for (let i = 0; i < firstDay; i++) {
+        html += '<div class="cal-day cal-empty"></div>';
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = _calFormat(d);
+        const classes = ['cal-day'];
+        if (dateStr === todayStr) classes.push('cal-today');
+        if (dateStr === selected) classes.push('cal-selected');
+        if (_calHasSales.has(dateStr)) classes.push('cal-has-sales');
+        html += '<div class="' + classes.join(' ') + '" data-date="' + dateStr + '">' + d + '</div>';
+    }
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.cal-day[data-date]').forEach(cell => {
+        cell.addEventListener('click', () => {
+            const ds = cell.getAttribute('data-date');
+            _dashStartDate = ds;
+            _dashEndDate   = ds;
+            _dashStartTime = '00:00';
+            _dashEndTime   = '23:59';
+            const sd = $('dashStartDate'); if (sd) sd.value = ds;
+            const ed = $('dashEndDate');   if (ed) ed.value = ds;
+            const st = $('dashStartTime'); if (st) st.value = '00:00';
+            const et = $('dashEndTime');   if (et) et.value = '23:59';
+            renderDashboard();
+        });
+    });
+}
+
+// ============================================================
 //  RENDER: DASHBOARD
 // ============================================================
 async function renderDashboard() {
@@ -1843,6 +2189,17 @@ async function renderDashboard() {
         catch (e) {
             console.warn('[dashboard] sales_items unavailable — top products will be empty');
         }
+
+        // ---- Calendar: which days in the month have sales ----
+        _calHasSales = new Set();
+        allSales.forEach(s => {
+            if (s.reversed) return;
+            if (!s.date) return;
+            const d = String(s.date).slice(0, 10);
+            if (d) _calHasSales.add(d);
+        });
+        _calInit();
+        _calRender();
 
         const isEmpty = products.length === 0 && batches.length === 0 && allSales.length === 0;
         if (isEmpty) {
