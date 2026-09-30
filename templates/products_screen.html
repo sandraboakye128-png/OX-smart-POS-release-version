@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
+{# Admin gate — hides cost prices and Update button from normal users #}
+{% set is_admin_user = current_user and (current_user.role == 'admin' or current_user.username.lower() == 'oxbee') %}
+
 <!-- Offline banner -->
 <div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
     ⚠️ You are offline – showing cached screen products. Deletions will be saved and applied when you reconnect.
@@ -516,6 +519,12 @@
 </style>
 
 <script>
+    // ============================================================
+    //  ADMIN GATE — set server-side, read client-side
+    //  Hides cost prices + Update button for non-admins.
+    // ============================================================
+    window.IS_ADMIN = {{ 'true' if is_admin_user else 'false' }};
+
     // ---------- Safe number formatting ----------
     function safeToFixed(val, decimals = 2) {
         const num = parseFloat(val);
@@ -711,7 +720,9 @@
                                 ${batchMatchBadge}
                             </div>
                             <p class="text-gray-600 text-sm">Category: ${escapeHtml(p.category)} | Total Stock: ${totalStock}</p>
-                            <p class="text-xs md:text-sm">Cost: ₵${safeToFixed(p.cost_price)} | Selling: ₵${safeToFixed(p.selling_price)} | Discount: ₵${safeToFixed(p.discount)}</p>
+                            ${window.IS_ADMIN
+                                ? `<p class="text-xs md:text-sm">Cost: ₵${safeToFixed(p.cost_price)} | Selling: ₵${safeToFixed(p.selling_price)} | Discount: ₵${safeToFixed(p.discount)}</p>`
+                                : `<p class="text-xs md:text-sm">Selling: ₵${safeToFixed(p.selling_price)} | Discount: ₵${safeToFixed(p.discount)}</p>`}
                             ${hasFaulty ? `<p class="text-xs text-red-500 mt-1">⚠️ ${totalClaimed} units claimed as faulty</p>` : ''}
                             <p class="text-xs text-green-600 font-bold mt-1">✅ ${Math.max(displayGood, 0)} good units available</p>
                             ${hasSearchedBatch ? `<p class="text-xs text-yellow-600 mt-1">🔍 Contains batch #${batchKeyword.replace('#', '')}</p>` : ''}
@@ -806,7 +817,7 @@
                             <div class="batch-item-actions">
                                 <span class="batch-status-pill" style="color:${statusColor};">${statusText}</span>
                                 ${hasClaims ? `<button onclick="event.stopPropagation(); viewBatchClaims(${batch.batch_id})" class="batch-btn batch-btn-claims">📋 Claims</button>` : ''}
-                                <button onclick="event.stopPropagation(); navigateToPurchase(${batch.batch_id})" class="batch-btn batch-btn-update">✏️ Update</button>
+                                ${window.IS_ADMIN ? `<button onclick="event.stopPropagation(); navigateToPurchase(${batch.batch_id})" class="batch-btn batch-btn-update">✏️ Update</button>` : ''}
                             </div>
                         </div>
                         <div class="batch-item-date">${dateStr}</div>
@@ -834,7 +845,7 @@
                             </div>
                         </div>
                         <div class="batch-item-prices">
-                            <span class="batch-price">Cost: <strong>₵${safeToFixed(batch.cost_price)}</strong></span>
+                            ${window.IS_ADMIN ? `<span class="batch-price">Cost: <strong>₵${safeToFixed(batch.cost_price)}</strong></span>` : ''}
                             <span class="batch-price">Selling: <strong>₵${safeToFixed(batch.selling_price)}</strong></span>
                             ${batch.discount > 0 ? `<span class="batch-price full">Discount: <strong>₵${safeToFixed(batch.discount)}</strong></span>` : ''}
                         </div>
