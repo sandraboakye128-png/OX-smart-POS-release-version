@@ -1,0 +1,646 @@
+<!-- ============================================================ -->
+<!-- VIEW: Archive — bundled, offline-first                       -->
+<!-- Layout mirrors templates/archive.html                        -->
+<!-- ============================================================ -->
+
+<!-- Header -->
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <button onclick="backToDashboard()"
+            class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
+        ← Back
+    </button>
+    <h2 class="text-xl md:text-2xl font-bold text-indigo-600">📁 Product Archive</h2>
+    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">APK · Dexie</span>
+    <button id="arRefreshBtn"
+            class="ml-auto bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg text-sm">🔄 Refresh</button>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-xl shadow-md p-3 md:p-4 mb-4">
+    <div class="flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[180px]">
+            <label class="block text-xs font-medium text-gray-700 mb-1">Search</label>
+            <input type="text" id="arSearchInput" placeholder="🔍 Product or brand..."
+                   class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Status</label>
+            <select id="arStatusFilter"
+                    class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800">
+                <option value="ALL">ALL</option>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="UPDATED">UPDATED</option>
+                <option value="DELETED">DELETED</option>
+                <option value="PRODUCT DELETED">PRODUCT DELETED</option>
+                <option value="BATCH DELETED">BATCH DELETED</option>
+                <option value="PERMANENTLY DELETED">PERMANENTLY DELETED</option>
+            </select>
+        </div>
+    </div>
+    <div id="arStatsBar" class="mt-2 text-xs text-gray-500 hidden">
+        Showing <span id="arShownCount">0</span> of <span id="arTotalCount">0</span> items
+        · <span id="arCacheNote" class="text-gray-400"></span>
+    </div>
+</div>
+
+<!-- Archive list -->
+<div id="arList" class="space-y-3">
+    <div class="text-center text-gray-400 py-8">Loading archive…</div>
+</div>
+
+<!-- Load more -->
+<div id="arLoadMore" class="text-center mt-4 hidden">
+    <button id="arLoadMoreBtn"
+            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg text-sm">📥 Load More</button>
+</div>
+
+<!-- ===================== BATCHES MODAL ===================== -->
+<div id="arBatchModal" class="ar-modal hidden">
+    <div class="ar-modal-box">
+        <div class="ar-modal-header">
+            <h3 class="ar-modal-title" id="arBatchTitle">Batches</h3>
+            <button type="button" class="ar-modal-x" onclick="arCloseBatchModal()">&times;</button>
+        </div>
+        <div id="arBatchContent" class="ar-modal-body"></div>
+        <div class="ar-modal-footer ar-modal-footer-right">
+            <button type="button" onclick="arCloseBatchModal()"
+                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== CLAIMS MODAL ===================== -->
+<div id="arClaimsModal" class="ar-modal hidden">
+    <div class="ar-modal-box">
+        <div class="ar-modal-header">
+            <h3 class="ar-modal-title" id="arClaimsTitle">Claims</h3>
+            <button type="button" class="ar-modal-x" onclick="arCloseClaimsModal()">&times;</button>
+        </div>
+        <div id="arClaimsContent" class="ar-modal-body"></div>
+        <div class="ar-modal-footer ar-modal-footer-right">
+            <button type="button" onclick="arCloseClaimsModal()"
+                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== STYLES ===================== -->
+<style>
+    .ar-modal {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+        display: flex; align-items: center; justify-content: center;
+        padding: 1rem; z-index: 9000; overscroll-behavior: contain;
+    }
+    .ar-modal.hidden { display: none !important; }
+    .ar-modal-box {
+        background: #fff; border-radius: 12px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15);
+        width: 100%; max-width: 42rem;
+        max-height: calc(100vh - 2rem);
+        max-height: calc(100dvh - 2rem);
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+    .ar-modal-header {
+        flex: 0 0 auto; display: flex; align-items: center;
+        justify-content: space-between; gap: 8px;
+        padding: 12px 16px; border-bottom: 1px solid #e5e7eb; background: #fff;
+    }
+    .ar-modal-title { font-size: 1rem; font-weight: 700; color: #111827; margin: 0; }
+    @media (min-width: 768px) { .ar-modal-title { font-size: 1.15rem; } }
+    .ar-modal-x {
+        border: 0; background: transparent; cursor: pointer;
+        color: #6b7280; font-size: 1.5rem; line-height: 1; padding: 0 4px;
+    }
+    .ar-modal-x:hover { color: #111827; }
+    .ar-modal-body {
+        flex: 1 1 auto; min-height: 0; overflow-y: auto;
+        -webkit-overflow-scrolling: touch; padding: 14px 16px; background: #fff;
+    }
+    .ar-modal-footer {
+        flex: 0 0 auto; padding: 12px 16px;
+        border-top: 1px solid #e5e7eb; background: #fff;
+        display: flex; gap: 8px;
+    }
+    .ar-modal-footer-right { justify-content: flex-end; }
+    .ar-card {
+        background: #fff; border-radius: 12px; padding: 12px 14px;
+        border: 1px solid #e5e7eb; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        color: #1f2937;
+    }
+    .ar-empty { text-align: center; padding: 32px 8px; color: #9ca3af; font-size: 0.85rem; }
+    .ar-loading { text-align: center; padding: 32px 8px; color: #9ca3af; font-size: 0.85rem; }
+    .ar-loading::before {
+        content: ''; display: inline-block;
+        width: 20px; height: 20px; margin-right: 8px;
+        border: 2px solid #e5e7eb; border-top-color: #14b8a6;
+        border-radius: 50%; animation: ar-spin 0.8s linear infinite;
+        vertical-align: middle;
+    }
+    @keyframes ar-spin { to { transform: rotate(360deg); } }
+</style>
+
+<!-- ===================== SCRIPT ===================== -->
+<script>
+(function() {
+'use strict';
+
+const $ = id => document.getElementById(id);
+const RENDER = 'https://ox-smart-pos-release-version.onrender.com';
+const CACHE_KEY = 'archive_full_v1';
+const PER_PAGE = 50;
+
+// ---------- State ----------
+let arAllItems = [];        // everything (from cache or server)
+let arFiltered = [];        // after search + status filter
+let arVisible = 0;          // how many currently rendered
+let arLoading = false;
+let searchTimeout = null;
+
+// ---------- Utilities ----------
+function escapeHtml(s) {
+    if (!s && s !== 0) return '';
+    return String(s).replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[m]));
+}
+function safeToFixed(v, d) {
+    const n = parseFloat(v); d = d || 2;
+    return isNaN(n) ? '0.00' : n.toFixed(d);
+}
+function formatMoney(v) { return '₵' + safeToFixed(v); }
+function formatDate(d) {
+    if (!d) return '';
+    try { return new Date(d).toLocaleString(); } catch (e) { return String(d); }
+}
+function toast(msg, isError) {
+    if (typeof window.showToast === 'function') {
+        window.showToast(msg, { error: !!isError });
+    } else {
+        console.log('[archive]', msg);
+    }
+}
+function notifyBell() {
+    if (typeof window.refreshPendingNotifications === 'function') {
+        try { window.refreshPendingNotifications(); } catch (e) {}
+    }
+}
+function statusColor(action) {
+    switch (action) {
+        case 'ACTIVE': return '#22c55e';
+        case 'UPDATED': return '#f59e0b';
+        case 'DELETED': return '#ef4444';
+        case 'PRODUCT DELETED': return '#ef4444';
+        case 'BATCH DELETED': return '#f87171';
+        case 'PERMANENTLY DELETED': return '#6b7280';
+        default: return '#9ca3af';
+    }
+}
+
+// ---------- Cache (Dexie first, localStorage fallback) ----------
+async function arCacheGet() {
+    if (typeof db !== 'undefined' && db) {
+        try {
+            const row = await db.cache.get(CACHE_KEY);
+            if (row && row.value) return row.value;
+        } catch (e) { /* ignore */ }
+    }
+    try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch (e) { return null; }
+}
+async function arCachePut(items) {
+    const payload = { items: items, savedAt: Date.now() };
+    if (typeof db !== 'undefined' && db) {
+        try {
+            await db.cache.put({ key: CACHE_KEY, value: payload, timestamp: Date.now() });
+            return;
+        } catch (e) { /* fallthrough */ }
+    }
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(payload)); } catch (e) {}
+}
+
+// ---------- Load ----------
+async function arLoad(force) {
+    if (arLoading) return;
+    arLoading = true;
+
+    const list = $('arList');
+    const stats = $('arStatsBar');
+    list.innerHTML = '<div class="ar-loading">Loading archive…</div>';
+    stats.classList.add('hidden');
+
+    // 1. Show cache immediately
+    const cached = await arCacheGet();
+    if (cached && Array.isArray(cached.items)) {
+        arAllItems = cached.items;
+        arApplyFilters();
+    }
+
+    // 2. Refresh from server if online
+    if (navigator.onLine) {
+        try {
+            const serverItems = await arFetchAllFromServer();
+            if (serverItems && serverItems.length) {
+                arAllItems = serverItems;
+                await arCachePut(arAllItems);
+                arApplyFilters();
+            } else if (arAllItems.length === 0) {
+                list.innerHTML = '<div class="ar-empty">No archive data available.</div>';
+                arLoading = false;
+                return;
+            }
+        } catch (e) {
+            console.warn('[archive] server fetch failed:', e);
+            if (arAllItems.length === 0) {
+                list.innerHTML = '<div class="ar-empty">Could not load archive' +
+                    (navigator.onLine ? ': ' + escapeHtml(e.message) : ' — offline and no cache.') + '</div>';
+                arLoading = false;
+                return;
+            }
+        }
+    } else if (arAllItems.length === 0) {
+        list.innerHTML = '<div class="ar-empty">No cached archive available offline.</div>';
+        arLoading = false;
+        return;
+    }
+
+    $('arCacheNote').textContent = navigator.onLine ? '' : '(offline — cached)';
+    arLoading = false;
+}
+
+// Fetch all pages from server, accumulate
+async function arFetchAllFromServer() {
+    const per_page = 500;
+    let page = 1;
+    let all = [];
+    let safety = 20;
+    while (page <= safety) {
+        const url = RENDER + '/api/archive?status=ALL&page=' + page +
+            '&per_page=' + per_page + '&search=';
+        const headers = {};
+        const token = (typeof getToken === 'function') ? getToken() : null;
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        const res = await fetch(url, { credentials: 'include', headers });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const batch = Array.isArray(data.items) ? data.items : [];
+        all = all.concat(batch);
+        if (!data.has_more || batch.length < per_page) break;
+        page++;
+    }
+    return all;
+}
+
+// ---------- Filters ----------
+function arApplyFilters() {
+    const kw = ($('arSearchInput').value || '').trim().toLowerCase();
+    const status = $('arStatusFilter').value;
+
+    arFiltered = arAllItems.filter(it => {
+        if (status !== 'ALL' && it.action !== status) return false;
+        if (!kw) return true;
+        const n = (it.name || '').toLowerCase();
+        const b = (it.brand || '').toLowerCase();
+        return n.includes(kw) || b.includes(kw);
+    });
+
+    // Newest first
+    arFiltered.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+
+    arVisible = Math.min(PER_PAGE, arFiltered.length);
+    arRender();
+    arUpdateStats();
+}
+
+function arUpdateStats() {
+    $('arShownCount').textContent = arVisible;
+    $('arTotalCount').textContent = arFiltered.length;
+    $('arStatsBar').classList.remove('hidden');
+    if (arVisible < arFiltered.length) {
+        $('arLoadMore').classList.remove('hidden');
+        $('arLoadMoreBtn').textContent = '📥 Load More (' + arVisible + '/' + arFiltered.length + ')';
+    } else {
+        $('arLoadMore').classList.add('hidden');
+    }
+}
+
+// ---------- Render ----------
+function arRender() {
+    const list = $('arList');
+    if (arFiltered.length === 0) {
+        list.innerHTML = '<div class="ar-empty">No archive items match this filter.</div>';
+        return;
+    }
+    const slice = arFiltered.slice(0, arVisible);
+    list.innerHTML = slice.map((it, idx) => {
+        const idx0 = idx;
+        const claimsBadge = (it.has_claims && it.total_claimed > 0)
+            ? '<span class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full ml-2">⚠️ ' + it.total_claimed + ' Claimed</span>'
+            : '';
+
+        let details = '';
+        if (it.action === 'ACTIVE') {
+            details = '📦 Stock: ' + (it.stock || 0) +
+                ' · ' + formatMoney(it.cost) + ' → ' + formatMoney(it.price) +
+                ' · Disc ' + formatMoney(it.discount) +
+                ' · 📂 ' + escapeHtml(it.category || '');
+        } else {
+            details = 'Category: ' + escapeHtml(it.category || '') +
+                ' · Stock: ' + (it.stock || 0) + '<br>' +
+                'Cost: ' + formatMoney(it.cost) + ' · Selling: ' + formatMoney(it.price) +
+                ' · Disc: ' + formatMoney(it.discount) + '<br>' +
+                'Date: ' + formatDate(it.date);
+            if (it.action === 'BATCH DELETED' && it.batch_id) {
+                details += '<br>Batch #' + it.batch_id +
+                    ' · Original Qty: ' + (it.batch_quantity || 0) +
+                    ' · Remaining at deletion: ' + (it.batch_remaining || 0);
+            }
+            if (it.action === 'PRODUCT DELETED' && it.product_id) {
+                details += '<br>Product ID: #' + it.product_id + ' · All batches archived';
+            }
+        }
+
+        const canRestore = ['DELETED', 'BATCH DELETED', 'PRODUCT DELETED'].includes(it.action);
+        const isPermanent = it.action === 'PERMANENTLY DELETED';
+        const isUpdated = it.action === 'UPDATED';
+
+        let buttons = '';
+        if (it.has_claims && it.claims && it.claims.length) {
+            buttons += '<button onclick="arViewClaims(' + idx0 + ')" ' +
+                'class="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1 rounded text-xs">⚠️ View Claims</button>';
+        }
+        if (it.action === 'ACTIVE') {
+            buttons += '<button onclick="arViewBatches(' + idx0 + ')" ' +
+                'class="bg-blue-500 hover:bg-blue-600 text-white px-2.5 py-1 rounded text-xs">📋 View Batches</button>';
+        }
+        if (isPermanent) {
+            buttons += '<button disabled ' +
+                'class="bg-gray-300 text-gray-600 px-2.5 py-1 rounded text-xs cursor-not-allowed">❌ Cannot Restore</button>';
+        } else if (canRestore && it.id && !it.is_permanent) {
+            buttons += '<button onclick="arRestore(' + idx0 + ')" ' +
+                'class="bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded text-xs">↻ Restore</button>';
+        } else if (isUpdated) {
+            buttons += '<button onclick="arShowUpdateInfo()" ' +
+                'class="bg-yellow-500 hover:bg-yellow-600 text-white px-2.5 py-1 rounded text-xs">ℹ️ Update History</button>';
+        }
+
+        return `
+            <div class="ar-card">
+                <div class="flex flex-wrap justify-between items-start gap-2">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="font-bold text-base text-indigo-700">${escapeHtml(it.name)} (${escapeHtml(it.brand || '')})</span>
+                            ${claimsBadge}
+                        </div>
+                        <div class="text-xs mt-1 font-semibold" style="color:${statusColor(it.action)}">● ${it.action}</div>
+                    </div>
+                </div>
+                <div class="text-xs text-gray-600 mt-2">${details}</div>
+                <div class="flex flex-wrap gap-1.5 mt-3 justify-end">${buttons}</div>
+            </div>`;
+    }).join('');
+}
+
+// ---------- Load More ----------
+$('arLoadMoreBtn').addEventListener('click', function() {
+    arVisible = Math.min(arVisible + PER_PAGE, arFiltered.length);
+    arRender();
+    arUpdateStats();
+});
+
+// ---------- View Batches ----------
+async function arViewBatches(idx) {
+    const it = arFiltered[idx];
+    if (!it) return;
+    const box = $('arBatchContent');
+    $('arBatchTitle').textContent = 'Batches — ' + it.name + ' (' + (it.brand || '') + ')';
+    box.innerHTML = '<div class="ar-loading">Loading…</div>';
+    $('arBatchModal').classList.remove('hidden');
+
+    // 1. Dexie lookup by product name+brand → find product row → its batches
+    let batches = [];
+    try {
+        if (typeof db !== 'undefined' && db) {
+            const products = await db.products.toArray().catch(() => []);
+            const match = products.find(p =>
+                (p.name || '') === it.name && (p.brand || '') === (it.brand || '')
+            );
+            if (match) {
+                batches = await db.batches.where('product_id').equals(match.id).toArray().catch(() => []);
+            }
+        }
+    } catch (e) { /* ignore */ }
+
+    // 2. If online and no local matches, try server
+    if (navigator.onLine && batches.length === 0) {
+        try {
+            const headers = {};
+            const token = (typeof getToken === 'function') ? getToken() : null;
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+            const res = await fetch(RENDER + '/api/archive/batches?name=' +
+                encodeURIComponent(it.name) + '&brand=' + encodeURIComponent(it.brand || ''),
+                { credentials: 'include', headers });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data)) batches = data;
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    arRenderBatches(batches);
+}
+
+function arRenderBatches(batches) {
+    const box = $('arBatchContent');
+    if (!batches || batches.length === 0) {
+        box.innerHTML = '<div class="ar-empty">No batches found in local cache for this product.</div>';
+        return;
+    }
+    box.innerHTML = batches.map(b => {
+        const faulty = (b.is_faulty || (b.claimed_quantity > 0))
+            ? '<span class="text-red-500 text-[10px] font-bold ml-2">⚠️ FAULTY (' + (b.claimed_quantity || 0) + ')</span>' : '';
+        const bid = b.id || b.batch_id;
+        return `
+            <div class="border rounded-lg p-3 mb-2 bg-gray-50">
+                <div class="font-bold text-indigo-700 text-sm">Batch #${bid} ${faulty}</div>
+                <div class="text-xs text-gray-700 mt-1">
+                    Qty: ${b.quantity || 0} · Remaining: ${b.remaining_quantity || 0}
+                </div>
+                <div class="text-xs text-gray-700">
+                    Cost: ${formatMoney(b.cost_price)} · Selling: ${formatMoney(b.selling_price)} · Disc: ${formatMoney(b.discount)}
+                </div>
+                <div class="text-[11px] text-gray-400 mt-1">${formatDate(b.date)}</div>
+            </div>`;
+    }).join('');
+}
+
+function arCloseBatchModal() { $('arBatchModal').classList.add('hidden'); }
+window.arCloseBatchModal = arCloseBatchModal;
+
+// ---------- View Claims ----------
+function arViewClaims(idx) {
+    const it = arFiltered[idx];
+    if (!it) return;
+    $('arClaimsTitle').textContent = 'Claims — ' + it.name + ' (' + (it.brand || '') + ')';
+    const box = $('arClaimsContent');
+    const claims = Array.isArray(it.claims) ? it.claims : [];
+
+    if (claims.length === 0) {
+        box.innerHTML = '<div class="ar-empty">No claims for this product.</div>';
+        $('arClaimsModal').classList.remove('hidden');
+        return;
+    }
+    box.innerHTML = claims.map(c => {
+        const statusColour = c.status === 'resolved' ? '#22c55e' :
+                             c.status === 'active' ? '#ef4444' : '#f59e0b';
+        return `
+            <div class="border rounded-lg p-3 mb-2 bg-gray-50">
+                <div class="flex justify-between items-start">
+                    <div class="font-semibold text-sm">Claim #${c.claim_id || c.id}</div>
+                    <span class="text-[11px] font-bold" style="color:${statusColour}">● ${escapeHtml(c.status || '')}</span>
+                </div>
+                <div class="text-xs text-gray-700 mt-1">
+                    <span class="font-medium">Issue:</span> ${escapeHtml(c.issue_type || '')}
+                </div>
+                <div class="text-xs text-gray-700">
+                    <span class="font-medium">Quantity:</span> ${c.quantity || 0} units
+                </div>
+                ${c.batch_id ? '<div class="text-xs text-gray-700"><span class="font-medium">Batch:</span> #' + c.batch_id + '</div>' : ''}
+                ${c.description ? '<div class="text-xs text-gray-600 mt-1">📝 ' + escapeHtml(c.description) + '</div>' : ''}
+                <div class="text-[11px] text-gray-400 mt-1">${formatDate(c.created_at)}</div>
+            </div>`;
+    }).join('');
+    $('arClaimsModal').classList.remove('hidden');
+}
+window.arViewClaims = arViewClaims;
+
+function arCloseClaimsModal() { $('arClaimsModal').classList.add('hidden'); }
+window.arCloseClaimsModal = arCloseClaimsModal;
+
+// ---------- Update history info ----------
+function arShowUpdateInfo() {
+    toast('ℹ️ This is an update-history entry. The product is still active.', false);
+}
+window.arShowUpdateInfo = arShowUpdateInfo;
+
+// ---------- Restore ----------
+async function arRestore(idx) {
+    const it = arFiltered[idx];
+    if (!it || !it.id) return;
+    if (!confirm('Restore this archived item to inventory?\n\n• Product will be added back\n• Batches will be restored\n• Stock will be recalculated')) return;
+
+    // Optimistically flip local state — ACTIVE + refresh list
+    it.action = 'ACTIVE';
+    it.is_permanent = false;
+    arApplyFilters();
+
+    // Queue pending op
+    try {
+        if (typeof db !== 'undefined' && db) {
+            await db.pending_ops.add({
+                table: 'archive',
+                operation: 'restore',
+                record_id: it.id,
+                payload: { archive_id: it.id },
+                timestamp: new Date().toISOString(),
+                attempts: 0,
+                synced: 0
+            });
+            notifyBell();
+        }
+    } catch (e) {
+        console.warn('[archive] queue failed:', e);
+    }
+    toast('✅ Restore queued — will sync');
+
+    // Persist the updated list to cache
+    await arCachePut(arAllItems);
+
+    // Try direct API if online
+    if (navigator.onLine) {
+        try {
+            const headers = { 'Content-Type': 'application/json' };
+            const token = (typeof getToken === 'function') ? getToken() : null;
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+            const res = await fetch(RENDER + '/api/archive/restore', {
+                method: 'POST',
+                credentials: 'include',
+                headers,
+                body: JSON.stringify({ archive_id: it.id })
+            });
+            if (res.ok) {
+                // Clear the just-queued op
+                try {
+                    const pending = await db.pending_ops.where('table').equals('archive')
+                        .and(op => op.synced === 0).toArray();
+                    for (const op of pending) {
+                        if (op.operation === 'restore' && String(op.record_id) === String(it.id)) {
+                            await db.pending_ops.delete(op.id);
+                        }
+                    }
+                    notifyBell();
+                } catch (e) { /* ignore */ }
+                toast('✅ Restored on server');
+            }
+        } catch (e) {
+            console.warn('[archive] restore API failed:', e);
+        }
+    }
+}
+window.arRestore = arRestore;
+
+// ---------- Sync pending archive ops ----------
+async function arSyncPending() {
+    if (typeof db === 'undefined' || !db || !navigator.onLine) return;
+    let ops = [];
+    try {
+        ops = await db.pending_ops.where('table').equals('archive')
+            .and(op => op.synced === 0).toArray();
+    } catch (e) { return; }
+    if (!ops.length) return;
+
+    const headers = { 'Content-Type': 'application/json' };
+    const token = (typeof getToken === 'function') ? getToken() : null;
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    for (const op of ops) {
+        try {
+            const res = await fetch(RENDER + '/api/archive/restore', {
+                method: 'POST',
+                credentials: 'include',
+                headers,
+                body: JSON.stringify(op.payload || {})
+            });
+            if (res.ok) {
+                await db.pending_ops.update(op.id, { synced: 1 });
+            } else {
+                await db.pending_ops.update(op.id, { attempts: (op.attempts || 0) + 1 });
+            }
+        } catch (e) { /* leave queued */ }
+    }
+    notifyBell();
+}
+window.__refreshArchiveView = arLoad;
+window.__syncPendingArchiveView = arSyncPending;
+
+// ---------- Event wiring ----------
+$('arRefreshBtn').addEventListener('click', () => { arLoad(true); toast('🔄 Refreshed'); });
+$('arStatusFilter').addEventListener('change', arApplyFilters);
+$('arSearchInput').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(arApplyFilters, 250);
+});
+
+window.addEventListener('online', () => {
+    arSyncPending();
+    arLoad(true);
+});
+
+// ---------- Init ----------
+arLoad(true);
+if (navigator.onLine) setTimeout(arSyncPending, 1200);
+
+})();
+</script>

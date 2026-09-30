@@ -920,6 +920,38 @@ async function tsConfirmReverse() {
 
             // ── 3. Apply the reversal to local Dexie so UI reflects it now ──
             try {
+                const saleId = saleIdForMsg;
+                // 3a. Delete the matching sales_items rows
+                if (saleId) {
+                    const allItems = await db.sales_items
+                        .where('sale_id').equals(saleId).toArray();
+                    for (const row of allItems) {
+                        const match = itemsToReverse.some(it =>
+                            (it.batch_id === row.batch_id) &&
+                            (it.product_id === row.product_id) &&
+                            (it.quantity === row.quantity)
+                        );
+                        if (!match) continue;
+                        if (row.id !== undefined) {
+                            await db.sales_items.delete(row.id);
+                        } else {
+                            try {
+                                await db.sales_items
+                                    .where({ sale_id: saleId, batch_id: row.batch_id, product_id: row.product_id })
+                                    .delete();
+                            } catch (e2) {
+                                console.warn('[today-sales-screen] compound delete failed:', e2);
+                            }
+                        }
+                    }
+                    // 3b. If sale has no remaining items, mark it as reversed
+                    const remaining = await db.sales_items
+                        .where('sale_id').equals(saleId).count();
+                    if (remaining === 0) {
+                        await db.sales.update(saleId, { reversed: 1 });
+                    }
+                }
+                // 3c. Restore batch remaining for the reversed items
                 for (const it of itemsToReverse) {
                     if (it.batch_id && it.batch_id !== -1) {
                         const batch = await db.batches.get(it.batch_id);
@@ -930,7 +962,7 @@ async function tsConfirmReverse() {
                     }
                 }
             } catch (e) {
-                console.warn('[today-sales-screen] local batch restore failed:', e);
+                console.warn('[today-sales-screen] local reversal failed:', e);
             }
 
             toast(`✅ ${selected.length} item(s) queued — will sync when online`);

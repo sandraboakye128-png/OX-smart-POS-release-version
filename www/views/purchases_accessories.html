@@ -1089,6 +1089,11 @@ async function loadPurchases(forceRefreshFlag = false) {
         }
     }
 
+    // ✅ Sort by date descending so newest purchases appear at top
+    try {
+        purchases.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+    } catch (e) { /* ignore */ }
+
     currentPurchases = purchases;
     currentFilteredData = purchases;
     if (purchases.length > 0) {

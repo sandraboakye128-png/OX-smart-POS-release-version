@@ -1,0 +1,387 @@
+<!-- ============================================================ -->
+<!-- VIEW: User Logs — bundled, offline-first (read-only)          -->
+<!-- Layout mirrors templates/user_logs.html                       -->
+<!-- ============================================================ -->
+
+<!-- Header -->
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <button onclick="backToDashboard()"
+            class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
+        ← Back
+    </button>
+    <h2 class="text-xl md:text-2xl font-bold text-indigo-600">📋 User Activity Logs</h2>
+    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">APK · Dexie</span>
+    <button id="lgRefreshBtn"
+            class="ml-auto bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg text-sm">🔄 Refresh</button>
+</div>
+
+<!-- Security notice -->
+<div class="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4">
+    <p class="text-xs text-blue-700" id="lgSecurityNote">
+        🔒 Loading access level…
+    </p>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-xl shadow-md p-3 md:p-4 mb-4">
+    <div class="flex flex-wrap gap-3 items-end">
+        <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Action</label>
+            <select id="lgActionFilter"
+                    class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800">
+                <option value="">All Actions</option>
+                <option value="login">Login</option>
+                <option value="logout">Logout</option>
+                <option value="login_failed">Failed Login</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">User</label>
+            <select id="lgUserFilter"
+                    class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800">
+                <option value="">All Users</option>
+            </select>
+        </div>
+        <button id="lgApplyBtn"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm">🔍 Apply</button>
+        <button id="lgClearBtn"
+                class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-1.5 rounded-lg text-sm">✕ Clear</button>
+    </div>
+</div>
+
+<!-- Logs table -->
+<div class="bg-white rounded-xl shadow-md overflow-hidden">
+    <div id="lgOfflineNote" class="hidden bg-amber-50 border-b border-amber-200 text-amber-700 text-xs py-2 px-3 text-center">
+        ⚠️ Showing cached logs — data may be outdated
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full" style="min-width: 560px;">
+            <thead class="bg-gray-100 border-b">
+                <tr>
+                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600">Time</th>
+                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600">User</th>
+                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600">Action</th>
+                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600">IP</th>
+                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600">Device</th>
+                </tr>
+            </thead>
+            <tbody id="lgTableBody">
+                <tr><td colspan="5" class="text-center py-8 text-gray-400">Loading logs…</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="flex justify-between items-center px-3 py-2 border-t bg-gray-50">
+        <span id="lgTotal" class="text-xs text-gray-500">—</span>
+        <div class="flex gap-2 items-center">
+            <button id="lgPrevBtn"
+                    class="px-3 py-1 border rounded text-xs disabled:opacity-50 bg-white">Previous</button>
+            <span id="lgPageInfo" class="text-xs text-gray-600">Page 1</span>
+            <button id="lgNextBtn"
+                    class="px-3 py-1 border rounded text-xs disabled:opacity-50 bg-white">Next</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== SCRIPT ===================== -->
+<script>
+(function() {
+'use strict';
+
+const $ = id => document.getElementById(id);
+const RENDER = (typeof RENDER_URL !== 'undefined')
+    ? RENDER_URL
+    : 'https://ox-smart-pos-release-version.onrender.com';
+
+const LIMIT = 50;
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
+// ---------- State ----------
+let lgPage = 1;
+let lgTotal = 0;
+let lgLoading = false;
+let isOxbee = false;
+
+// ---------- Utilities ----------
+function escapeHtml(s) {
+    if (!s && s !== 0) return '';
+    return String(s).replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[m]));
+}
+function toast(msg, isError) {
+    if (typeof window.showToast === 'function') {
+        window.showToast(msg, { error: !!isError });
+    } else {
+        console.log('[logs]', msg);
+    }
+}
+function getToken() {
+    try { return localStorage.getItem('ox_api_token'); } catch (e) { return null; }
+}
+function authHeaders() {
+    const t = getToken();
+    const h = {};
+    if (t) h['Authorization'] = 'Bearer ' + t;
+    return h;
+}
+function getStoredUser() {
+    try { return JSON.parse(localStorage.getItem('ox_shell_user') || 'null'); }
+    catch (e) { return null; }
+}
+function formatTimestamp(ts) {
+    if (!ts) return 'N/A';
+    try { return new Date(ts).toLocaleString(); } catch (e) { return String(ts); }
+}
+function truncateUA(ua) {
+    if (!ua) return 'N/A';
+    return ua.length > 40 ? ua.slice(0, 40) + '…' : ua;
+}
+function actionBadge(action) {
+    switch (action) {
+        case 'login':
+            return '<span class="inline-flex items-center bg-green-100 text-green-800 px-2 py-0.5 rounded text-[11px] font-semibold">✅ Login</span>';
+        case 'logout':
+            return '<span class="inline-flex items-center bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[11px] font-semibold">🚪 Logout</span>';
+        case 'login_failed':
+            return '<span class="inline-flex items-center bg-red-100 text-red-800 px-2 py-0.5 rounded text-[11px] font-semibold">❌ Failed</span>';
+        default:
+            return '<span class="inline-flex items-center bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-[11px] font-semibold">' + escapeHtml(action || 'unknown') + '</span>';
+    }
+}
+
+// ---------- Cache (Dexie first, localStorage fallback) ----------
+async function cacheGet(key) {
+    if (typeof db !== 'undefined' && db) {
+        try {
+            const row = await db.cache.get(key);
+            if (row && row.value) {
+                const age = Date.now() - (row.timestamp || 0);
+                if (age > CACHE_TTL_MS) {
+                    await db.cache.delete(key);
+                    return null;
+                }
+                return row.value;
+            }
+        } catch (e) { /* fallthrough */ }
+    }
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (Date.now() - (parsed.timestamp || 0) > CACHE_TTL_MS) {
+            localStorage.removeItem(key);
+            return null;
+        }
+        return parsed.data;
+    } catch (e) { return null; }
+}
+async function cachePut(key, value) {
+    if (typeof db !== 'undefined' && db) {
+        try {
+            await db.cache.put({ key, value, timestamp: Date.now() });
+            return;
+        } catch (e) { /* fallthrough */ }
+    }
+    try {
+        localStorage.setItem(key, JSON.stringify({ data: value, timestamp: Date.now() }));
+    } catch (e) { /* ignore */ }
+}
+function cacheKey(action, user, page) {
+    return 'logs_' + (action || 'all') + '_' + (user || 'all') + '_p' + page;
+}
+
+// ---------- Bootstrap identity ----------
+function initIdentity() {
+    const u = getStoredUser();
+    isOxbee = !!(u && u.username && u.username.toLowerCase() === 'oxbee');
+    const note = $('lgSecurityNote');
+    if (isOxbee) {
+        note.textContent = '🔒 Full access — viewing all user activity logs as system administrator.';
+    } else {
+        note.textContent = '🔒 Viewing user activity logs. System administrator (oxbee) logs are hidden.';
+    }
+}
+
+// ---------- Users dropdown ----------
+async function lgLoadUsers() {
+    const select = $('lgUserFilter');
+    const cacheId = 'logs_users_list';
+    let users = [];
+
+    // 1. Try cache first
+    const cached = await cacheGet(cacheId);
+    if (Array.isArray(cached) && cached.length) users = cached;
+
+    // 2. Try server if online
+    if (navigator.onLine) {
+        try {
+            const res = await fetch(RENDER + '/api/admin/users', {
+                credentials: 'include',
+                headers: authHeaders()
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data) && data.length) {
+                    users = data;
+                    await cachePut(cacheId, users);
+                }
+            }
+        } catch (e) {
+            console.warn('[logs] users fetch failed:', e);
+        }
+    }
+
+    // 3. Render options
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">All Users</option>';
+
+    const filtered = isOxbee
+        ? users
+        : users.filter(u => (u.username || '').toLowerCase() !== 'oxbee');
+
+    filtered.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = u.username + ' (' + (u.role || 'user') + ')';
+        select.appendChild(opt);
+    });
+
+    if (currentVal) select.value = currentVal;
+}
+
+// ---------- Load logs ----------
+async function lgLoad() {
+    if (lgLoading) return;
+    lgLoading = true;
+
+    const tbody = $('lgTableBody');
+    const action = $('lgActionFilter').value;
+    const user = $('lgUserFilter').value;
+    const key = cacheKey(action, user, lgPage);
+
+    // 1. Try cache first — instant display
+    let entry = await cacheGet(key);
+    let fromCache = false;
+    if (entry && Array.isArray(entry.logs)) {
+        fromCache = true;
+        lgTotal = entry.total || entry.logs.length;
+        lgRender(entry.logs);
+        lgUpdatePagination();
+        $('lgOfflineNote').classList.toggle('hidden', !entry._offline);
+    }
+
+    // 2. If offline — done
+    if (!navigator.onLine) {
+        if (!entry) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">No cached logs available offline.</td></tr>';
+            lgTotal = 0;
+            lgUpdatePagination();
+        } else {
+            $('lgOfflineNote').classList.remove('hidden');
+        }
+        lgLoading = false;
+        return;
+    }
+
+    // 3. Online — fetch fresh, update cache
+    if (!entry) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">Loading logs…</td></tr>';
+    }
+
+    try {
+        const offset = (lgPage - 1) * LIMIT;
+        let url = RENDER + '/api/user/logs?limit=' + LIMIT + '&offset=' + offset;
+        if (action) url += '&action=' + encodeURIComponent(action);
+        if (user)   url += '&user_id=' + encodeURIComponent(user);
+
+        const res = await fetch(url, { credentials: 'include', headers: authHeaders() });
+        const data = await res.json().catch(() => ({}));
+
+        if (data && data.success) {
+            lgTotal = data.total || 0;
+            lgRender(data.logs || []);
+            lgUpdatePagination();
+            $('lgOfflineNote').classList.add('hidden');
+            await cachePut(key, { logs: data.logs || [], total: lgTotal });
+        } else if (data && data.error && String(data.error).toLowerCase().includes('unauthorized')) {
+            tbody.innerHTML = `
+                <tr><td colspan="5" class="text-center py-8 text-red-500">
+                    🔒 ${escapeHtml(data.error)}
+                </td></tr>`;
+            lgTotal = 0;
+            lgUpdatePagination();
+        } else if (!entry) {
+            tbody.innerHTML = `
+                <tr><td colspan="5" class="text-center py-8 text-gray-400">
+                    No logs found. Please connect to the internet to load logs.
+                </td></tr>`;
+            lgTotal = 0;
+            lgUpdatePagination();
+        }
+    } catch (e) {
+        console.warn('[logs] server fetch failed:', e);
+        if (!entry) {
+            tbody.innerHTML = `
+                <tr><td colspan="5" class="text-center py-8 text-red-500">
+                    Could not load logs: ${escapeHtml(e.message)}
+                </td></tr>`;
+        }
+        // Keep the cached display
+    }
+    lgLoading = false;
+}
+
+function lgRender(logs) {
+    const tbody = $('lgTableBody');
+    if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">No logs found.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = logs.map(l => `
+        <tr class="border-b hover:bg-gray-50">
+            <td class="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">${formatTimestamp(l.timestamp)}</td>
+            <td class="px-3 py-2 text-xs font-medium text-indigo-700">${escapeHtml(l.username || '')}</td>
+            <td class="px-3 py-2">${actionBadge(l.action)}</td>
+            <td class="px-3 py-2 text-xs text-gray-600">${escapeHtml(l.ip_address || 'N/A')}</td>
+            <td class="px-3 py-2 text-xs text-gray-600">${escapeHtml(truncateUA(l.user_agent))}</td>
+        </tr>`).join('');
+}
+
+function lgUpdatePagination() {
+    const pages = Math.max(1, Math.ceil(lgTotal / LIMIT));
+    $('lgPageInfo').textContent = 'Page ' + lgPage + ' of ' + pages;
+    $('lgPrevBtn').disabled = lgPage <= 1;
+    $('lgNextBtn').disabled = lgPage >= pages;
+    $('lgTotal').textContent = 'Total: ' + lgTotal + ' log' + (lgTotal === 1 ? '' : 's');
+}
+
+// ---------- Event wiring ----------
+$('lgRefreshBtn').addEventListener('click', () => {
+    if (!navigator.onLine) { toast('Offline — showing cached logs', true); return; }
+    lgLoadUsers();
+    lgLoad();
+    toast('🔄 Refreshed');
+});
+$('lgApplyBtn').addEventListener('click', () => { lgPage = 1; lgLoad(); });
+$('lgClearBtn').addEventListener('click', () => {
+    $('lgActionFilter').value = '';
+    $('lgUserFilter').value = '';
+    lgPage = 1;
+    lgLoad();
+});
+$('lgPrevBtn').addEventListener('click', () => { if (lgPage > 1) { lgPage--; lgLoad(); } });
+$('lgNextBtn').addEventListener('click', () => { lgPage++; lgLoad(); });
+
+window.addEventListener('online', () => { lgLoadUsers(); lgLoad(); });
+
+window.__refreshLogsView = function() {
+    if (navigator.onLine) { lgLoadUsers(); lgLoad(); }
+};
+
+// ---------- INIT ----------
+initIdentity();
+lgLoadUsers();
+lgLoad();
+
+})();
+</script>

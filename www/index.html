@@ -206,13 +206,24 @@
 
         /* APP SHELL */
         #appView {
-            padding: 12px 14px 24px;
-            padding-top: calc(12px + env(safe-area-inset-top));
+            padding: 0 14px 24px;
             max-width: 720px; margin: 0 auto;
         }
         .shell-topbar {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            background: var(--bg);
+            margin-left: -14px;
+            margin-right: -14px;
+            margin-bottom: 12px;
+            padding: 8px 16px 12px;
+            padding-top: calc(10px + env(safe-area-inset-top));
+            padding-left: calc(18px + env(safe-area-inset-left));
+            padding-right: calc(18px + env(safe-area-inset-right));
+            border-bottom: 1px solid var(--border-soft);
             display: flex; align-items: center; justify-content: space-between;
-            gap: 10px; padding: 8px 4px 14px;
+            gap: 10px;
         }
         .menu-btn {
             background: transparent; border: 0; color: var(--text-dim);
@@ -564,7 +575,6 @@
         .list-item .right.alert { color: var(--red); }
         .list-item .right.medal { color: var(--amber); font-size: 0.85rem; }
 
-        /* Category pill on low stock items */
         .cat-pill {
             display: inline-block;
             font-size: 0.6rem;
@@ -584,7 +594,7 @@
             text-align: center; padding: 16px 8px; line-height: 1.6;
         }
 
-        /* PIE CHART (SVG-based, no external deps) */
+        /* PIE CHART */
         .pie-wrap {
             display: flex;
             flex-direction: column;
@@ -643,10 +653,6 @@
             border: 1px solid var(--border) !important;
         }
 
-        .signout-row {
-            display: flex; justify-content: center;
-            margin-top: 4px; margin-bottom: 16px;
-        }
         .btn-signout {
             background: transparent; border: 1px solid var(--border);
             color: var(--text-dim); font-size: 0.78rem;
@@ -727,21 +733,28 @@
             transform: translateX(-100%);
             transition: transform 0.25s ease;
             z-index: 1001;
-            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
             padding-top: env(safe-area-inset-top);
-            padding-bottom: env(safe-area-inset-bottom);
             box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+            overflow: hidden;
         }
         #menuDrawer.open { transform: translateX(0); }
         .menu-header {
             padding: 20px 20px 14px;
             border-bottom: 1px solid var(--border-soft);
             display: flex; align-items: center; gap: 10px;
+            flex-shrink: 0;
         }
         .menu-header .brand-icon { width: 40px; height: 40px; font-size: 20px; }
         .menu-header-title { font-size: 0.9rem; font-weight: 700; color: var(--indigo); }
         .menu-header-sub { font-size: 0.7rem; color: var(--text-faint); margin-top: 2px; }
-        #menuNav { padding: 10px 8px; }
+        #menuNav {
+            padding: 10px 8px;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+        }
         .menu-item {
             display: flex; align-items: center; gap: 12px;
             padding: 13px 14px;
@@ -772,6 +785,13 @@
             text-transform: uppercase;
             letter-spacing: 0.6px;
             padding: 14px 14px 6px;
+        }
+        .menu-footer-signout {
+            flex: 0 0 auto;
+            padding: 12px 16px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            border-top: 1px solid var(--border-soft);
+            background: var(--bg-card);
         }
 
         /* VIEW container */
@@ -814,7 +834,7 @@
         .bundled-light .text-gray-800 { color: #1f2937 !important; }
         .bundled-light .text-indigo-600,
         .bundled-light .text-indigo-700 { color: #4f46e5 !important; }
-    
+
         /* PENDING OPS MODAL */
         .pending-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 9000; overscroll-behavior: contain; }
         .pending-modal.hidden { display: none !important; }
@@ -835,9 +855,7 @@
         .pending-modal-footer .btn-primary { background: #00CFCF; color: #0f172a; }
         .pending-modal-footer .btn-secondary { background: #334155; color: #e2e8f0; }
 
-        /* ============================================================
-           DASHBOARD CALENDAR
-           ============================================================ */
+        /* DASHBOARD CALENDAR */
         .dash-cal {
             background: var(--bg-card);
             border: 1px solid var(--border-soft);
@@ -945,7 +963,68 @@
             background: var(--green);
         }
         .cal-day.cal-selected.cal-has-sales::after { background: #0f172a; }
-</style>
+
+        /* LIGHT THEME OVERRIDES */
+        html[data-theme="light"] {
+            --bg:          #f3f4f6;
+            --bg-card:     #ffffff;
+            --bg-hover:    #e5e7eb;
+            --border:      #d1d5db;
+            --border-soft: #f3f4f6;
+            --text:        #1f2937;
+            --text-dim:    #4b5563;
+            --text-faint:  #9ca3af;
+            --indigo:      #4f46e5;
+            --accent-dim:  #0891b2;
+        }
+        html[data-theme="light"] body {
+            background: #f3f4f6 !important;
+            color: #1f2937 !important;
+        }
+        html[data-theme="light"] .brand                { color: #4f46e5; }
+        html[data-theme="light"] .menu-btn             { color: #4b5563; }
+        html[data-theme="light"] .menu-btn:hover       { background: #e5e7eb; color: #1f2937; }
+        html[data-theme="light"] .shell-footer         { background: #e5e7eb; color: #6b7280; }
+        html[data-theme="light"] .shell-footer .footer-line strong { color: #374151; }
+        html[data-theme="light"] .notif-dropdown       { background: #ffffff; border-color: #e5e7eb; }
+        html[data-theme="light"] .notif-header         { background: #ffffff; border-bottom-color: #f1f5f9; }
+        html[data-theme="light"] .notif-item           { border-bottom-color: #f1f5f9; }
+        html[data-theme="light"] .notif-item:hover     { background: #f8fafc; }
+        html[data-theme="light"] .notif-title          { color: #0f172a; }
+        html[data-theme="light"] .notif-msg            { color: #475569; }
+        html[data-theme="light"] .user-chip            { background: #e5e7eb; color: #4b5563; border-color: #d1d5db; }
+        html[data-theme="light"] .user-chip .user-name { color: #1f2937; }
+        html[data-theme="light"] .offline-banner       { background: linear-gradient(90deg, #fee2e2, #fecaca); color: #991b1b; }
+        html[data-theme="light"] .btn-secondary        { background: #ffffff; color: #1f2937; }
+        html[data-theme="light"] #menuDrawer           { background: #ffffff; border-right-color: #e5e7eb; }
+        html[data-theme="light"] .menu-header-title    { color: #4f46e5; }
+        html[data-theme="light"] .menu-item            { color: #4b5563; }
+        html[data-theme="light"] .menu-item:hover      { background: #f3f4f6; color: #1f2937; }
+        html[data-theme="light"] .menu-section-label   { color: #9ca3af; }
+        html[data-theme="light"] .icon-btn             { background: #ffffff; border-color: #d1d5db; color: #4b5563; }
+        html[data-theme="light"] .icon-btn:hover       { background: #e5e7eb; }
+        html[data-theme="light"] .notif-bell           { background: #ffffff; border-color: #d1d5db; color: #4b5563; }
+        html[data-theme="light"] .notif-bell:hover     { background: #e5e7eb; color: #1f2937; }
+        html[data-theme="light"] .dash-filter          { background: #ffffff; }
+        html[data-theme="light"] .kpi                  { background: #ffffff; }
+        html[data-theme="light"] .card                 { background: #ffffff; }
+        html[data-theme="light"] .dash-cal             { background: #ffffff; }
+        html[data-theme="light"] .dash-cal-nav         { background: #e5e7eb; color: #1f2937; border-color: #d1d5db; }
+        html[data-theme="light"] .menu-footer-signout  { background: #ffffff; }
+        html[data-theme="light"] .shell-topbar         { background: #f3f4f6; }
+
+        /* User chip — clickable profile button */
+        .user-chip {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s, border-color 0.15s, transform 0.1s;
+        }
+        .user-chip:hover  { border-color: var(--accent); }
+        .user-chip:active { transform: scale(0.98); }
+        html[data-theme="light"] .user-chip { background: #ffffff; border-color: #d1d5db; }
+    </style>
 </head>
 <body>
 
@@ -1006,6 +1085,12 @@
 
         <button id="loginBtn" onclick="doLogin()">Sign In</button>
         <div class="login-error" id="loginError"></div>
+
+        <button type="button" id="createAccountBtn" onclick="openSignup(event)"
+                style="width:100%; margin-top:14px; padding:12px; background:transparent; color:var(--accent); border:1px solid var(--accent); border-radius:11px; font-size:0.9rem; font-weight:700; cursor:pointer; transition: background 0.15s, transform 0.1s;">
+            ✨ Create Account
+        </button>
+
         <div class="login-hint">First sign-in requires Wi-Fi.<br>After that, the app works offline.</div>
     </div>
 </div>
@@ -1054,12 +1139,12 @@
         </div>
     </div>
 
-    <div id="userChip" class="user-chip hidden">
+    <button type="button" id="userChip" class="user-chip hidden" onclick="openMyProfile()" title="Open your profile">
         <div class="user-icon" id="userInitial">?</div>
         <span>Signed in as</span>
         <span class="user-name" id="userName">—</span>
         <span class="user-role" id="userRole">—</span>
-    </div>
+    </button>
 
     <div id="offlineBanner" class="offline-banner hidden">
         <span>📶</span>
@@ -1081,7 +1166,6 @@
                 </div>
             </div>
 
-            <!-- Date / time filter -->
             <div class="dash-filter">
                 <input type="date" id="dashStartDate">
                 <span class="sep">to</span>
@@ -1093,7 +1177,6 @@
                 <span class="clock" id="dashClock">--:--:--</span>
             </div>
 
-            <!-- Dashboard Calendar — click a day to filter -->
             <div class="dash-cal">
                 <div class="dash-cal-header">
                     <button type="button" class="dash-cal-nav" id="dashCalPrev" aria-label="Previous month">&#x2039;</button>
@@ -1137,7 +1220,6 @@
                 </div>
             </div>
 
-            <!-- Top Products -->
             <div class="card">
                 <h2>🏆 Top Products <span class="count" id="topProductsCount">0</span></h2>
                 <div id="topProductsList" class="card-scroll"><div class="empty">Loading…</div></div>
@@ -1146,7 +1228,6 @@
                 </p>
             </div>
 
-            <!-- Low Stock (scrollable + clickable, shows BOTH accessories and screens) -->
             <div class="card">
                 <h2>⚠️ Low Stock <span class="count" id="shellLowStockCount">0</span></h2>
                 <div id="lowStockList" class="card-scroll"><div class="empty">Loading…</div></div>
@@ -1155,7 +1236,6 @@
                 </p>
             </div>
 
-            <!-- Pie chart — sales distribution (top products by qty sold) -->
             <div class="card">
                 <h2>🥧 Product Distribution <span class="count" id="pieTotal">0</span></h2>
                 <div id="pieChartContainer" class="pie-wrap">
@@ -1166,7 +1246,6 @@
                 </p>
             </div>
 
-            <!-- Recent Sales -->
             <div class="card">
                 <h2>🕒 Recent Sales <span class="count" id="recentCount">0</span></h2>
                 <div id="recentSales" class="card-scroll"><div class="empty">Loading…</div></div>
@@ -1185,10 +1264,6 @@
             <span id="openFullAppIcon">🌐</span>
             <span id="openFullAppText">Full App</span>
         </button>
-    </div>
-
-    <div class="signout-row">
-        <button class="btn-signout" onclick="doLogout()">Sign out</button>
     </div>
 
     <footer class="shell-footer">
@@ -1227,6 +1302,9 @@
         </div>
     </div>
     <nav id="menuNav"></nav>
+    <div class="menu-footer-signout">
+        <button class="btn-signout" onclick="doLogout()" style="width:100%;">Sign out</button>
+    </div>
 </aside>
 
 <script src="dexie.min.js"></script>
@@ -1242,6 +1320,57 @@ const TOKEN_KEY  = 'ox_api_token';
 const USER_KEY   = 'ox_shell_user';
 
 const $ = id => document.getElementById(id);
+
+// ============================================================
+//  THEME SYSTEM — aligned with web base.html
+// ============================================================
+window.applyAppTheme = function (theme) {
+    theme = (theme === 'light') ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    if (document.body) {
+        document.body.classList.toggle('dark-theme',  theme === 'dark');
+        document.body.classList.toggle('light-theme', theme === 'light');
+    }
+};
+
+// ============================================================
+//  SETTINGS BOOTSTRAP
+// ============================================================
+(function _bootSettings() {
+    let s = null;
+    try {
+        const raw = localStorage.getItem('ox_app_settings');
+        if (raw) s = JSON.parse(raw);
+    } catch (e) {}
+    s = s || {};
+    const theme = (s.theme === 'light') ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+    window.oxSettings = {
+        theme: theme,
+        currency_symbol: s.currency_symbol || '₵',
+        currency_code:   s.currency_code   || 'GHS',
+        language:        s.language        || 'en',
+        date_format:     s.date_format     || 'DD/MM/YYYY'
+    };
+})();
+
+document.addEventListener('DOMContentLoaded', function () {
+    window.applyAppTheme(window.oxSettings.theme);
+});
+
+window.addEventListener('ox:settingsChanged', function (ev) {
+    const s = (ev && ev.detail) || {};
+    const theme = (s.theme === 'light') ? 'light' : 'dark';
+    window.applyAppTheme(theme);
+    window.oxSettings = {
+        theme: theme,
+        currency_symbol: s.currency_symbol || '₵',
+        currency_code:   s.currency_code   || 'GHS',
+        language:        s.language        || 'en',
+        date_format:     s.date_format     || 'DD/MM/YYYY'
+    };
+});
+
 
 const landingView = $('landingView');
 const loginView   = $('loginView');
@@ -1270,9 +1399,12 @@ const VIEWS = {
     purchases: { title: 'Purchases (Acc.)',  icon: '🛒', path: 'views/purchases_accessories.html' },
     'purchases-screen': { title: 'Purchases (Screens)', icon: '📥', path: 'views/purchases_screen.html' },
     analytics: { title: 'Analytics',     icon: '📈', path: 'views/analytics.html' },
-    archive:   { title: 'Archive',       icon: '🗄️', path: null, onlineOnly: true },
-    claims:    { title: 'Claims',        icon: '⚠️', path: null, onlineOnly: true },
-    settings:  { title: 'Settings',      icon: '⚙️', path: null, onlineOnly: true },
+    'edit-user': { title: 'Edit User',       icon: '✏️', path: 'views/edit_user.html' },
+    users:     { title: 'User Management',  icon: '👥', path: 'views/admin_users.html' },
+    logs:      { title: 'User Logs',       icon: '📋', path: 'views/logs.html' },
+    archive:   { title: 'Archive',       icon: '🗄️', path: 'views/archive.html' },
+    claims:    { title: 'Claims',        icon: '⚠️', path: 'views/claims.html' },
+    settings:  { title: 'Settings',      icon: '⚙️', path: 'views/settings.html' },
 };
 
 let currentView = 'dashboard';
@@ -1542,7 +1674,7 @@ async function refreshPendingNotifications() {
 window.refreshPendingNotifications = refreshPendingNotifications;
 
 // ============================================================
-//  PENDING OPS MODAL — tap the pending bell notification to view
+//  PENDING OPS MODAL
 // ============================================================
 async function openPendingOpsModal() {
     const modal = $('pendingOpsModal');
@@ -1731,6 +1863,47 @@ async function goOnline() {
 window.goOnline = goOnline;
 
 // ============================================================
+//  CREATE ACCOUNT
+// ============================================================
+function openSignup(e) {
+    if (e) e.preventDefault();
+    try { localStorage.setItem('ox_signup_started', String(Date.now())); } catch (err) {}
+    const url = RENDER_URL + '/signup';
+    try {
+        window.open(url, '_system');
+    } catch (err) {
+        window.location.href = url;
+    }
+}
+window.openSignup = openSignup;
+
+document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    let ts = 0;
+    try { ts = parseInt(localStorage.getItem('ox_signup_started') || '0', 10); } catch (e) {}
+    if (!ts) return;
+    try { localStorage.removeItem('ox_signup_started'); } catch (e) {}
+    if (Date.now() - ts > 15 * 60 * 1000) return;
+
+    const token = getToken();
+    if (token) {
+        landingView.classList.add('hidden');
+        loginView.classList.add('hidden');
+        appView.classList.add('hidden');
+        loadingView.classList.remove('hidden');
+        enterApp().catch(function () {
+            loadingView.classList.add('hidden');
+            landingView.classList.remove('hidden');
+        });
+    } else {
+        appView.classList.add('hidden');
+        loginView.classList.add('hidden');
+        loadingView.classList.add('hidden');
+        landingView.classList.remove('hidden');
+    }
+});
+
+// ============================================================
 //  PASSWORD VISIBILITY TOGGLE
 // ============================================================
 function togglePasswordVisibility() {
@@ -1791,7 +1964,32 @@ function doLogout() {
     if (!confirm('Sign out? You will need to log in again to sync.')) return;
     clearToken();
     clearStoredUser();
-    location.reload();
+    try { localStorage.removeItem('ox_signup_started'); } catch (e) {}
+    try { sessionStorage.clear(); } catch (e) {}
+
+    try {
+        const dr = $('menuDrawer');
+        const ov = $('menuOverlay');
+        if (dr) dr.classList.remove('open');
+        if (ov) ov.classList.remove('open');
+    } catch (e) {}
+
+    const pw   = $('loginPass');
+    const eye  = $('passwordEye');
+    const uIn  = $('loginUser');
+    if (pw)  { pw.type = 'password'; pw.value = ''; }
+    if (eye) { eye.textContent = '👁'; }
+    if (uIn) { uIn.value = ''; }
+
+    landingView.classList.add('hidden');
+    appView.classList.add('hidden');
+    loadingView.classList.add('hidden');
+    loginView.classList.remove('hidden');
+    if (uIn) uIn.focus();
+
+    if (typeof refreshNetStatus === 'function') {
+        refreshNetStatus({ syncOnRecover: false });
+    }
 }
 window.doLogout = doLogout;
 
@@ -1868,6 +2066,25 @@ function renderUserChip() {
 }
 
 // ============================================================
+//  OPEN MY PROFILE
+// ============================================================
+function openMyProfile() {
+    const u = getStoredUser();
+    if (!u || !u.id) {
+        showToast('Not signed in', { error: true });
+        return;
+    }
+    const isAdmin = (u.role === 'admin') || (String(u.username || '').toLowerCase() === 'oxbee');
+    if (isAdmin) {
+        try { sessionStorage.setItem('oxEditUserId', String(u.id)); } catch (e) {}
+        switchView('edit-user');
+    } else {
+        switchView('settings');
+    }
+}
+window.openMyProfile = openMyProfile;
+
+// ============================================================
 //  CATEGORY HELPERS
 // ============================================================
 function _isScreenCategory(cat) {
@@ -1942,18 +2159,14 @@ function _rangeLabel() {
 }
 
 // ============================================================
-//  LOW STOCK CLICK — open the correct products view AND flag
-//  the product so the view can auto-open its batch stock.
+//  LOW STOCK CLICK
 // ============================================================
 function openProductFromLowStock(productName, category) {
     const cat = String(category || '');
     const isScreen = _isScreenCategory(cat);
 
     try {
-        // Pre-fill the search box in the products view
         sessionStorage.setItem('oxPendingProductSearch', productName);
-        // Signal for the products view to auto-select the product
-        // and open its batch-stock modal, with the item highlighted.
         sessionStorage.setItem('oxPendingAutoOpenBatch', JSON.stringify({
             name: productName,
             category: cat,
@@ -1966,8 +2179,6 @@ function openProductFromLowStock(productName, category) {
 }
 window.openProductFromLowStock = openProductFromLowStock;
 
-// After a products view loads, dispatch the pending auto-open event
-// so the view can react (select the product + open batch modal).
 function _dispatchPendingAutoOpenBatch(viewName) {
     if (viewName !== 'products' && viewName !== 'products-screen') return;
     setTimeout(() => {
@@ -1975,7 +2186,6 @@ function _dispatchPendingAutoOpenBatch(viewName) {
             const raw = sessionStorage.getItem('oxPendingAutoOpenBatch');
             if (!raw) return;
             const data = JSON.parse(raw);
-            // Only honour if fresh (< 30 s old)
             if (!data.at || (Date.now() - data.at) > 30000) {
                 sessionStorage.removeItem('oxPendingAutoOpenBatch');
                 return;
@@ -1987,7 +2197,7 @@ function _dispatchPendingAutoOpenBatch(viewName) {
 }
 
 // ============================================================
-//  SVG PIE CHART (offline, no dependencies)
+//  SVG PIE CHART
 // ============================================================
 function renderSvgPieChart(container, data) {
     if (!container) return;
@@ -2068,11 +2278,11 @@ function renderSvgPieChart(container, data) {
 }
 
 // ============================================================
-//  DASHBOARD CALENDAR — click a day to filter the dashboard
+//  DASHBOARD CALENDAR
 // ============================================================
 let _calYear = new Date().getFullYear();
 let _calMonth = new Date().getMonth();
-let _calHasSales = new Set();   // 'YYYY-MM-DD' strings
+let _calHasSales = new Set();
 
 function _calFormat(d) {
     return _calYear + '-' +
@@ -2190,7 +2400,6 @@ async function renderDashboard() {
             console.warn('[dashboard] sales_items unavailable — top products will be empty');
         }
 
-        // ---- Calendar: which days in the month have sales ----
         _calHasSales = new Set();
         allSales.forEach(s => {
             if (s.reversed) return;
@@ -2223,7 +2432,6 @@ async function renderDashboard() {
             return;
         }
 
-        // Apply dashboard date filter
         const dashStart = _dashStartDate
             ? new Date(`${_dashStartDate}T${_dashStartTime || '00:00'}:00`)
             : null;
@@ -2267,7 +2475,6 @@ async function renderDashboard() {
 
         $('kpiBatches').textContent = batches.length;
 
-        // ---- Low stock: BOTH accessories AND screens ----
         const productsById = Object.fromEntries(products.map(p => [p.id, p]));
         const goodByProduct = {};
         batches.forEach(b => {
@@ -2310,7 +2517,6 @@ async function renderDashboard() {
             }).join('');
         }
 
-        // ---- Top products (by qty sold in filtered range) ----
         const filteredSaleIds = new Set(filteredSales.map(s => s.id));
         const qtyByProduct = {};
         allItems.forEach(it => {
@@ -2348,25 +2554,17 @@ async function renderDashboard() {
             }).join('');
         }
 
-        // ── Pie chart — SALES distribution (matches web dashboard) ──
-        // Uses top products by qty SOLD in the selected range; top 8 + Others.
-        let pieSlices = topProducts.map(p => ({
-            label: p.name,
-            value: p.qty
-        }));
-
+        let pieSlices = topProducts.map(p => ({ label: p.name, value: p.qty }));
         if (pieSlices.length > 8) {
-            const top8 = pieSlices.slice(0, 8);
+            const top8   = pieSlices.slice(0, 8);
             const others = pieSlices.slice(8).reduce((s, x) => s + x.value, 0);
             if (others > 0) top8.push({ label: 'Others', value: others });
             pieSlices = top8;
         }
-
         const pieTotalUnits = pieSlices.reduce((s, x) => s + x.value, 0);
         $('pieTotal').textContent = pieTotalUnits;
         renderSvgPieChart($('pieChartContainer'), pieSlices);
 
-        // ---- Recent Sales ----
         const recent = [...allSales]
             .filter(s => !s.reversed)
             .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
@@ -2543,6 +2741,8 @@ function renderMenu() {
 
     items.push('<div class="menu-section-label">Reports &amp; Admin</div>');
     items.push(menuItemHtml('analytics'));
+    items.push(menuItemHtml('logs'));
+    items.push(menuItemHtml('users'));
     items.push(menuItemHtml('archive'));
     items.push(menuItemHtml('claims'));
     items.push(menuItemHtml('settings'));
@@ -2620,8 +2820,6 @@ async function switchView(name) {
         renderMenu();
         window.scrollTo({ top: 0, behavior: 'instant' });
 
-        // If we were routed here from a low-stock click, notify
-        // the products view so it can auto-open the batch modal.
         _dispatchPendingAutoOpenBatch(name);
     } catch (e) {
         console.error('View load failed:', e);
@@ -2645,7 +2843,6 @@ window.backToDashboard = backToDashboard;
     refreshNetStatus({ syncOnRecover: false });
 })();
 
-// Keyboard shortcuts
 document.getElementById('loginPass').addEventListener('keydown', e => {
     if (e.key === 'Enter') doLogin();
 });

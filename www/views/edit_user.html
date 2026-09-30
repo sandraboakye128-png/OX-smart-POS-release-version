@@ -1,0 +1,572 @@
+<!-- ============================================================ -->
+<!-- VIEW: Edit User — bundled, offline read + online write        -->
+<!-- Layout mirrors templates/admin_edit_user.html                 -->
+<!-- ============================================================ -->
+
+<!-- Header -->
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <button onclick="backToDashboard()"
+            class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
+        ← Back
+    </button>
+    <h2 class="text-xl md:text-2xl font-bold text-gray-800">✏️ Edit User</h2>
+    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">APK · Dexie</span>
+    <button id="euOpenWebBtn"
+            class="ml-auto bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
+        🌐 Open in Full App
+    </button>
+</div>
+
+<!-- Offline notice -->
+<div id="euOfflineNotice"
+     class="mb-4 bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded-lg flex items-start gap-3">
+    <span style="font-size: 1.1rem;">🔌</span>
+    <div class="text-xs leading-relaxed">
+        <strong class="block mb-0.5">You are offline</strong>
+        Profile is shown from cache. Actions that change the user
+        (<em>Change Role</em>, <em>Reset Password</em>, <em>Delete User</em>) require internet
+        and are <strong>disabled</strong> until you reconnect.
+    </div>
+</div>
+
+<!-- Self-edit banner -->
+<div id="euSelfBanner"
+     class="hidden mb-4 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-xs leading-relaxed">
+    👤 <strong>You are editing your own account.</strong>
+    You can change your password, but you cannot change your own role or delete yourself.
+</div>
+
+<!-- Main card -->
+<div class="bg-white rounded-lg shadow p-4 md:p-5 max-w-2xl">
+
+    <!-- User info -->
+    <div id="euUserInfo" class="mb-5">
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+            <span class="text-sm text-gray-600">User:</span>
+            <span id="euUserName" class="text-base font-bold text-indigo-700">—</span>
+            <span id="euUserRoleBadge"></span>
+            <span id="euOxbeeBadge"
+                  class="hidden px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-800">
+                🔒 System Protected
+            </span>
+            <span id="euSelfBadge"
+                  class="hidden px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-800">
+                👤 You
+            </span>
+        </div>
+        <p class="text-xs text-gray-500">Joined: <span id="euUserCreated">—</span></p>
+        <p class="text-xs text-gray-500">User ID: <span id="euUserId">—</span></p>
+    </div>
+
+    <!-- Change role -->
+    <div class="border-t pt-4">
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">👤 Change Role</h3>
+        <div class="flex flex-wrap gap-2 items-center">
+            <select id="euRoleSelect"
+                    class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+            </select>
+            <button id="euRoleBtn"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold">
+                Update Role
+            </button>
+            <span id="euRoleHint" class="text-xs"></span>
+        </div>
+    </div>
+
+    <!-- Reset password -->
+    <div class="border-t pt-4 mt-4">
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">🔑 Reset Password</h3>
+        <div class="flex flex-wrap gap-2 items-end">
+            <div class="flex-1 min-w-[180px]">
+                <label class="block text-xs text-gray-600 mb-1">New Password</label>
+                <input type="password" id="euNewPassword" placeholder="At least 4 characters"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800">
+            </div>
+            <button id="euPwdBtn"
+                    class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold">
+                Reset
+            </button>
+            <span id="euPwdHint" class="text-xs"></span>
+        </div>
+    </div>
+
+    <!-- Danger zone -->
+    <div class="border-t pt-4 mt-4 border-red-200">
+        <h3 class="text-sm font-semibold text-red-600 mb-2">⚠️ Danger Zone</h3>
+        <div class="flex flex-wrap gap-2 items-center">
+            <button id="euDeleteBtn"
+                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold">
+                🗑️ Delete User
+            </button>
+            <span id="euDeleteHint" class="text-xs"></span>
+        </div>
+    </div>
+
+    <div id="euMessage" class="mt-4 text-xs"></div>
+</div>
+
+<!-- ===================== CONFIRM MODAL ===================== -->
+<div id="euConfirmModal" class="eu-modal hidden">
+    <div class="eu-modal-box" style="max-width: 26rem;">
+        <div class="p-5">
+            <h3 class="text-base font-bold text-gray-800 mb-2" id="euConfirmTitle">Confirm</h3>
+            <p class="text-sm text-gray-700 mb-4" id="euConfirmMsg"></p>
+            <div class="flex gap-2 justify-end">
+                <button type="button" id="euConfirmCancel"
+                        class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm">Cancel</button>
+                <button type="button" id="euConfirmOk"
+                        class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== ERROR MODAL ===================== -->
+<div id="euErrorModal" class="eu-modal hidden">
+    <div class="eu-modal-box" style="max-width: 28rem;">
+        <div class="p-5 flex items-start gap-3">
+            <span style="font-size: 1.8rem;">❌</span>
+            <div class="flex-1">
+                <h3 class="text-base font-bold text-gray-800" id="euErrTitle">Action failed</h3>
+                <p id="euErrMsg" class="text-sm text-gray-700 mt-1"></p>
+                <div id="euErrDetails" class="text-xs text-gray-500 mt-2 border-t pt-2 hidden">
+                    <strong>Details:</strong> <span id="euErrDetailsText"></span>
+                </div>
+            </div>
+        </div>
+        <div class="px-5 pb-4 text-right">
+            <button type="button" onclick="euCloseError()"
+                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded text-sm">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== STYLES ===================== -->
+<style>
+    .eu-modal {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.55);
+        display: flex; align-items: center; justify-content: center;
+        padding: 1rem; z-index: 9000;
+    }
+    .eu-modal.hidden { display: none !important; }
+    .eu-modal-box {
+        background: #fff; border-radius: 12px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15);
+        width: 100%; max-height: calc(100vh - 2rem);
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+    .eu-btn-disabled {
+        opacity: 0.45 !important;
+        cursor: not-allowed !important;
+        pointer-events: none !important;
+    }
+</style>
+
+<!-- ===================== SCRIPT ===================== -->
+<script>
+(function() {
+'use strict';
+
+const $ = id => document.getElementById(id);
+const RENDER = (typeof RENDER_URL !== 'undefined')
+    ? RENDER_URL
+    : 'https://ox-smart-pos-release-version.onrender.com';
+
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+// ---------- State ----------
+let euUserId = null;
+let euIsSelf = false;
+let euIsOxbee = false;
+let euUser = null;
+
+// ---------- Utilities ----------
+function escapeHtml(s) {
+    if (!s && s !== 0) return '';
+    return String(s).replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[m]));
+}
+function toast(msg, isError) {
+    if (typeof window.showToast === 'function') window.showToast(msg, { error: !!isError });
+}
+function getToken() {
+    try { return localStorage.getItem('ox_api_token'); } catch (e) { return null; }
+}
+function authHeaders() {
+    const t = getToken();
+    return t ? { 'Authorization': 'Bearer ' + t } : {};
+}
+function getStoredUser() {
+    try { return JSON.parse(localStorage.getItem('ox_shell_user') || 'null'); } catch (e) { return null; }
+}
+function cacheKeyFor(id) { return 'edit_user_' + id; }
+
+// ---------- Cache ----------
+async function cacheGet(key) {
+    if (typeof db !== 'undefined' && db) {
+        try {
+            const row = await db.cache.get(key);
+            if (row && row.value) {
+                const age = Date.now() - (row.timestamp || 0);
+                if (age > CACHE_TTL_MS) { await db.cache.delete(key); return null; }
+                return row.value;
+            }
+        } catch (e) { /* fallthrough */ }
+    }
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (Date.now() - (parsed.timestamp || 0) > CACHE_TTL_MS) {
+            localStorage.removeItem(key);
+            return null;
+        }
+        return parsed.data;
+    } catch (e) { return null; }
+}
+async function cachePut(key, value) {
+    if (typeof db !== 'undefined' && db) {
+        try {
+            await db.cache.put({ key, value, timestamp: Date.now() });
+            return;
+        } catch (e) { /* fallthrough */ }
+    }
+    try { localStorage.setItem(key, JSON.stringify({ data: value, timestamp: Date.now() })); } catch (e) {}
+}
+async function cacheDel(key) {
+    if (typeof db !== 'undefined' && db) {
+        try { await db.cache.delete(key); } catch (e) {}
+    }
+    try { localStorage.removeItem(key); } catch (e) {}
+}
+
+// ---------- Confirm modal ----------
+function euConfirm(title, message) {
+    return new Promise(resolve => {
+        $('euConfirmTitle').textContent = title;
+        $('euConfirmMsg').textContent = message;
+        $('euConfirmModal').classList.remove('hidden');
+
+        const ok = $('euConfirmOk');
+        const cancel = $('euConfirmCancel');
+        const cleanup = () => {
+            $('euConfirmModal').classList.add('hidden');
+            ok.removeEventListener('click', onOk);
+            cancel.removeEventListener('click', onCancel);
+        };
+        const onOk = () => { cleanup(); resolve(true); };
+        const onCancel = () => { cleanup(); resolve(false); };
+        ok.addEventListener('click', onOk);
+        cancel.addEventListener('click', onCancel);
+    });
+}
+
+// ---------- Error modal ----------
+function euShowError(title, message, details) {
+    $('euErrTitle').textContent = title || 'Action failed';
+    $('euErrMsg').textContent = message || '';
+    if (details) {
+        $('euErrDetailsText').textContent = details;
+        $('euErrDetails').classList.remove('hidden');
+    } else {
+        $('euErrDetails').classList.add('hidden');
+    }
+    $('euErrorModal').classList.remove('hidden');
+}
+function euCloseError() { $('euErrorModal').classList.add('hidden'); }
+window.euCloseError = euCloseError;
+
+// ---------- Inline message ----------
+function euMsg(msg, color) {
+    const el = $('euMessage');
+    el.textContent = msg;
+    el.className = 'mt-4 text-xs text-' + (color || 'gray') + '-600';
+    setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 4500);
+}
+
+// ---------- Open in full app ----------
+function euOpenInWeb() {
+    if (!navigator.onLine) {
+        toast('Connect to the internet first', true);
+        return;
+    }
+    const url = RENDER + '/admin/users/' + euUserId + '/edit';
+    try {
+        window.open(url, '_system');
+        toast('🌐 Opening in full app…');
+    } catch (e) {
+        toast('Could not open browser', true);
+    }
+}
+
+// ---------- Determine isSelf / isOxbee ----------
+function euComputeContext(user) {
+    const me = getStoredUser() || {};
+    const myId = me.id || 0;
+    euIsSelf = (user && user.id === myId) || (euUserId === String(myId));
+    euIsOxbee = !!(user && (user.username || '').toLowerCase() === 'oxbee');
+}
+
+// ---------- Render ----------
+function euRender() {
+    const u = euUser || {};
+    $('euUserName').textContent = u.username || '—';
+    $('euUserId').textContent = u.id != null ? u.id : euUserId;
+    $('euUserCreated').textContent = u.created_at ? new Date(u.created_at).toLocaleString() : '—';
+
+    const badge = $('euUserRoleBadge');
+    if (u.role === 'admin') {
+        badge.textContent = 'Admin';
+        badge.className = 'px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-800';
+    } else {
+        badge.textContent = 'User';
+        badge.className = 'px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-800';
+    }
+
+    $('euOxbeeBadge').classList.toggle('hidden', !euIsOxbee);
+    $('euSelfBadge').classList.toggle('hidden', !euIsSelf);
+    $('euSelfBanner').classList.toggle('hidden', !euIsSelf);
+    $('euRoleSelect').value = u.role || 'user';
+
+    euUpdateGateState();
+}
+
+// ---------- Decide which buttons are enabled ----------
+function euUpdateGateState() {
+    const online = navigator.onLine;
+
+    // Role: allowed if not self, not oxbee, and online
+    const canRole = !euIsSelf && !euIsOxbee;
+    const roleBtn = $('euRoleBtn');
+    const roleSel = $('euRoleSelect');
+    if (canRole && online) {
+        roleBtn.disabled = false;
+        roleBtn.classList.remove('eu-btn-disabled');
+        roleSel.disabled = false;
+        $('euRoleHint').textContent = '';
+    } else {
+        roleBtn.disabled = true;
+        roleBtn.classList.add('eu-btn-disabled');
+        roleSel.disabled = true;
+        if (euIsSelf) $('euRoleHint').textContent = '👤 You cannot change your own role';
+        else if (euIsOxbee) $('euRoleHint').textContent = '🔒 System administrator protected';
+        else if (!online) $('euRoleHint').textContent = '🔌 Needs internet';
+        else $('euRoleHint').textContent = '';
+    }
+
+    // Password: allowed if not (oxbee and not self). Online required.
+    const canPwd = !(euIsOxbee && !euIsSelf);
+    const pwdBtn = $('euPwdBtn');
+    const pwdInput = $('euNewPassword');
+    if (canPwd && online) {
+        pwdBtn.disabled = false;
+        pwdBtn.classList.remove('eu-btn-disabled');
+        pwdInput.disabled = false;
+        $('euPwdHint').textContent = euIsSelf ? '✓ You can change your own password' : '';
+    } else {
+        pwdBtn.disabled = true;
+        pwdBtn.classList.add('eu-btn-disabled');
+        pwdInput.disabled = true;
+        if (euIsOxbee && !euIsSelf) $('euPwdHint').textContent = '🔒 System administrator protected';
+        else if (!online) $('euPwdHint').textContent = '🔌 Needs internet';
+        else $('euPwdHint').textContent = '';
+    }
+
+    // Delete: allowed if not self, not oxbee, online
+    const canDelete = !euIsSelf && !euIsOxbee;
+    const delBtn = $('euDeleteBtn');
+    if (canDelete && online) {
+        delBtn.disabled = false;
+        delBtn.classList.remove('eu-btn-disabled');
+        $('euDeleteHint').textContent = '';
+    } else {
+        delBtn.disabled = true;
+        delBtn.classList.add('eu-btn-disabled');
+        if (euIsSelf) $('euDeleteHint').textContent = '👤 You cannot delete your own account';
+        else if (euIsOxbee) $('euDeleteHint').textContent = '🔒 System administrator protected';
+        else if (!online) $('euDeleteHint').textContent = '🔌 Needs internet';
+        else $('euDeleteHint').textContent = '';
+    }
+
+    // Offline banner
+    $('euOfflineNotice').classList.toggle('hidden', online);
+}
+
+// ---------- Load ----------
+async function euLoad() {
+    const key = cacheKeyFor(euUserId);
+
+    // 1. Cache first
+    let user = await cacheGet(key);
+    if (user) {
+        euUser = user;
+        euComputeContext(user);
+        euRender();
+    } else {
+        $('euUserName').textContent = 'Loading…';
+    }
+
+    // 2. Server refresh if online
+    if (navigator.onLine) {
+        try {
+            const res = await fetch(RENDER + '/api/admin/users/' + encodeURIComponent(euUserId), {
+                credentials: 'include',
+                headers: authHeaders()
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.success && data.user) {
+                    euUser = data.user;
+                    await cachePut(key, euUser);
+                    euComputeContext(euUser);
+                    euRender();
+                    euUpdateGateState();
+                }
+            }
+        } catch (e) {
+            console.warn('[edit-user] server fetch failed:', e);
+            if (!euUser) {
+                euMsg('Could not load user — offline and no cache', 'red');
+            }
+        }
+    } else if (!euUser) {
+        euMsg('No cached user available. Connect to load.', 'red');
+    }
+}
+
+// ---------- Change role ----------
+async function euChangeRole() {
+    if (!navigator.onLine) { euShowError('Cannot change role', 'Connect to the internet first.'); return; }
+    if (euIsSelf) { euShowError('Cannot change role', 'You cannot change your own role.'); return; }
+    if (euIsOxbee) { euShowError('Cannot change role', 'System administrator protected.'); return; }
+
+    const newRole = $('euRoleSelect').value;
+    if (newRole === (euUser.role || '')) { euMsg('No change', 'gray'); return; }
+
+    const ok = await euConfirm('Change role', 'Change this user\'s role to "' + newRole + '"?');
+    if (!ok) return;
+
+    try {
+        const res = await fetch(RENDER + '/api/admin/users/' + encodeURIComponent(euUserId) + '/role', {
+            method: 'PUT',
+            credentials: 'include',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ role: newRole })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data && data.success) {
+            euMsg('✅ Role updated', 'green');
+            euUser.role = newRole;
+            await cachePut(cacheKeyFor(euUserId), euUser);
+            euRender();
+        } else {
+            euShowError('Failed to update role', (data && data.error) || 'Unknown error');
+        }
+    } catch (e) {
+        euShowError('Network error', e.message);
+    }
+}
+
+// ---------- Reset password ----------
+async function euResetPassword() {
+    if (!navigator.onLine) { euShowError('Cannot reset password', 'Connect to the internet first.'); return; }
+    if (euIsOxbee && !euIsSelf) { euShowError('Cannot reset password', 'System administrator protected.'); return; }
+
+    const pwd = $('euNewPassword').value;
+    if (!pwd || pwd.length < 4) { euMsg('Password must be at least 4 characters', 'red'); return; }
+
+    const ok = await euConfirm(
+        euIsSelf ? 'Change your password' : 'Reset password',
+        euIsSelf ? 'Change YOUR password to the new value?' : 'Reset this user\'s password?'
+    );
+    if (!ok) return;
+
+    try {
+        const res = await fetch(RENDER + '/api/admin/users/' + encodeURIComponent(euUserId) + '/password', {
+            method: 'PUT',
+            credentials: 'include',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ password: pwd })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data && data.success) {
+            euMsg(euIsSelf ? '✅ Your password has been changed' : '✅ Password reset', 'green');
+            $('euNewPassword').value = '';
+        } else {
+            euShowError('Failed to reset password', (data && data.error) || 'Unknown error');
+        }
+    } catch (e) {
+        euShowError('Network error', e.message);
+    }
+}
+
+// ---------- Delete ----------
+async function euDelete() {
+    if (!navigator.onLine) { euShowError('Cannot delete user', 'Connect to the internet first.'); return; }
+    if (euIsSelf) { euShowError('Cannot delete user', 'You cannot delete your own account.'); return; }
+    if (euIsOxbee) { euShowError('Cannot delete user', 'System administrator protected.'); return; }
+
+    const ok = await euConfirm('Delete user', 'Permanently delete this user and all their data? This cannot be undone.');
+    if (!ok) return;
+
+    try {
+        const res = await fetch(RENDER + '/api/admin/users/' + encodeURIComponent(euUserId), {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: authHeaders()
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data && data.success) {
+            toast('🗑 User deleted');
+            await cacheDel(cacheKeyFor(euUserId));
+            setTimeout(() => { backToDashboard(); }, 800);
+        } else {
+            euShowError('Cannot delete user', (data && data.error) || 'Unknown error');
+        }
+    } catch (e) {
+        euShowError('Network error', e.message);
+    }
+}
+
+// ---------- Init ----------
+(function euInit() {
+    // Read target user id from sessionStorage (set by shell) or URL param
+    let id = null;
+    try { id = sessionStorage.getItem('oxEditUserId'); } catch (e) {}
+    if (!id) {
+        const params = new URLSearchParams(window.location.search);
+        id = params.get('id');
+    }
+    if (!id) {
+        const me = getStoredUser();
+        id = me && me.id ? String(me.id) : null;
+    }
+    euUserId = id;
+    if (!euUserId) {
+        euMsg('No user selected', 'red');
+        return;
+    }
+
+    $('euRoleBtn').addEventListener('click', euChangeRole);
+    $('euPwdBtn').addEventListener('click', euResetPassword);
+    $('euDeleteBtn').addEventListener('click', euDelete);
+    $('euOpenWebBtn').addEventListener('click', euOpenInWeb);
+
+    $('euNewPassword').addEventListener('keydown', e => {
+        if (e.key === 'Enter') euResetPassword();
+    });
+
+    window.addEventListener('online',  euUpdateGateState);
+    window.addEventListener('offline', euUpdateGateState);
+
+    euLoad();
+})();
+
+window.__refreshEditUserView = function() { euLoad(); };
+
+})();
+</script>

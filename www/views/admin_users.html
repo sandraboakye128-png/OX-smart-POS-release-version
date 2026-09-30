@@ -1,0 +1,494 @@
+<!-- ============================================================ -->
+<!-- VIEW: Admin Users — bundled, offline-first (read-only off)    -->
+<!-- Layout mirrors templates/admin_users.html                     -->
+<!-- ============================================================ -->
+
+<!-- Header -->
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <button onclick="backToDashboard()"
+            class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
+        ← Back
+    </button>
+    <h2 class="text-xl md:text-2xl font-bold text-gray-800">👥 User Management</h2>
+    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">APK · Dexie</span>
+    <div class="ml-auto text-xs">
+        <span class="bg-green-100 text-green-800 px-2 py-1 rounded">👤 <span id="auMeLabel">—</span></span>
+    </div>
+</div>
+
+<!-- Offline warning -->
+<div id="auOfflineNotice"
+     class="mb-4 bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded-lg flex items-start gap-3">
+    <span style="font-size: 1.1rem;">🔌</span>
+    <div class="text-xs leading-relaxed">
+        <strong class="block mb-0.5">You are offline</strong>
+        User list is shown from cache. Actions that change users
+        (<em>Create</em>, <em>Promote/Demote</em>, <em>Delete</em>) require an internet
+        connection — they will be <strong>disabled</strong> until you reconnect.
+    </div>
+</div>
+
+<!-- Create user form -->
+<div id="auCreateCard" class="bg-white rounded-lg shadow p-4 mb-6 border border-gray-100">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-semibold text-gray-800">➕ Create New User</h3>
+        <span id="auCreateHint"
+              class="text-[11px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded hidden">
+            Needs internet
+        </span>
+    </div>
+    <form id="auCreateForm" class="flex flex-wrap gap-3 items-end">
+        <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Username</label>
+            <input type="text" id="auNewUsername" autocomplete="off"
+                   class="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-800 w-44">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Password</label>
+            <input type="password" id="auNewPassword" autocomplete="new-password"
+                   class="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-800 w-44">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Role</label>
+            <select id="auNewRole"
+                    class="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-800">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+        <button type="submit" id="auCreateBtn"
+                class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-md text-sm font-semibold">
+            Create User
+        </button>
+    </form>
+    <div id="auCreateMessage" class="mt-2 text-xs"></div>
+</div>
+
+<!-- Users table -->
+<div class="bg-white rounded-lg shadow overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200" style="min-width: 620px;">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-4 py-2 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">ID</th>
+                <th class="px-4 py-2 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Username</th>
+                <th class="px-4 py-2 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Role</th>
+                <th class="px-4 py-2 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Created</th>
+                <th class="px-4 py-2 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="auTableBody" class="bg-white divide-y divide-gray-200">
+            <tr><td colspan="5" class="text-center py-6 text-gray-400 text-sm">Loading users…</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ===================== ERROR MODAL ===================== -->
+<div id="auErrorModal" class="au-modal hidden">
+    <div class="au-modal-box" style="max-width: 28rem;">
+        <div class="p-5 flex items-start gap-3">
+            <span style="font-size: 1.8rem;">❌</span>
+            <div class="flex-1">
+                <h3 class="text-base font-bold text-gray-800" id="auErrTitle">Cannot complete action</h3>
+                <p id="auErrMsg" class="text-sm text-gray-700 mt-1"></p>
+                <div id="auErrDetails" class="text-xs text-gray-500 mt-2 border-t pt-2 hidden">
+                    <strong>Details:</strong> <span id="auErrDetailsText"></span>
+                </div>
+            </div>
+        </div>
+        <div class="px-5 pb-4 text-right">
+            <button type="button" onclick="auCloseError()"
+                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded text-sm">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== STYLES ===================== -->
+<style>
+    .au-modal {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.55);
+        display: flex; align-items: center; justify-content: center;
+        padding: 1rem; z-index: 9000;
+    }
+    .au-modal.hidden { display: none !important; }
+    .au-modal-box {
+        background: #fff; border-radius: 12px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15);
+        width: 100%; max-height: calc(100vh - 2rem);
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+    .au-btn-disabled {
+        opacity: 0.45 !important;
+        cursor: not-allowed !important;
+        pointer-events: none !important;
+    }
+    .au-offline-badge {
+        display: inline-flex; align-items: center;
+        background: #fef3c7; color: #92400e;
+        font-size: 0.6rem; font-weight: 700;
+        padding: 1px 6px; border-radius: 4px;
+        margin-left: 6px; letter-spacing: 0.3px;
+    }
+</style>
+
+<!-- ===================== SCRIPT ===================== -->
+<script>
+(function() {
+'use strict';
+
+const $ = id => document.getElementById(id);
+const RENDER = (typeof RENDER_URL !== 'undefined')
+    ? RENDER_URL
+    : 'https://ox-smart-pos-release-version.onrender.com';
+
+const CACHE_KEY = 'admin_users';
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+// ---------- State ----------
+let auUsers = [];
+let auCurrentUser = { id: 0, username: '' };
+let auLoading = false;
+
+// ---------- Utilities ----------
+function escapeHtml(s) {
+    if (!s && s !== 0) return '';
+    return String(s).replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[m]));
+}
+function toast(msg, isError) {
+    if (typeof window.showToast === 'function') {
+        window.showToast(msg, { error: !!isError });
+    } else {
+        console.log('[admin-users]', msg);
+    }
+}
+function getToken() {
+    try { return localStorage.getItem('ox_api_token'); } catch (e) { return null; }
+}
+function authHeaders() {
+    const t = getToken();
+    const h = {};
+    if (t) h['Authorization'] = 'Bearer ' + t;
+    return h;
+}
+function getStoredUser() {
+    try { return JSON.parse(localStorage.getItem('ox_shell_user') || 'null'); }
+    catch (e) { return null; }
+}
+
+// ---------- Cache (Dexie first, localStorage fallback) ----------
+async function cacheGet() {
+    if (typeof db !== 'undefined' && db) {
+        try {
+            const row = await db.cache.get(CACHE_KEY);
+            if (row && row.value) {
+                const age = Date.now() - (row.timestamp || 0);
+                if (age > CACHE_TTL_MS) { await db.cache.delete(CACHE_KEY); return null; }
+                return row.value;
+            }
+        } catch (e) { /* fallthrough */ }
+    }
+    try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (Date.now() - (parsed.timestamp || 0) > CACHE_TTL_MS) {
+            localStorage.removeItem(CACHE_KEY); return null;
+        }
+        return parsed.data;
+    } catch (e) { return null; }
+}
+async function cachePut(users) {
+    if (typeof db !== 'undefined' && db) {
+        try {
+            await db.cache.put({ key: CACHE_KEY, value: users, timestamp: Date.now() });
+            return;
+        } catch (e) { /* fallthrough */ }
+    }
+    try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ data: users, timestamp: Date.now() }));
+    } catch (e) {}
+}
+
+// ---------- Error modal ----------
+function auShowError(title, message, details) {
+    $('auErrTitle').textContent = title || 'Cannot complete action';
+    $('auErrMsg').textContent = message || '';
+    const det = $('auErrDetails');
+    const dtxt = $('auErrDetailsText');
+    if (details) { dtxt.textContent = details; det.classList.remove('hidden'); }
+    else { det.classList.add('hidden'); }
+    $('auErrorModal').classList.remove('hidden');
+}
+function auCloseError() { $('auErrorModal').classList.add('hidden'); }
+window.auCloseError = auCloseError;
+
+// ---------- Offline state (applies to create/role/delete) ----------
+function auUpdateOnlineState() {
+    const online = navigator.onLine;
+    const notice = $('auOfflineNotice');
+    const createHint = $('auCreateHint');
+    const createBtn = $('auCreateBtn');
+
+    if (online) {
+        notice.classList.add('hidden');
+        createHint.classList.add('hidden');
+        createBtn.classList.remove('au-btn-disabled');
+        createBtn.disabled = false;
+    } else {
+        notice.classList.remove('hidden');
+        createHint.classList.remove('hidden');
+        createBtn.classList.add('au-btn-disabled');
+        createBtn.disabled = true;
+    }
+}
+
+// ---------- Status badge ----------
+function auStatusBadge(role, isProtected) {
+    if (isProtected) {
+        return '<span class="px-2 py-0.5 inline-flex text-[11px] leading-5 font-semibold rounded-full bg-red-100 text-red-800">🔒 Protected</span>';
+    }
+    if (role === 'admin') {
+        return '<span class="px-2 py-0.5 inline-flex text-[11px] leading-5 font-semibold rounded-full bg-red-100 text-red-800">Admin</span>';
+    }
+    return '<span class="px-2 py-0.5 inline-flex text-[11px] leading-5 font-semibold rounded-full bg-green-100 text-green-800">User</span>';
+}
+
+// ---------- Render ----------
+function auRender(users) {
+    const tbody = $('auTableBody');
+    if (!users || !users.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-400 text-sm">No users found.</td></tr>';
+        return;
+    }
+    const offline = !navigator.onLine;
+    const offlineBadge = offline
+        ? '<span class="au-offline-badge">🔌 Needs internet</span>'
+        : '';
+
+    tbody.innerHTML = users.map(u => {
+        const isCurrent = u.id === auCurrentUser.id;
+        const isProtected = (u.username || '').toLowerCase() === 'oxbee';
+        const badge = auStatusBadge(u.role, isProtected);
+
+        // Only editable when: NOT current user, NOT protected, AND online
+        const canAct = !isCurrent && !isProtected;
+
+        let actions = '';
+        if (canAct) {
+            const toggleRole = (u.role === 'admin') ? 'user' : 'admin';
+            const toggleLabel = (u.role === 'admin') ? 'Demote' : 'Promote';
+            actions = `
+                <button class="au-role-btn text-indigo-600 hover:text-indigo-900 text-xs font-semibold ${offline ? 'au-btn-disabled' : ''}"
+                        data-id="${u.id}" data-role="${toggleRole}" ${offline ? 'disabled title="Offline — connect to change roles"' : ''}>
+                    ${toggleLabel}${offlineBadge}
+                </button>
+                <button class="au-del-btn text-red-600 hover:text-red-900 text-xs font-semibold ml-2 ${offline ? 'au-btn-disabled' : ''}"
+                        data-id="${u.id}" ${offline ? 'disabled title="Offline — connect to delete users"' : ''}>
+                    Delete${offlineBadge}
+                </button>`;
+        } else if (isProtected) {
+            actions = '<span class="text-gray-400 text-[11px]">🔒 System Protected</span>';
+        } else if (isCurrent) {
+            actions = '<span class="text-gray-400 text-[11px]">(You)</span>';
+        }
+
+        return `
+            <tr>
+                <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-900">${u.id}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    ${escapeHtml(u.username || '')}
+                    ${isCurrent ? ' <span class="text-[10px] text-gray-400">(You)</span>' : ''}
+                    ${isProtected ? ' <span class="text-[10px] text-red-500 font-bold">🔒</span>' : ''}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm">${badge}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
+                    ${u.created_at ? new Date(u.created_at).toLocaleString() : '—'}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm">${actions}</td>
+            </tr>`;
+    }).join('');
+
+    // Wire role buttons
+    tbody.querySelectorAll('.au-role-btn').forEach(btn => {
+        btn.addEventListener('click', () => auChangeRole(
+            btn.getAttribute('data-id'),
+            btn.getAttribute('data-role')
+        ));
+    });
+
+    // Wire delete buttons
+    tbody.querySelectorAll('.au-del-btn').forEach(btn => {
+        btn.addEventListener('click', () => auDeleteUser(btn.getAttribute('data-id')));
+    });
+}
+
+// ---------- Load ----------
+async function auLoad(force) {
+    if (auLoading) return;
+    auLoading = true;
+
+    // 1. Cache first — instant
+    const cached = await cacheGet();
+    if (Array.isArray(cached) && cached.length) {
+        auUsers = cached;
+        auRender(auUsers);
+    } else {
+        $('auTableBody').innerHTML = '<tr><td colspan="5" class="text-center py-6 text-gray-400 text-sm">Loading users…</td></tr>';
+    }
+
+    // 2. Server refresh if online
+    if (navigator.onLine && (force || !cached)) {
+        try {
+            const res = await fetch(RENDER + '/api/admin/users', {
+                credentials: 'include',
+                headers: authHeaders()
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    auUsers = data;
+                    await cachePut(auUsers);
+                    auRender(auUsers);
+                }
+            }
+        } catch (e) {
+            console.warn('[admin-users] server fetch failed:', e);
+            if (!cached) {
+                $('auTableBody').innerHTML =
+                    '<tr><td colspan="5" class="text-center py-6 text-red-500 text-sm">' +
+                    'Could not load users: ' + escapeHtml(e.message) + '</td></tr>';
+            }
+        }
+    } else if (!navigator.onLine && !cached) {
+        $('auTableBody').innerHTML =
+            '<tr><td colspan="5" class="text-center py-6 text-gray-400 text-sm">No cached users — connect to the internet to load.</td></tr>';
+    }
+    auLoading = false;
+}
+
+// ---------- Change role ----------
+async function auChangeRole(userId, newRole) {
+    if (!navigator.onLine) {
+        auShowError('Cannot change role',
+            'You are offline. Connecting to the internet is required to change user roles.');
+        return;
+    }
+    if (!confirm('Change role to "' + newRole + '"?')) return;
+    try {
+        const res = await fetch(RENDER + '/api/admin/users/' + encodeURIComponent(userId) + '/role', {
+            method: 'PUT',
+            credentials: 'include',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ role: newRole })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data && data.success) {
+            toast('✅ Role updated');
+            auLoad(true);
+        } else {
+            auShowError('Failed to update role', (data && data.error) || 'Unknown error');
+        }
+    } catch (e) {
+        auShowError('Network error', e.message);
+    }
+}
+
+// ---------- Delete user ----------
+async function auDeleteUser(userId) {
+    if (!navigator.onLine) {
+        auShowError('Cannot delete user',
+            'You are offline. Connecting to the internet is required to delete users.');
+        return;
+    }
+    if (!confirm('Delete this user? This cannot be undone.')) return;
+    if (!confirm('Are you sure? This action is permanent.')) return;
+    try {
+        const res = await fetch(RENDER + '/api/admin/users/' + encodeURIComponent(userId), {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: authHeaders()
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data && data.success) {
+            toast('🗑 User deleted');
+            auLoad(true);
+        } else {
+            auShowError('Cannot delete user', (data && data.error) || 'Unknown error');
+        }
+    } catch (e) {
+        auShowError('Network error', e.message);
+    }
+}
+
+// ---------- Create user ----------
+async function auCreateUser(e) {
+    e.preventDefault();
+    if (!navigator.onLine) {
+        auShowError('Cannot create user',
+            'You are offline. Connecting to the internet is required to create users.');
+        return;
+    }
+    const username = $('auNewUsername').value.trim();
+    const password = $('auNewPassword').value.trim();
+    const role = $('auNewRole').value;
+    const msg = $('auCreateMessage');
+
+    if (!username || !password) {
+        msg.className = 'mt-2 text-xs text-red-600';
+        msg.textContent = 'Username and password are required.';
+        return;
+    }
+
+    try {
+        const res = await fetch(RENDER + '/api/admin/users', {
+            method: 'POST',
+            credentials: 'include',
+            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+            body: JSON.stringify({ username, password, role })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data && data.success) {
+            msg.className = 'mt-2 text-xs text-green-600';
+            msg.textContent = '✅ User created';
+            $('auNewUsername').value = '';
+            $('auNewPassword').value = '';
+            auLoad(true);
+            setTimeout(() => { msg.textContent = ''; }, 3000);
+        } else {
+            msg.className = 'mt-2 text-xs text-red-600';
+            msg.textContent = 'Error: ' + ((data && data.error) || 'Unknown error');
+        }
+    } catch (e) {
+        msg.className = 'mt-2 text-xs text-red-600';
+        msg.textContent = 'Network error: ' + e.message;
+    }
+}
+
+// ---------- Init ----------
+(function auInit() {
+    const u = getStoredUser();
+    if (u) {
+        auCurrentUser.id = u.id || 0;
+        auCurrentUser.username = u.username || '';
+        $('auMeLabel').textContent = u.username + ' (' + (u.role || 'user') + ')';
+    } else {
+        $('auMeLabel').textContent = '—';
+    }
+
+    auUpdateOnlineState();
+    $('auCreateForm').addEventListener('submit', auCreateUser);
+
+    window.addEventListener('online',  () => { auUpdateOnlineState(); auRender(auUsers); auLoad(true); });
+    window.addEventListener('offline', () => { auUpdateOnlineState(); auRender(auUsers); });
+
+    auLoad(false);
+})();
+
+window.__refreshAdminUsersView = function() {
+    if (navigator.onLine) auLoad(true);
+};
+
+})();
+</script>
