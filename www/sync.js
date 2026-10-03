@@ -121,6 +121,8 @@ async function savePendingOperation(table, operation, record_id, payload) {
     try {
         await db.pending_ops.add({
             table, operation, record_id, payload,
+            user_id: _currentUserId(),
+            scope: (table === 'settings' ? 'user' : 'global'),
             timestamp: new Date().toISOString(), attempts: 0, synced: 0
         });
         console.log(`💾 Pending op saved: ${table} ${operation} (${record_id})`);
@@ -133,8 +135,10 @@ async function pushPending() {
         console.warn('⚠️ pushPending skipped – offline');
         return;
     }
+    const me = _currentUserId();
     const pending = (await db.pending_ops.where('synced').equals(0).toArray())
-        .filter(op => (op.attempts || 0) < MAX_ATTEMPTS);
+        .filter(op => (op.attempts || 0) < MAX_ATTEMPTS)
+        .filter(op => !op.user_id || op.user_id === me);
 
     if (pending.length === 0) {
         console.log('📭 No pending operations to push.');
@@ -181,12 +185,18 @@ async function pushPending() {
                     else throw new Error(`Unsupported claims op: ${op.operation}`);
                     break;
                 case 'products':
-                    if (op.operation === 'delete') { url = `/api/products/${op.record_id}?type=keep`; method = 'DELETE'; }
-                    else throw new Error(`Unsupported products op: ${op.operation}`);
+                    if (op.operation === 'delete') {
+                        const dtype = (op.payload && op.payload.deleteType) || 'keep';
+                        url = `/api/products/${op.record_id}?type=${encodeURIComponent(dtype)}`;
+                        method = 'DELETE';
+                    } else throw new Error(`Unsupported products op: ${op.operation}`);
                     break;
                 case 'batches_delete':
-                    if (op.operation === 'delete') { url = `/api/batches/${op.record_id}?type=keep`; method = 'DELETE'; }
-                    else throw new Error(`Unsupported batch-delete op: ${op.operation}`);
+                    if (op.operation === 'delete') {
+                        const dtype = (op.payload && op.payload.deleteType) || 'keep';
+                        url = `/api/batches/${op.record_id}?type=${encodeURIComponent(dtype)}`;
+                        method = 'DELETE';
+                    } else throw new Error(`Unsupported batch-delete op: ${op.operation}`);
                     break;
                 default: throw new Error(`Unknown table: ${op.table}`);
             }
@@ -209,6 +219,51 @@ async function pushPending() {
                 serverId = result.batch_id || result.new_batch_id;
             } else if (op.table === 'claims' && result.claim_id) serverId = result.claim_id;
             else if (op.table === 'sales' && result.sale_id) serverId = result.sale_id;
+
+            // ============================================================
+            //  Swap temp ids for real server ids
+            //
+            //  Offline batch creates use 'temp_<ts>' ids locally, and the
+            //  parent product gets 'prod_<ts>'. Once the server responds
+            //  with real numeric ids, we must rewrite the local records —
+            //  otherwise the temp records linger forever and:
+            //    - Products view can't open their batches (string id breaks
+            //      the onclick attribute),
+            //    - Purchases view tries to PUT /api/purchases/temp_... and
+            //      gets a 404.
+            // ============================================================
+            if (op.table === 'batches' && wasCreate && serverId) {
+                const tempBatchId = op.record_id;
+                try {
+                    const tempBatch = await db.batches.get(tempBatchId);
+                    if (tempBatch) {
+                        const realProductId = result.product_id || tempBatch.product_id;
+                        const updatedBatch = Object.assign({}, tempBatch, {
+                            id: serverId,
+                            product_id: realProductId,
+                            last_sync: new Date().toISOString()
+                        });
+                        await db.batches.delete(tempBatchId);
+                        await db.batches.put(updatedBatch);
+
+                        // Swap the temp product for the real one too
+                        if (tempBatch.product_id !== realProductId) {
+                            const tempProduct = await db.products.get(tempBatch.product_id);
+                            if (tempProduct) {
+                                const updatedProduct = Object.assign({}, tempProduct, {
+                                    id: realProductId,
+                                    last_sync: new Date().toISOString()
+                                });
+                                await db.products.delete(tempBatch.product_id);
+                                await db.products.put(updatedProduct);
+                            }
+                        }
+                        console.log(`🔁 Swapped: batch ${tempBatchId} → ${serverId}, product ${tempBatch.product_id} → ${realProductId}`);
+                    }
+                } catch (swapErr) {
+                    console.warn('[sync] temp-id swap failed (non-fatal):', swapErr);
+                }
+            }
 
             await db.pending_ops.delete(op.id);
             successCount++;

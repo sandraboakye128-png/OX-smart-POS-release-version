@@ -1531,7 +1531,21 @@ def api_add_purchase():
             selling_price=float(data['selling_price']),
             source=data.get('source', 'Unknown')
         )
-        return jsonify({'success': True, 'batch_id': batch_id})
+
+        # Return product_id for temp-id swap (offline sync client)
+        product_id = None
+        try:
+            _c = get_connection()
+            _cur = _c.cursor()
+            _cur.execute("SELECT product_id FROM purchase_batches WHERE id = %s", (batch_id,))
+            _row = _cur.fetchone()
+            if _row:
+                product_id = _row[0]
+            _c.close()
+        except Exception as _e:
+            print(f"⚠️ Could not resolve product_id for batch {batch_id}: {_e}")
+
+        return jsonify({'success': True, 'batch_id': batch_id, 'product_id': product_id})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 @app.route('/api/purchases/suggestions/source', methods=['GET']) 

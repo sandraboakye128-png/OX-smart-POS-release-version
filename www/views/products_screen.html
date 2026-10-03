@@ -665,11 +665,11 @@ function renderProducts(products, batchKeyword) {
                     </div>
                 </div>
                 <div class="mt-3 flex flex-wrap justify-end gap-2">
-                    <button onclick="viewBatchesWithData(${productId})"
+                    <button onclick="viewBatchesWithData('${String(productId).replace(/'/g, "\\'")}')"
                             class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
                         View Batches
                     </button>
-                    <button onclick="confirmDeleteProduct(${productId})"
+                    <button onclick="confirmDeleteProduct('${String(productId).replace(/'/g, "\\'")}')"
                             class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
                         Delete Product
                     </button>
@@ -683,7 +683,8 @@ function renderProducts(products, batchKeyword) {
 //  VIEW BATCHES MODAL
 // ============================================================
 function viewBatchesWithData(productId) {
-    const p = currentProducts.find(x => x.product_id === parseInt(productId));
+    const sid = String(productId);
+    const p = currentProducts.find(x => String(x.product_id) === sid);
     if (!p) { alert('Product data not found.'); return; }
     currentBatches = p.batches || [];
     currentBatchModalProductName = p.name;
@@ -828,8 +829,9 @@ window.deleteSelectedBatches = deleteSelectedBatches;
 
 // ---------- Delete product ----------
 function confirmDeleteProduct(productId) {
-    const p = currentProducts.find(x => x.product_id === parseInt(productId));
-    currentProductIdForDelete = parseInt(productId);
+    const sid = String(productId);
+    const p = currentProducts.find(x => String(x.product_id) === sid);
+    currentProductIdForDelete = sid;
     $('deleteProductName').innerHTML = 'Screen Product: ' + escapeHtml(p ? p.name : 'Unknown');
     $('deleteProductModal').classList.remove('hidden');
 }

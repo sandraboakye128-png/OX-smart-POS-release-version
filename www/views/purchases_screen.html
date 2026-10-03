@@ -1210,8 +1210,8 @@ function renderList(purchases) {
                         ${isUpdated ? `<p class="text-xs text-gray-400">🔄 Last updated: ${formatDate(p.date)}</p>` : ''}
                     </div>
                     <div class="flex flex-wrap gap-1">
-                        <button onclick="viewPurchaseHistory(${p.batch_id})" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">📋 View History</button>
-                        <button onclick="editPurchase(${p.batch_id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm">✏️ Update</button>
+                        <button onclick="viewPurchaseHistory('${String(p.batch_id).replace(/'/g, "\\'")}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">📋 View History</button>
+                        <button onclick="editPurchase('${String(p.batch_id).replace(/'/g, "\\'")}')" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm">✏️ Update</button>
                     </div>
                 </div>
             </div>
@@ -1488,7 +1488,8 @@ async function doSubmitPurchase(payload, actionType, batchId) {
 }
 
 function editPurchase(batchId) {
-    const purchase = currentPurchases.find(p => p.batch_id === batchId);
+    const sid = String(batchId);
+    const purchase = currentPurchases.find(p => String(p.batch_id) === sid);
     if (!purchase) {
         alert(`❌ Batch #${batchId} not found.`);
         return;
