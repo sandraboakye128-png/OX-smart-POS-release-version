@@ -37,3 +37,12 @@ pull_users_from_cloud.py
 # Local APK shell backups (do not commit)
 www/index.html.bak*
 www/index.html.bak2-*
+
+# Release keystore - never commit
+keystore/
+*.jks
+*.keystore
+
+# Local one-off migration scripts
+patch_*.py
+version_*.sh
