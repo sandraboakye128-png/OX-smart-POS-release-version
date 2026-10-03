@@ -524,10 +524,11 @@ function renderSaleProductList(prods) {
 
         const batchCount = p.batches.length;
         const stockColor = goodStock > 0 ? 'text-green-600' : 'text-red-600';
+        const sellable = goodStock > 0;  // CLAIMED_UNITS_GUARD
 
         btn.innerHTML = `
             <div class="flex justify-between items-center gap-2">
-                <span class="font-medium text-gray-800 text-sm">${escapeHtml(p.name)} <span class="text-gray-500">(${escapeHtml(p.brand)})</span></span>
+                <span class="font-medium text-gray-800 text-sm">${escapeHtml(p.name)} <span class="text-gray-500">(${escapeHtml(p.brand)})</span>${!sellable ? ' <span class="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">NOT SELLABLE</span>' : ''}</span>
                 <span class="text-xs font-bold ${stockColor}">${goodStock}/${totalStock}</span>
             </div>
             <div class="text-[11px] text-gray-400 mt-0.5">
@@ -536,6 +537,7 @@ function renderSaleProductList(prods) {
             </div>
         `;
         if (hasFaulty) btn.style.borderLeft = '3px solid #ef4444';
+        if (!sellable) btn.style.opacity = '0.55';
         btn.onclick = () => selectSaleProduct(p);
         container.appendChild(btn);
     });
@@ -559,6 +561,9 @@ function selectSaleProduct(product) {
     if (hasFaulty) {
         html += `<br><span class="text-xs text-red-500">⚠️ ${faultyCount} units claimed as faulty</span>`;
     }
+    currentProduct.goodStock = goodStock;          // CLAIMED_UNITS_GUARD
+    currentProduct.totalStock = totalStock;
+
     document.getElementById('selectedProductInfo').innerHTML = html;
     document.getElementById('saleQuantity').value = '';
     document.getElementById('saleDiscount').value = '';
@@ -592,11 +597,16 @@ async function openBatchSelector(product, qty) {
         } catch (e) { /* ignore */ }
     }
 
-    // Only batches with remaining > 0
-    batches = batches.filter(b => (b.remaining_quantity || 0) > 0);
+    // CLAIMED_UNITS_GUARD — only batches with GOOD stock (remaining - claimed) > 0
+    // Batches where every remaining unit is claimed must NOT be sellable.
+    batches = batches.filter(b => {
+        const remaining = b.remaining_quantity || 0;
+        const claimed = b.claimed_quantity || 0;
+        return Math.max(remaining - claimed, 0) > 0;
+    });
 
     if (batches.length === 0) {
-        toast('❌ No stock available for ' + product.name, true);
+        toast('❌ No good stock available for ' + product.name + ' (all remaining units are claimed)', true);
         return false;
     }
 
@@ -927,8 +937,15 @@ document.getElementById('saleAddToCartBtn').addEventListener('click', async () =
     if (!currentProduct) { toast('Select a product first', true); return; }
     const qty = parseInt(document.getElementById('saleQuantity').value);
     if (!qty || qty <= 0) { toast('Enter a valid quantity', true); return; }
-    if (qty > (currentProduct.stock || 0)) {
-        toast(`Only ${currentProduct.stock} units in stock`, true);
+
+    // CLAIMED_UNITS_GUARD — claimed units cannot be sold
+    const good = (typeof currentProduct.goodStock === 'number') ? currentProduct.goodStock : 0;
+    if (good <= 0) {
+        toast('❌ This product has no good stock to sell (all remaining units are claimed)', true);
+        return;
+    }
+    if (qty > good) {
+        toast(`Only ${good} good unit(s) available (claimed units cannot be sold)`, true);
         return;
     }
     await openBatchSelector(currentProduct, qty);

@@ -56,6 +56,20 @@ db.version(3).stores({
 // Expose globally. base.html, dashboard.html, and all existing code
 // continue to use `db` exactly as before.
 // ------------------------------------------------------------------
+
+// ------------------------------------------------------------------
+// v4 — user scoping for pending ops.
+//   pending_ops gains:
+//     user_id  → who queued the op (so other users don't see it as their own)
+//     scope    → 'user' (settings, personal) | 'global' (products, batches, sales)
+//
+//   Existing rows have no user_id — sync.js treats a missing user_id
+//   as "belongs to anyone" so nothing is lost on upgrade.
+// ------------------------------------------------------------------
+db.version(4).stores({
+    pending_ops: '++id, operation, table, record_id, user_id, scope, timestamp, attempts, synced'
+});
+
 window.db = db;
 
 // Best-effort persistence request — Android WebView will otherwise

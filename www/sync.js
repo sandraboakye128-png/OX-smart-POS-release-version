@@ -129,6 +129,35 @@ async function pullData() {
                         last_sync: new Date().toISOString()
                     });
                 }
+
+                // ══════════════════════════════════════════════════════
+                //  Apply server-side deletions to local batches.
+                //  The server keeps deleted batches in `purchase_batches`
+                //  for history but records them in `deleted_products` with
+                //  action='BATCH DELETED'. Without this cleanup, the APK
+                //  products view keeps showing batches the user deleted.
+                // ══════════════════════════════════════════════════════
+                const deletedBatchIds = new Set(
+                    deleted_products
+                        .filter(d => {
+                            const a = String(d.action || '').toUpperCase();
+                            return a.includes('BATCH DELETED') && d.batch_id != null;
+                        })
+                        .map(d => String(d.batch_id))
+                );
+                if (deletedBatchIds.size > 0) {
+                    const localBatches = await db.batches.toArray();
+                    let purged = 0;
+                    for (const lb of localBatches) {
+                        if (deletedBatchIds.has(String(lb.id))) {
+                            await db.batches.delete(lb.id);
+                            purged++;
+                        }
+                    }
+                    if (purged > 0) {
+                        console.log(`🗑️ Removed ${purged} server-deleted batch(es) from local cache`);
+                    }
+                }
             }
         );
 

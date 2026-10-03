@@ -787,9 +787,20 @@ async function viewPurchaseHistory(batchId) {
         }
     }
 
-    // Dexie fallback
+    // Dexie fallback — try both string and number keys
+    // (Dexie treats 1559 and '1559' as different keys).
     try {
-        const batch = await db.batches.get(batchId);
+        let batch = null;
+        try { batch = await db.batches.get(batchId); } catch (e) {}
+        if (!batch) {
+            const s = String(batchId);
+            if (/^\d+$/.test(s)) {
+                try { batch = await db.batches.get(parseInt(s, 10)); } catch (e) {}
+            }
+            if (!batch) {
+                try { batch = await db.batches.get(s); } catch (e) {}
+            }
+        }
         if (!batch) { alert('Batch #' + batchId + ' not found in local cache.'); return; }
         const product = await db.products.get(batch.product_id);
         const items = await db.sales_items.where('batch_id').equals(batchId).toArray().catch(() => []);

@@ -184,7 +184,16 @@
 
 const $ = id => document.getElementById(id);
 const RENDER = 'https://ox-smart-pos-release-version.onrender.com';
-const STORAGE_KEY = 'ox_app_settings';
+function _settingsKey() {
+    try {
+        const u = JSON.parse(localStorage.getItem('ox_shell_user') || 'null');
+        const id = (u && (u.id != null)) ? String(u.id)
+                 : (u && u.username) ? String(u.username)
+                 : 'anon';
+        return 'ox_app_settings_' + id;
+    } catch (e) { return 'ox_app_settings_anon'; }
+}
+const STORAGE_KEY = _settingsKey();
 
 // ---------- Defaults ----------
 const DEFAULTS = {

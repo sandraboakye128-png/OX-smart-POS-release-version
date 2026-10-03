@@ -540,6 +540,24 @@ def archive():
 def admin_users():
     return render_template("admin_users.html")
 
+# ============================================================
+#  OFFLINE SHELL  —  serves the bundled APK shell (www/)
+#  Public on purpose: the offline shell must load without a session.
+#  /offline/  → www/index.html
+#  /offline/* → any asset (dexie.min.js, db.js, sync.js, views/…)
+# ============================================================
+@app.route('/offline')
+def offline_root():
+    return redirect('/offline/')
+
+@app.route('/offline/')
+def offline_shell():
+    return send_from_directory('www', 'index.html')
+
+@app.route('/offline/<path:filename>')
+def offline_asset(filename):
+    return send_from_directory('www', filename)
+
 # ===================== CLAIMS ROUTES =====================
 @app.route('/claims')
 @login_required
@@ -1969,7 +1987,54 @@ def api_sales_complete():
     cheque_number = data.get('cheque_number')
     
     user_id = session.get('user_id')
-    
+
+    # ============================================================
+    #  CLAIMED_STOCK_GUARD
+    #  Verify every selected batch has enough GOOD stock
+    #  (remaining - claimed) before we touch the DB.
+    #  Without this, a client can sell a claimed/faulty unit and
+    #  corrupt every downstream number on that batch.
+    # ============================================================
+    try:
+        _guard_conn = get_connection()
+        _guard_cur = _guard_conn.cursor()
+        for sb in selected_batches:
+            bid = sb.get('batch_id')
+            qty = int(sb.get('qty', 0) or 0)
+            if not bid or qty <= 0:
+                continue
+            _guard_cur.execute(
+                "SELECT remaining_quantity, claimed_quantity FROM purchase_batches WHERE id = %s",
+                (bid,)
+            )
+            _grow = _guard_cur.fetchone()
+            if not _grow:
+                _guard_conn.close()
+                return jsonify({
+                    'success': False,
+                    'error': f'Batch #{bid} not found'
+                }), 400
+            _remaining, _claimed = int(_grow[0] or 0), int(_grow[1] or 0)
+            _good = max(_remaining - _claimed, 0)
+            if qty > _good:
+                _guard_conn.close()
+                return jsonify({
+                    'success': False,
+                    'error': (
+                        f'Batch #{bid} only has {_good} good unit(s) available '
+                        f'(remaining {_remaining}, claimed {_claimed}). '
+                        f'Cannot sell {qty}.'
+                    )
+                }), 400
+        _guard_conn.close()
+    except Exception as _guard_err:
+        try: _guard_conn.close()
+        except: pass
+        return jsonify({
+            'success': False,
+            'error': f'Stock check failed: {_guard_err}'
+        }), 500
+
     try:
         result = create_multi_sale(
             cart_items, 

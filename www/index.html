@@ -1789,19 +1789,44 @@ function setNetBadge(isOnline) {
     }
 }
 
-async function probeNetwork() {
+// ============================================================
+//  Cached, timeout-bounded network probe.
+//  Prevents login/signup hanging on a slow probe, and dedupes
+//  the many call sites.
+// ============================================================
+let _lastProbeResult = null;
+let _lastProbeAt = 0;
+const PROBE_CACHE_MS = 4000;
+const PROBE_TIMEOUT_MS = 2500;
+
+async function probeNetwork(force) {
+    const now = Date.now();
+    if (!force && _lastProbeResult !== null && (now - _lastProbeAt) < PROBE_CACHE_MS) {
+        return _lastProbeResult;
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT_MS);
+    let result = false;
     try {
         await fetch(RENDER_URL + '/sw.js?_=' + Date.now(), {
-            method: 'HEAD', mode: 'no-cors', cache: 'no-store', credentials: 'omit'
+            method: 'HEAD', mode: 'no-cors', cache: 'no-store', credentials: 'omit',
+            signal: ctrl.signal
         });
-        return true;
-    } catch (e) { return false; }
+        result = true;
+    } catch (e) {
+        result = false;
+    } finally {
+        clearTimeout(timer);
+    }
+    _lastProbeResult = result;
+    _lastProbeAt = Date.now();
+    return result;
 }
 
 let _lastOnlineState = null;
 async function refreshNetStatus(opts) {
     opts = opts || {};
-    const online = await probeNetwork();
+    const online = await probeNetwork(opts.force === true);
     const changed = (_lastOnlineState !== null && online !== _lastOnlineState);
     _lastOnlineState = online;
     _isOnline = online;
@@ -1819,8 +1844,8 @@ async function refreshNetStatus(opts) {
     }
 }
 
-window.addEventListener('online', () => refreshNetStatus({ syncOnRecover: true }));
-window.addEventListener('offline', () => refreshNetStatus({ syncOnRecover: false }));
+window.addEventListener('online', () => refreshNetStatus({ syncOnRecover: true, force: true }));
+window.addEventListener('offline', () => refreshNetStatus({ syncOnRecover: false, force: true }));
 setInterval(() => refreshNetStatus({ syncOnRecover: true }), 5000);
 
 // ============================================================
@@ -2095,18 +2120,11 @@ async function enterApp(knownOnline, opts) {
         } catch (e) { /* keep going offline */ }
     }
 
-    try {
-        const count = await db.products.count();
-        if (count === 0 && online) {
-            $('loadingText').textContent = 'Downloading your data…';
-            try { await pullData(); }
-            catch (e) {
-                console.warn('Initial pull failed:', e);
-                $('loadingText').textContent = 'Could not download data. Showing cached view.';
-                await new Promise(r => setTimeout(r, 1000));
-            }
-        }
-    } catch (e) { console.warn('Dexie count failed:', e); }
+    // NOTE: no blocking pull here. The app shows immediately.
+    // syncInBackground() at the bottom of enterApp runs the pull
+    // and refreshes the dashboard when data lands.
+    try { await db.products.count(); }
+    catch (e) { console.warn('Dexie count failed:', e); }
 
     loadingView.classList.add('hidden');
     appView.classList.remove('hidden');
@@ -2964,6 +2982,60 @@ document.getElementById('loginUser').addEventListener('keydown', e => {
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeMenu();
 });
+
+// ============================================================
+//  GLOBAL FETCH WRAPPER
+//    - injects Bearer token on any /api/ call
+//    - logs out on 401 from a non-auth endpoint
+//  Installed last so every view's bare fetch() benefits.
+// ============================================================
+(function installGlobalFetchHandler() {
+    const originalFetch = window.fetch.bind(window);
+
+    function _isApiCall(url) {
+        if (!url) return false;
+        return url.startsWith('/api/') ||
+               url.startsWith('api/') ||
+               url.indexOf('/api/') >= 0;
+    }
+
+    window.fetch = async function (input, init) {
+        init = init || {};
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+
+        if (_isApiCall(url)) {
+            try {
+                const token = localStorage.getItem('ox_api_token');
+                if (token) {
+                    let hdrs = {};
+                    if (init.headers) {
+                        if (typeof init.headers.forEach === 'function') {
+                            init.headers.forEach((v, k) => { hdrs[k] = v; });
+                        } else {
+                            Object.assign(hdrs, init.headers);
+                        }
+                    }
+                    hdrs['Authorization'] = 'Bearer ' + token;
+                    init.headers = hdrs;
+                }
+            } catch (e) {}
+        }
+
+        const response = await originalFetch(input, init);
+
+        const isAuthEndpoint = url.includes('/api/auth/check') || url.includes('/api/auth/login');
+        if (response.status === 401 && !isAuthEndpoint) {
+            try {
+                localStorage.removeItem('ox_user');
+                localStorage.removeItem('pin_unlocked');
+            } catch (e) {}
+            if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login?expired=true&_t=' + Date.now();
+            }
+        }
+        return response;
+    };
+})();
 </script>
 </body>
 </html>

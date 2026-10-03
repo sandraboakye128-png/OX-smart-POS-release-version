@@ -1,0 +1,209 @@
+<!-- ============================================================ -->
+<!-- VIEW: Create Account — native to the APK (no browser hop)     -->
+<!-- Talks straight to /api/auth/signup + /api/auth/login-token    -->
+<!-- ============================================================ -->
+
+<div class="p-4">
+    <div class="max-w-md mx-auto">
+
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-sm p-4 mb-4 border border-gray-100">
+            <div class="flex items-center gap-2">
+                <button id="su-back" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
+                    ← Back
+                </button>
+                <h2 class="text-lg md:text-xl font-bold text-indigo-600 flex items-center gap-2">
+                    ✨ Create Account
+                </h2>
+            </div>
+            <p class="text-gray-500 text-xs mt-2">
+                Sign up to use OX Smart POS. You'll be signed in automatically once the account is created.
+            </p>
+        </div>
+
+        <!-- Offline warning (only shown when offline) -->
+        <div id="su-offline" class="hidden bg-red-50 border border-red-200 text-red-700 text-xs px-3 py-2 rounded-lg mb-4">
+            ⚠️ <strong>Offline</strong> — creating an account requires internet. Please connect and try again.
+        </div>
+
+        <!-- Form card -->
+        <div class="bg-white rounded-2xl shadow-sm p-4 border border-gray-100">
+
+            <div class="mb-4">
+                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Username</label>
+                <input id="su-username" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Password</label>
+                <input id="su-password" type="password" autocomplete="new-password"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+                <p class="text-xs text-gray-400 mt-1">At least 4 characters</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Confirm Password</label>
+                <input id="su-confirm" type="password" autocomplete="new-password"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+            </div>
+
+            <div id="su-roleWrap" class="mb-4">
+                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1">Role</label>
+                <select id="su-role" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <p id="su-roleNote" class="text-xs text-gray-400 mt-1"></p>
+            </div>
+
+            <div id="su-error" class="text-red-600 text-sm min-h-[18px] mb-3 text-center"></div>
+
+            <button id="su-submit"
+                    class="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 rounded-xl text-sm transition">
+                ✅ Create Account
+            </button>
+
+            <button id="su-cancel" type="button"
+                    class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 rounded-xl text-sm mt-2 transition">
+                Cancel
+            </button>
+
+            <p class="text-xs text-gray-400 text-center mt-4">
+                Already have an account?
+                <span id="su-goLogin" class="text-indigo-500 font-semibold cursor-pointer">Sign in</span>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+'use strict';
+const $ = id => document.getElementById(id);
+const RENDER = 'https://ox-smart-pos-release-version.onrender.com';
+
+// ---------- Offline detection ----------
+function updateOfflineBanner() {
+    const offline = !navigator.onLine;
+    $('su-offline').classList.toggle('hidden', !offline);
+    $('su-submit').disabled = offline;
+    $('su-submit').classList.toggle('opacity-50', offline);
+    $('su-submit').classList.toggle('cursor-not-allowed', offline);
+}
+window.addEventListener('online', updateOfflineBanner);
+window.addEventListener('offline', updateOfflineBanner);
+updateOfflineBanner();
+
+// ---------- Admin count check ----------
+async function checkAdminCount() {
+    try {
+        const res = await fetch(RENDER + '/api/auth/admin_count');
+        const data = await res.json();
+        const adminCount = data.admin_count || 0;
+        const roleWrap = $('su-roleWrap');
+        const roleNote = $('su-roleNote');
+        if (adminCount >= 2) {
+            roleWrap.style.display = 'none';
+            $('su-role').value = 'user';
+        } else if (adminCount === 0) {
+            roleNote.textContent = 'First user can create an Admin account.';
+        } else if (adminCount === 1) {
+            roleNote.textContent = 'You can create one more Admin account (2 admins max).';
+        }
+    } catch (e) { /* silent */ }
+}
+
+// ---------- Submit handler ----------
+async function doSignup() {
+    const username = $('su-username').value.trim();
+    const password = $('su-password').value;
+    const confirm  = $('su-confirm').value;
+    const errEl    = $('su-error');
+    errEl.textContent = '';
+
+    if (!username) { errEl.textContent = 'Enter a username'; return; }
+    if (password.length < 4) { errEl.textContent = 'Password must be at least 4 characters'; return; }
+    if (password !== confirm) { errEl.textContent = 'Passwords do not match'; return; }
+    if (!navigator.onLine) { errEl.textContent = 'You are offline — signup requires internet'; return; }
+
+    const roleWrap = $('su-roleWrap');
+    const role = roleWrap.style.display === 'none' ? 'user' : $('su-role').value;
+
+    const btn = $('su-submit');
+    btn.disabled = true;
+    btn.textContent = '⏳ Creating account…';
+
+    try {
+        // 1. Create the account
+        const res = await fetch(RENDER + '/api/auth/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, role })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            errEl.textContent = data.error || 'Signup failed';
+            btn.disabled = false;
+            btn.textContent = '✅ Create Account';
+            return;
+        }
+
+        // 2. Auto-login to get a Bearer token for the APK
+        errEl.textContent = 'Account created — signing in…';
+        const loginRes = await fetch(RENDER + '/api/auth/login-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const loginData = await loginRes.json();
+        if (!loginRes.ok || !loginData.success) {
+            errEl.textContent = 'Account created! Please sign in manually.';
+            setTimeout(() => {
+                if (typeof window.backToLanding === 'function') window.backToLanding();
+            }, 1200);
+            return;
+        }
+
+        // 3. Store token + user (keys match the shell's TOKEN_KEY / USER_KEY)
+        try {
+            localStorage.setItem('ox_api_token', loginData.token);
+            localStorage.setItem('ox_shell_user', JSON.stringify(loginData.user || { username }));
+        } catch (e) {}
+
+        // 4. Enter the app
+        if (typeof window.showToast === 'function') {
+            window.showToast('✅ Welcome, ' + username + '!');
+        }
+        if (typeof window.enterApp === 'function') {
+            await window.enterApp(true, { skipAuthCheck: true });
+        } else {
+            // Fallback if enterApp not exposed
+            location.reload();
+        }
+    } catch (e) {
+        errEl.textContent = 'Network error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '✅ Create Account';
+    }
+}
+
+// ---------- Wiring ----------
+$('su-submit').addEventListener('click', doSignup);
+$('su-cancel').addEventListener('click', function() {
+    if (typeof window.backToLanding === 'function') window.backToLanding();
+});
+$('su-goLogin').addEventListener('click', function() {
+    if (typeof window.backToLanding === 'function') window.backToLanding();
+});
+$('su-back').addEventListener('click', function() {
+    if (typeof window.backToLanding === 'function') window.backToLanding();
+});
+$('su-username').addEventListener('keydown', e => { if (e.key === 'Enter') $('su-password').focus(); });
+$('su-password').addEventListener('keydown', e => { if (e.key === 'Enter') $('su-confirm').focus(); });
+$('su-confirm').addEventListener('keydown', e => { if (e.key === 'Enter') doSignup(); });
+
+checkAdminCount();
+})();
+</script>
