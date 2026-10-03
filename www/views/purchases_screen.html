@@ -1437,7 +1437,8 @@ async function doSubmitPurchase(payload, actionType, batchId) {
                 synced: 0
             });
 
-            if (navigator.onLine && typeof pushPending === 'function') {
+            const _reallyOnline = (typeof window.__oxIsOnline === 'function') ? window.__oxIsOnline() : navigator.onLine;
+            if (_reallyOnline && typeof pushPending === 'function') {
                 await pushPending();
             }
 

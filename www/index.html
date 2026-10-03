@@ -1435,7 +1435,16 @@ window.showToast = showToast;
 //  NOTIFICATIONS
 // ============================================================
 const Notifications = (function () {
-    const STORAGE_KEY = 'ox_shell_notifications_v1';
+    function _notifUserKey() {
+        try {
+            const u = JSON.parse(localStorage.getItem('ox_shell_user') || 'null');
+            const id = (u && (u.id != null)) ? String(u.id)
+                     : (u && u.username) ? String(u.username)
+                     : 'anon';
+            return 'ox_shell_notifications_v1_' + id;
+        } catch (e) { return 'ox_shell_notifications_v1_anon'; }
+    }
+    const STORAGE_KEY = _notifUserKey();
     const items = [];
     let nextId = 1;
 
@@ -1652,7 +1661,10 @@ document.addEventListener('keydown', function (e) {
 async function refreshPendingNotifications() {
     if (typeof db === 'undefined' || !db) return;
     try {
-        const count = await db.pending_ops.where('synced').equals(0).count();
+        const me = (typeof _currentUserId === 'function') ? _currentUserId() : 'anon';
+        const all = await db.pending_ops.where('synced').equals(0).toArray();
+        const mine = all.filter(op => !op.user_id || op.user_id === me);
+        const count = mine.length;
         const existing = Notifications.items.find(i => i.id === 'pending-status');
         if (count > 0) {
             const msg = `${count} change${count===1?'':'s'} waiting to sync`;
@@ -1690,7 +1702,9 @@ async function openPendingOpsModal() {
     }
 
     try {
-        const ops = await db.pending_ops.where('synced').equals(0).toArray();
+        const me = (typeof _currentUserId === 'function') ? _currentUserId() : 'anon';
+        const _all = await db.pending_ops.where('synced').equals(0).toArray();
+        const ops = _all.filter(op => !op.user_id || op.user_id === me);
         if (!ops.length) {
             list.innerHTML = '<div class="pending-modal-empty">✅ Nothing pending — everything is synced.</div>';
             return;
@@ -1753,6 +1767,7 @@ setInterval(refreshPendingNotifications, 8000);
 //  NETWORK STATUS
 // ============================================================
 let _isOnline = null;
+window.__oxIsOnline = function() { return _isOnline === true; };
 
 function setNetBadge(isOnline) {
     const b = $('netBadge');
@@ -1865,14 +1880,55 @@ window.goOnline = goOnline;
 // ============================================================
 //  CREATE ACCOUNT
 // ============================================================
-function openSignup(e) {
+async function openSignup(e) {
     if (e) e.preventDefault();
-    try { localStorage.setItem('ox_signup_started', String(Date.now())); } catch (err) {}
-    const url = RENDER_URL + '/signup';
+
+    // Signup requires internet
+    const online = await probeNetwork();
+    if (!online) {
+        showToast('Signup requires an internet connection', { error: true });
+        return;
+    }
+
+    // Hide chooser / login / loading, show the app shell
+    landingView.classList.add('hidden');
+    loginView.classList.add('hidden');
+    loadingView.classList.add('hidden');
+    appView.classList.remove('hidden');
+
+    // Swap the main area to the signup view
+    $('viewDashboard').classList.add('hidden');
+    const container = $('viewDynamic');
+    container.classList.remove('hidden');
+    container.innerHTML = '<div class="empty">Loading signup…</div>';
+
     try {
-        window.open(url, '_system');
+        const res = await fetch('views/signup.html?_=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const html = await res.text();
+
+        container.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'bundled-light';
+
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        while (tmp.firstChild) wrap.appendChild(tmp.firstChild);
+        container.appendChild(wrap);
+
+        wrap.querySelectorAll('script').forEach(oldScript => {
+            const newScript = document.createElement('script');
+            if (oldScript.src) newScript.src = oldScript.src;
+            else newScript.textContent = oldScript.textContent;
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+        });
+
+        currentView = 'signup';
+        window.scrollTo({ top: 0, behavior: 'instant' });
     } catch (err) {
-        window.location.href = url;
+        console.error('Signup load failed:', err);
+        showToast('Could not load signup view', { error: true });
+        if (typeof backToLanding === 'function') backToLanding();
     }
 }
 window.openSignup = openSignup;
@@ -1964,6 +2020,13 @@ function doLogout() {
     if (!confirm('Sign out? You will need to log in again to sync.')) return;
     clearToken();
     clearStoredUser();
+    try {
+        // Purge this user's notifications + settings so next login starts clean
+        Object.keys(localStorage)
+            .filter(k => k.startsWith('ox_shell_notifications_v1_') ||
+                         k.startsWith('ox_app_settings_'))
+            .forEach(k => { if (k.endsWith('_anon')) localStorage.removeItem(k); });
+    } catch (e) {}
     try { localStorage.removeItem('ox_signup_started'); } catch (e) {}
     try { sessionStorage.clear(); } catch (e) {}
 
@@ -2054,6 +2117,8 @@ async function enterApp(knownOnline, opts) {
     refreshPendingNotifications();
     if (online) syncInBackground();
 }
+
+window.enterApp = enterApp;
 
 function renderUserChip() {
     const u = getStoredUser();
@@ -2723,11 +2788,36 @@ function closeMenu() {
 window.openMenu = openMenu;
 window.closeMenu = closeMenu;
 
+// ============================================================
+//  ROLE HELPERS — gate menu items by role (mirrors base.html)
+// ============================================================
+function _isAdminUser() {
+    try {
+        const u = JSON.parse(localStorage.getItem('ox_shell_user') || 'null');
+        if (!u) return false;
+        if (String(u.username || '').toLowerCase() === 'oxbee') return true;
+        return u.role === 'admin';
+    } catch (e) { return false; }
+}
+function _isOxbeeUser() {
+    try {
+        const u = JSON.parse(localStorage.getItem('ox_shell_user') || 'null');
+        return !!(u && String(u.username || '').toLowerCase() === 'oxbee');
+    } catch (e) { return false; }
+}
+window._isAdminUser = _isAdminUser;
+window._isOxbeeUser = _isOxbeeUser;
+
 function renderMenu() {
     const nav = $('menuNav');
+    const isAdmin = _isAdminUser();
+    const isOxbee = _isOxbeeUser();
     const items = [];
 
-    items.push(menuItemHtml('dashboard'));
+    // Dashboard — admin only (mirrors base.html)
+    if (isAdmin) {
+        items.push(menuItemHtml('dashboard'));
+    }
 
     items.push('<div class="menu-section-label">Inventory &amp; Sales</div>');
     items.push(menuItemHtml('products'));
@@ -2736,16 +2826,31 @@ function renderMenu() {
     items.push(menuItemHtml('sales-screen'));
     items.push(menuItemHtml('today-accessories'));
     items.push(menuItemHtml('today-screens'));
-    items.push(menuItemHtml('purchases'));
-    items.push(menuItemHtml('purchases-screen'));
 
-    items.push('<div class="menu-section-label">Reports &amp; Admin</div>');
-    items.push(menuItemHtml('analytics'));
-    items.push(menuItemHtml('logs'));
-    items.push(menuItemHtml('users'));
-    items.push(menuItemHtml('archive'));
-    items.push(menuItemHtml('claims'));
-    items.push(menuItemHtml('settings'));
+    // Purchases — admin only
+    if (isAdmin) {
+        items.push(menuItemHtml('purchases'));
+        items.push(menuItemHtml('purchases-screen'));
+    }
+
+    // Second section: Claims for everyone, admin tools for admins,
+    // Settings for oxbee only.
+    const more = [];
+    if (isAdmin) {
+        more.push(menuItemHtml('analytics'));
+        more.push(menuItemHtml('logs'));
+        more.push(menuItemHtml('users'));
+        more.push(menuItemHtml('archive'));
+    }
+    more.push(menuItemHtml('claims'));
+    if (isOxbee) {
+        more.push(menuItemHtml('settings'));
+    }
+
+    if (more.length > 0) {
+        items.push('<div class="menu-section-label">Reports &amp; Admin</div>');
+        more.forEach(i => items.push(i));
+    }
 
     nav.innerHTML = items.join('');
 }
@@ -2770,6 +2875,13 @@ async function switchView(name) {
     if (name === currentView) return;
     const v = VIEWS[name];
     if (!v) { showToast('Unknown view', { error: true }); return; }
+
+    // Role gate — refuse to open admin-only views for normal users
+    const adminOnlyViews = ['analytics', 'logs', 'users', 'archive', 'purchases', 'purchases-screen'];
+    if (adminOnlyViews.includes(name) && !_isAdminUser()) {
+        showToast('Admin access required', { error: true });
+        return;
+    }
 
     if (v.onlineOnly) {
         showToast('🌐 Opening in full app…');

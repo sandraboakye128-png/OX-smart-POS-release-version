@@ -25,11 +25,34 @@ async function _syncFetch(path, options = {}) {
     return fetch(url, opts);
 }
 
+// ============================================================
+//  USER SCOPING — every queued op is stamped with the user id
+//  of whoever created it, and only that user's ops get pushed.
+// ============================================================
+function _currentUserId() {
+    try {
+        const u = JSON.parse(localStorage.getItem('ox_shell_user') || 'null');
+        if (u && (u.id != null)) return String(u.id);
+        if (u && u.username) return String(u.username);
+    } catch (e) {}
+    return 'anon';
+}
+window._currentUserId = _currentUserId;
+
+// Prefer the shell's probe result (__oxIsOnline) over navigator.onLine,
+// which lies on Android WebView.
+function _reallyOnline() {
+    if (typeof window.__oxIsOnline === 'function') {
+        return window.__oxIsOnline();
+    }
+    return navigator.onLine;
+}
+
 const MAX_ATTEMPTS = 5;
 let _fullSyncRunning = false;
 
 async function pullData() {
-    if (!navigator.onLine) {
+    if (!_reallyOnline()) {
         console.warn('⚠️ pullData skipped – offline');
         return;
     }
@@ -131,7 +154,7 @@ async function savePendingOperation(table, operation, record_id, payload) {
 }
 
 async function pushPending() {
-    if (!navigator.onLine) {
+    if (!_reallyOnline()) {
         console.warn('⚠️ pushPending skipped – offline');
         return;
     }
