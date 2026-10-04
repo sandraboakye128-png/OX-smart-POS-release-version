@@ -214,6 +214,12 @@ _ALLOWED_CORS_ORIGINS = {
     'capacitor://localhost',
     'http://localhost',
     'https://ox-smart-pos-release-version.onrender.com',
+    # Local dev origins — lets the browser-served shell talk to the
+    # local Flask server when testing /offline/ at 127.0.0.1:5000.
+    'http://127.0.0.1:5000',
+    'http://127.0.0.1:8000',
+    'http://localhost:5000',
+    'http://localhost:8000',
 }
 
 
@@ -2931,6 +2937,14 @@ from services.settings_service import (
 @login_required
 def settings_page():
     return render_template('settings.html')
+
+@app.route('/api/i18n/<lang>', methods=['GET'])
+@login_required
+def api_i18n(lang):
+    """Return the merged i18n dict for a language code (falls back to English)."""
+    from services.i18n import translations_for
+    return jsonify(translations_for(lang))
+
 
 @app.route('/api/settings', methods=['GET'])
 @login_required

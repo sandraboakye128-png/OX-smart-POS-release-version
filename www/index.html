@@ -27,11 +27,24 @@
         }
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { min-height: 100%; }
+        /* Font family — set on <html data-font-family="..."> by JS */
+        html[data-font-family="system"]   { --app-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        html[data-font-family="humanist"] { --app-font-family: Verdana, Tahoma, Geneva, sans-serif; }
+        html[data-font-family="serif"]    { --app-font-family: Georgia, "Times New Roman", Times, serif; }
+        html[data-font-family="mono"]     { --app-font-family: "Courier New", Consolas, Monaco, "Lucida Console", monospace; }
+        html[data-font-family="rounded"]  { --app-font-family: "Comic Sans MS", "Trebuchet MS", "Segoe UI", sans-serif; }
+
+        /* Font size — set on <html data-font-size="..."> by JS */
+        html[data-font-size="small"]  { --app-font-size: 13px; }
+        html[data-font-size="medium"] { --app-font-size: 15px; }
+        html[data-font-size="large"]  { --app-font-size: 17px; }
+        html[data-font-size="xlarge"] { --app-font-size: 19px; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: var(--app-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif) !important;
             background: var(--bg);
             color: var(--text);
-            font-size: 15px;
+            font-size: var(--app-font-size, 15px) !important;
             line-height: 1.45;
             padding-bottom: env(safe-area-inset-bottom);
             -webkit-font-smoothing: antialiased;
@@ -1315,7 +1328,19 @@
 // ============================================================
 //  BUNDLED SHELL
 // ============================================================
-const RENDER_URL = 'https://ox-smart-pos-release-version.onrender.com';
+// Base URL for API calls.
+//  * APK / Capacitor runs at https://localhost or capacitor://localhost
+//    → talk to the deployed server.
+//  * Any other origin (local dev, /offline/ served from a real URL)
+//    → use that same origin so settings/i18n stay in sync with the build.
+const RENDER_URL = (function () {
+    const origin = window.location.origin;
+    const APK_ORIGINS = ['https://localhost', 'capacitor://localhost'];
+    if (APK_ORIGINS.indexOf(origin) !== -1) {
+        return 'https://ox-smart-pos-release-version.onrender.com';
+    }
+    return origin;
+})();
 const TOKEN_KEY  = 'ox_api_token';
 const USER_KEY   = 'ox_shell_user';
 
@@ -1345,14 +1370,103 @@ window.applyAppTheme = function (theme) {
     s = s || {};
     const theme = (s.theme === 'light') ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', theme);
+
+    // Apply font from cached settings (no FOUC)
+    if (s.font_family) document.documentElement.setAttribute('data-font-family', s.font_family);
+    if (s.font_size)   document.documentElement.setAttribute('data-font-size',   s.font_size);
+
+    // Load cached i18n dict + language
+    try {
+        const rawI18n = localStorage.getItem('ox_app_i18n');
+        if (rawI18n) window.OX_I18N = JSON.parse(rawI18n);
+        const lang = localStorage.getItem('ox_app_lang');
+        if (lang) window.OX_LANG = lang;
+    } catch (e) {}
+
     window.oxSettings = {
-        theme: theme,
-        currency_symbol: s.currency_symbol || '₵',
-        currency_code:   s.currency_code   || 'GHS',
-        language:        s.language        || 'en',
-        date_format:     s.date_format     || 'DD/MM/YYYY'
+        theme:             theme,
+        currency_symbol:   s.currency_symbol   || '₵',
+        currency_code:     s.currency_code     || 'GHS',
+        language:          s.language          || 'en',
+        date_format:       s.date_format       || 'DD/MM/YYYY',
+        font_size:         s.font_size         || 'medium',
+        font_family:       s.font_family       || 'system',
+        low_stock_threshold: parseInt(s.low_stock_threshold, 10) || 10,
     };
 })();
+
+// ============================================================
+//  SHELL SETTINGS HELPERS
+// ============================================================
+window.OX_SETTINGS = window.OX_SETTINGS || {};
+
+window.applyAppTypography = function (size, family) {
+    if (size)   document.documentElement.setAttribute('data-font-size', size);
+    if (family) document.documentElement.setAttribute('data-font-family', family);
+};
+
+window.t = function (key, params) {
+    let s = (window.OX_I18N && window.OX_I18N[key]) || key;
+    if (params && typeof s === 'string') {
+        for (const k in params) {
+            s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), params[k]);
+        }
+    }
+    return s;
+};
+
+function applyShellSettings(s) {
+    if (!s) return;
+    if (s.theme) window.applyAppTheme(s.theme);
+    window.applyAppTypography(s.font_size, s.font_family);
+    Object.assign(window.OX_SETTINGS, s);
+    window.OX_LOW_STOCK_THRESHOLD = parseInt(s.low_stock_threshold, 10) || 10;
+    // Currency-aware money formatter
+    window.formatMoney = function (amount) {
+        const sym = (window.OX_SETTINGS && window.OX_SETTINGS.currency_symbol) || '₵';
+        const v = parseFloat(amount);
+        return sym + (isNaN(v) ? '0.00' : v.toFixed(2));
+    };
+}
+
+async function fetchAndCacheSettings() {
+    if (!navigator.onLine) return null;
+    const token = localStorage.getItem('ox_api_token');
+    if (!token) return null;
+    try {
+        const res = await fetch(RENDER_URL + '/api/settings', {
+            headers: { 'Authorization': 'Bearer ' + token },
+            credentials: 'include'
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (!data || !data.success || !data.settings) return null;
+        const s = data.settings;
+        localStorage.setItem('ox_app_settings', JSON.stringify(s));
+
+        // Fetch i18n dict for the current language, cache it too
+        if (s.language) {
+            try {
+                const ir = await fetch(RENDER_URL + '/api/i18n/' + encodeURIComponent(s.language), {
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    credentials: 'include'
+                });
+                if (ir.ok) {
+                    const idict = await ir.json();
+                    localStorage.setItem('ox_app_i18n', JSON.stringify(idict));
+                    localStorage.setItem('ox_app_lang', s.language);
+                    window.OX_I18N = idict;
+                    window.OX_LANG = s.language;
+                }
+            } catch (e) { /* ignore */ }
+        }
+        return s;
+    } catch (e) {
+        console.warn('[shell] settings fetch failed:', e);
+        return null;
+    }
+}
+window.fetchAndCacheSettings = fetchAndCacheSettings;
 
 document.addEventListener('DOMContentLoaded', function () {
     window.applyAppTheme(window.oxSettings.theme);
@@ -1388,23 +1502,23 @@ const loginError  = $('loginError');
 //  VIEW REGISTRY
 // ============================================================
 const VIEWS = {
-    dashboard: { title: 'Dashboard',     icon: '📊', path: null },
-    products:  { title: 'Products (Acc.)',   icon: '📦', path: 'views/products_accessories.html' },
-    'products-screen': { title: 'Products (Screens)', icon: '📱', path: 'views/products_screen.html' },
-    sales:     { title: 'Sales (Acc.)',      icon: '💰', path: 'views/sales_accessories.html' },
-    'sales-screen': { title: 'Sales (Screens)', icon: '💵', path: 'views/sales_screen.html' },
-    today:     { title: "Today's Sales",     icon: '📅', path: null, onlineOnly: true },
-    'today-accessories': { title: "Today's Sales (Acc.)",     icon: '📅', path: 'views/today_sales_accessories.html' },
-    'today-screens':     { title: "Today's Sales (Screens)", icon: '📅', path: 'views/today_sales_screen.html' },
-    purchases: { title: 'Purchases (Acc.)',  icon: '🛒', path: 'views/purchases_accessories.html' },
-    'purchases-screen': { title: 'Purchases (Screens)', icon: '📥', path: 'views/purchases_screen.html' },
-    analytics: { title: 'Analytics',     icon: '📈', path: 'views/analytics.html' },
-    'edit-user': { title: 'Edit User',       icon: '✏️', path: 'views/edit_user.html' },
-    users:     { title: 'User Management',  icon: '👥', path: 'views/admin_users.html' },
-    logs:      { title: 'User Logs',       icon: '📋', path: 'views/logs.html' },
-    archive:   { title: 'Archive',       icon: '🗄️', path: 'views/archive.html' },
-    claims:    { title: 'Claims',        icon: '⚠️', path: 'views/claims.html' },
-    settings:  { title: 'Settings',      icon: '⚙️', path: 'views/settings.html' },
+    dashboard: { titleKey: 'nav.dashboard',    title: 'Dashboard',          icon: '📊', path: null },
+    products:  { titleKey: 'nav.products_acc', title: 'Products (Acc.)',    icon: '📦', path: 'views/products_accessories.html' },
+    'products-screen': { titleKey: 'nav.products_scr', title: 'Products (Screens)', icon: '📱', path: 'views/products_screen.html' },
+    sales:     { titleKey: 'nav.sales_acc',    title: 'Sales (Acc.)',       icon: '💰', path: 'views/sales_accessories.html' },
+    'sales-screen': { titleKey: 'nav.sales_scr', title: 'Sales (Screens)',  icon: '💵', path: 'views/sales_screen.html' },
+    today:     { title: "Today's Sales",       icon: '📅', path: null, onlineOnly: true },
+    'today-accessories': { titleKey: 'nav.today_acc', title: "Today's Sales (Acc.)",   icon: '📅', path: 'views/today_sales_accessories.html' },
+    'today-screens':     { titleKey: 'nav.today_scr', title: "Today's Sales (Screens)", icon: '📅', path: 'views/today_sales_screen.html' },
+    purchases: { titleKey: 'nav.purchases_acc', title: 'Purchases (Acc.)',  icon: '🛒', path: 'views/purchases_accessories.html' },
+    'purchases-screen': { titleKey: 'nav.purchases_scr', title: 'Purchases (Screens)', icon: '📥', path: 'views/purchases_screen.html' },
+    analytics: { titleKey: 'nav.analytics',    title: 'Analytics',          icon: '📈', path: 'views/analytics.html' },
+    'edit-user': { title: 'Edit User',         icon: '✏️', path: 'views/edit_user.html' },
+    users:     { titleKey: 'nav.users',        title: 'User Management',    icon: '👥', path: 'views/admin_users.html' },
+    logs:      { titleKey: 'nav.logs',         title: 'User Logs',          icon: '📋', path: 'views/logs.html' },
+    archive:   { titleKey: 'nav.archive',      title: 'Archive',            icon: '🗄️', path: 'views/archive.html' },
+    claims:    { titleKey: 'nav.claims',       title: 'Claims',             icon: '⚠️', path: 'views/claims.html' },
+    // Note: no `settings` view — settings are managed on the web app.
 };
 
 let currentView = 'dashboard';
@@ -2130,6 +2244,17 @@ async function enterApp(knownOnline, opts) {
     appView.classList.remove('hidden');
 
     renderUserChip();
+
+    // Fetch fresh settings + i18n (also caches for offline).
+    // Do this BEFORE rendering menu / dashboard so labels and currency
+    // are already correct on first paint.
+    if (online) {
+        try {
+            const s = await fetchAndCacheSettings();
+            if (s) applyShellSettings(s);
+        } catch (e) { /* keep cached values */ }
+    }
+
     renderMenu();
     await renderDashboard();
     refreshPendingNotifications();
@@ -2162,7 +2287,12 @@ function openMyProfile() {
         try { sessionStorage.setItem('oxEditUserId', String(u.id)); } catch (e) {}
         switchView('edit-user');
     } else {
-        switchView('settings');
+        // Settings are managed on the web app; this device just consumes them.
+        Notifications.info(
+            'Account',
+            'Signed in as ' + u.username + ' (' + (u.role || 'user') +
+            '). Settings are managed on the web app.'
+        );
     }
 }
 window.openMyProfile = openMyProfile;
@@ -2861,9 +2991,7 @@ function renderMenu() {
         more.push(menuItemHtml('archive'));
     }
     more.push(menuItemHtml('claims'));
-    if (isOxbee) {
-        more.push(menuItemHtml('settings'));
-    }
+    // Settings view removed — settings are managed on the web app.
 
     if (more.length > 0) {
         items.push('<div class="menu-section-label">Reports &amp; Admin</div>');
@@ -2878,9 +3006,12 @@ function menuItemHtml(key) {
     if (!v) return '';
     const active = (key === currentView) ? ' active' : '';
     const tag = v.onlineOnly ? '<span class="tag">ONLINE</span>' : '';
+    const label = (v.titleKey && typeof window.t === 'function')
+        ? window.t(v.titleKey)
+        : (v.title || key);
     return '<div class="menu-item' + active + '" onclick="switchView(\'' + key + '\')">' +
         '<span class="icon">' + v.icon + '</span>' +
-        '<span class="label">' + v.title + '</span>' +
+        '<span class="label">' + label + '</span>' +
         tag +
     '</div>';
 }

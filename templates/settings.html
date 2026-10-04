@@ -391,6 +391,15 @@
                 status.textContent = T.save_ok;
                 status.className = 'text-sm text-green-500';
                 applyTheme(settings.theme);
+
+                // Mirror to localStorage so the offline shell can pick up
+                // theme / font / language / threshold on its next open
+                // without needing a login round-trip.
+                try {
+                    localStorage.setItem('ox_app_settings', JSON.stringify(settings));
+                    localStorage.setItem('ox_app_lang', settings.language);
+                } catch (e) {}
+
                 setTimeout(() => window.location.reload(), 1000);
             } else {
                 status.textContent = '❌ ' + (data.error || T.save_fail);
