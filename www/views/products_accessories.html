@@ -9,8 +9,8 @@
             class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
         ← Back
     </button>
-    <h2 class="text-xl md:text-2xl font-bold text-indigo-600">📦 Product Manager</h2>
-    <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">Accessories</span>
+    <h2 class="text-xl md:text-2xl font-bold text-indigo-600" data-i18n="products.title">📦 Product Manager</h2>
+    <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded" data-i18n="products.badge.acc">Accessories</span>
     <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">APK · Dexie</span>
 </div>
 
@@ -20,10 +20,10 @@
         <div><span class="text-sm text-gray-500">💡 Having issues loading data?</span></div>
         <div class="flex gap-2 flex-wrap">
             <button onclick="forceRefresh()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm">
-                🔄 Force Refresh
+                <span data-i18n="products.force_refresh">🔄 Force Refresh</span>
             </button>
             <button onclick="clearAllLocalData()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
-                🗑️ Clear All Data
+                <span data-i18n="products.clear_data">🗑️ Clear All Data</span>
             </button>
         </div>
     </div>
@@ -44,10 +44,10 @@
         </div>
         <div class="flex flex-wrap gap-2 items-center">
             <button id="advancedToggle" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm">
-                ⚙️ Advanced
+                ⚙️ <span data-i18n="products.search.advanced">Advanced</span>
             </button>
             <button id="clearSearchBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm hidden">
-                ✕ Clear
+                ✕ <span data-i18n="products.search.clear">Clear</span>
             </button>
         </div>
     </div>
@@ -96,28 +96,28 @@
 <div id="summary" class="mb-4">
     <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
         <div class="bg-white rounded-xl shadow-md p-3 text-center border border-gray-100">
-            <p class="text-xs text-gray-500">📦 Products</p>
+            <p class="text-xs text-gray-500" data-i18n="products.kpi.products">📦 Products</p>
             <p id="totalProductsCount" class="text-xl md:text-2xl font-bold text-indigo-600">—</p>
             <p id="productsInStockNote" class="text-[10px] text-gray-400 mt-0.5"></p>
         </div>
         <div class="bg-white rounded-xl shadow-md p-3 text-center border border-gray-100">
-            <p class="text-xs text-gray-500">📦 Batches</p>
+            <p class="text-xs text-gray-500" data-i18n="products.kpi.batches">📦 Batches</p>
             <p id="totalBatchesCount" class="text-xl md:text-2xl font-bold text-blue-600">—</p>
         </div>
         <div class="bg-white rounded-xl shadow-md p-3 text-center border border-gray-100">
-            <p class="text-xs text-gray-500">📦 Total Qty</p>
+            <p class="text-xs text-gray-500" data-i18n="products.kpi.qty">📦 Total Qty</p>
             <p id="totalQuantityCount" class="text-xl md:text-2xl font-bold text-teal-600">—</p>
         </div>
         <div class="bg-white rounded-xl shadow-md p-3 text-center border border-gray-100">
-            <p class="text-xs text-gray-500">⚠️ Claimed</p>
+            <p class="text-xs text-gray-500" data-i18n="products.kpi.claimed">⚠️ Claimed</p>
             <p id="totalClaimedCount" class="text-xl md:text-2xl font-bold text-red-600">—</p>
         </div>
         <div class="bg-white rounded-xl shadow-md p-3 text-center border border-gray-100">
-            <p class="text-xs text-gray-500">✅ Good Stock</p>
+            <p class="text-xs text-gray-500" data-i18n="products.kpi.good">✅ Good Stock</p>
             <p id="totalGoodCount" class="text-xl md:text-2xl font-bold text-green-600">—</p>
         </div>
         <div class="bg-white rounded-xl shadow-md p-3 text-center border border-gray-100">
-            <p class="text-xs text-gray-500">⚠️ Low Stock Items</p>
+            <p class="text-xs text-gray-500" data-i18n="products.kpi.low">⚠️ Low Stock Items</p>
             <p id="lowStockCount" class="text-xl md:text-2xl font-bold" style="color:#9ca3af;">—</p>
         </div>
     </div>
@@ -126,8 +126,8 @@
 <!-- Split Low Stock Panel (Batch level / Product level) -->
 <div class="bg-white rounded-xl shadow-md p-3 md:p-4 mb-4">
     <div class="flex items-center justify-between mb-2">
-        <h3 class="text-sm md:text-base font-bold text-gray-700">⚠️ Low Stock &amp; Out of Stock</h3>
-        <span class="text-[10px] md:text-xs text-gray-400">non-Screen · threshold ≤ 10</span>
+        <h3 class="text-sm md:text-base font-bold text-gray-700" data-i18n="products.low_stock.title">⚠️ Low Stock &amp; Out of Stock</h3>
+        <span class="text-[10px] md:text-xs text-gray-400" id="lowStockSplitSubtitle">non-Screen · threshold ≤ <span id="lowStockSplitThreshold">10</span></span>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
@@ -177,12 +177,12 @@
         <div id="batchList"></div>
         <div class="bmi-modal-footer">
             <div style="display:flex; gap:8px;">
-                <button onclick="selectAllBatches()"   class="bmi-footer-btn bmi-footer-btn-blue">Select All</button>
-                <button onclick="deselectAllBatches()" class="bmi-footer-btn bmi-footer-btn-orange">Deselect All</button>
+                <button onclick="selectAllBatches()"   class="bmi-footer-btn bmi-footer-btn-blue" data-i18n="products.batch.select_all">Select All</button>
+                <button onclick="deselectAllBatches()" class="bmi-footer-btn bmi-footer-btn-orange" data-i18n="products.batch.deselect_all">Deselect All</button>
             </div>
             <div style="display:flex; gap:8px;">
-                <button onclick="deleteSelectedBatches()" class="bmi-footer-btn bmi-footer-btn-red">Delete Selected</button>
-                <button onclick="closeBatchModal()"       class="bmi-footer-btn bmi-footer-btn-gray">Close</button>
+                <button onclick="deleteSelectedBatches()" class="bmi-footer-btn bmi-footer-btn-red" data-i18n="products.batch.delete_selected">Delete Selected</button>
+                <button onclick="closeBatchModal()"       class="bmi-footer-btn bmi-footer-btn-gray" data-i18n="products.batch.close">Close</button>
             </div>
         </div>
     </div>
@@ -191,21 +191,21 @@
 <!-- Delete Product Modal -->
 <div id="deleteProductModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-60 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-        <h3 class="text-xl font-bold mb-2 text-gray-800">Delete Accessory Product</h3>
+        <h3 class="text-xl font-bold mb-2 text-gray-800" data-i18n="products.delete.title_acc">Delete Accessory Product</h3>
         <p id="deleteProductName" class="mb-4 text-gray-600 text-sm"></p>
         <button id="deleteKeepBtn" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded mb-2 text-sm">
-            📦 Keep History (Recommended)
+            <span data-i18n="products.delete.keep">📦 Keep History (Recommended)</span>
         </button>
         <p class="text-xs text-gray-500 mb-3">
             ✓ Product deleted but sales/purchase history remains<br>
             ✓ Can be restored from Archive
         </p>
         <button id="deleteCleanBtn" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded mb-2 text-sm">
-            ⚠️ Clean Everything (Permanent)
+            <span data-i18n="products.delete.clean">⚠️ Clean Everything (Permanent)</span>
         </button>
         <p class="text-xs text-red-500 mb-3">⚠️ Product AND all history deleted – CANNOT be restored!</p>
         <button onclick="closeDeleteProductModal()" class="w-full bg-gray-400 hover:bg-gray-500 text-white py-2 rounded text-sm">
-            Cancel
+            <span data-i18n="products.delete.cancel">Cancel</span>
         </button>
     </div>
 </div>
@@ -363,7 +363,53 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const RENDER = 'https://ox-smart-pos-release-version.onrender.com';
+// Dynamic API base — talk to whatever server serves the shell.
+// In the APK (fake origin) fall back to the deployed host.
+const RENDER = (function () {
+    const origin = window.location.origin;
+    const APK_ORIGINS = ['https://localhost', 'capacitor://localhost'];
+    if (APK_ORIGINS.indexOf(origin) !== -1) {
+        return 'https://ox-smart-pos-release-version.onrender.com';
+    }
+    return origin;
+})();
+
+// ---------- Admin detection ----------
+function _isCurrentUserAdmin() {
+    try {
+        let user = null;
+        const raw = localStorage.getItem('ox_shell_user');
+        if (raw) {
+            try { user = JSON.parse(raw); } catch (e) { user = { username: raw }; }
+        }
+        if (!user && typeof window.oxCurrentUser === 'object') user = window.oxCurrentUser;
+        if (!user && typeof window.currentUser  === 'object') user = window.currentUser;
+        if (!user) return false;
+        const role     = String(user.role || user.user_role || '').toLowerCase();
+        const username = String(user.username || user.user_name || '').toLowerCase();
+        return role === 'admin' || username === 'oxbee';
+    } catch (e) { return false; }
+}
+const IS_ADMIN = _isCurrentUserAdmin();
+
+// i18n shim — falls back to the English literal if window.t is missing.
+function $t(key, fallback) {
+    try {
+        if (typeof window.t === 'function') {
+            const v = window.t(key);
+            if (v && v !== key) return v;
+        }
+    } catch (e) {}
+    return fallback || key;
+}
+// Currency-aware money formatter.
+function money(v, d) {
+    if (typeof window.formatMoney === 'function') {
+        try { return window.formatMoney(v); } catch (e) {}
+    }
+    const sym = (window.OX_SETTINGS && window.OX_SETTINGS.currency_symbol) || '₵';
+    return sym + safeToFixed(v, d || 2);
+}
 
 let currentProducts = [];
 let currentProductIdForDelete = null;
@@ -444,6 +490,16 @@ async function loadProducts() {
             allItems = [];
         }
 
+        const allClaims = await db.claims.toArray().catch(() => []);
+        const activeClaimsByBatch = {};
+        allClaims.forEach(c => {
+            const status = (c.status || 'active').toLowerCase();
+            if (status !== 'active') return;
+            if (!c.batch_id) return;
+            activeClaimsByBatch[c.batch_id] =
+                (activeClaimsByBatch[c.batch_id] || 0) + (c.quantity || 0);
+        });
+
         // Real sold-by-batch map (from sales_items)
         const soldByBatch = {};
         allItems.forEach(it => {
@@ -478,8 +534,12 @@ async function loadProducts() {
                 };
             }
             (batchesByProduct[p.id] || []).forEach(b => {
+                const serverClaimed  = b.claimed_quantity || 0;
+                const offlineClaimed = activeClaimsByBatch[b.id] || 0;
+                const claimedQty     = Math.max(serverClaimed, offlineClaimed);
+
                 grouped[key].stock         += b.remaining_quantity || 0;
-                grouped[key].total_claimed += b.claimed_quantity   || 0;
+                grouped[key].total_claimed += claimedQty;
                 grouped[key].batches.push({
                     batch_id:           b.id,
                     quantity:           b.quantity || 0,
@@ -488,7 +548,7 @@ async function loadProducts() {
                     selling_price:      b.selling_price || 0,
                     discount:           b.discount || 0,
                     date:               b.date,
-                    claimed_quantity:   b.claimed_quantity || 0,
+                    claimed_quantity:   claimedQty,
                     sold_quantity:      soldByBatch[b.id] || 0
                 });
             });
@@ -543,7 +603,7 @@ function updateSummary(products) {
         let claimed = 0;
         (p.batches || []).forEach(b => claimed += (b.claimed_quantity || 0));
         const good = Math.max((p.stock || 0) - claimed, 0);
-        if (good > 0 && good <= 10) lowCount++;
+        if (good > 0 && good <= (window.OX_LOW_STOCK_THRESHOLD || 10)) lowCount++;
     });
 
     // ── Apply with inline style — independent of Tailwind availability ──
@@ -558,12 +618,20 @@ function updateSummary(products) {
 //  LOW STOCK SPLIT PANEL (Batch level + Product level)
 // ============================================================
 function renderLowStockSplit() {
+    (function _updateSplitSubtitle() {
+        var el = document.getElementById('lowStockSplitThreshold');
+        if (el) {
+            var t = window.OX_LOW_STOCK_THRESHOLD || 10;
+            el.textContent = t;
+        }
+    })();
+
     // Batch level
     const lowBatches = [];
     currentProducts.forEach(p => {
         (p.batches || []).forEach(b => {
             const rem = b.remaining_quantity || 0;
-            if (rem > 0 && rem <= 10) {
+            if (rem > 0 && rem <= (window.OX_LOW_STOCK_THRESHOLD || 10)) {
                 lowBatches.push({
                     product_name: p.name,
                     brand:        p.brand,
@@ -598,7 +666,7 @@ function renderLowStockSplit() {
             const good = Math.max((p.stock || 0) - claimed, 0);
             return { name: p.name, brand: p.brand, good };
         })
-        .filter(p => p.good > 0 && p.good <= 10)
+        .filter(p => p.good > 0 && p.good <= (window.OX_LOW_STOCK_THRESHOLD || 10))
         .sort((a, b) => a.good - b.good);
 
     $('lowStockProductHeader').textContent = `Low Stock Products (${lowProducts.length})`;
@@ -623,7 +691,7 @@ function renderProducts(products, batchKeyword) {
     if (!products.length) {
         const msg = batchKeyword
             ? `No products found with batch #${batchKeyword.replace('#', '')}`
-            : 'No accessory products found.';
+            : $t('products.empty.none', 'No accessory products found.');
         container.innerHTML =
             '<div class="text-center text-gray-400 py-8 bg-white rounded-xl shadow-md">' + msg + '</div>';
         return;
@@ -638,7 +706,7 @@ function renderProducts(products, batchKeyword) {
 
         // ── Inline colour — independent of Tailwind bundle ──
         const statusColor = inStock ? '#16a34a' : '#dc2626';
-        const statusText  = inStock ? '● In Stock' : '● Out of Stock';
+        const statusText  = inStock ? ('● ' + $t('products.card.in_stock', 'In Stock')) : ('● ' + $t('products.card.out_of_stock', 'Out of Stock'));
 
         const hasSearchedBatch = batchKeyword
             ? p.batches.some(b => b.batch_id === parseInt(batchKeyword.replace('#','')))
@@ -660,9 +728,9 @@ function renderProducts(products, batchKeyword) {
                             ${faultyBadge}
                             ${batchMatchBadge}
                         </div>
-                        <p class="text-gray-600 text-sm">Category: ${escapeHtml(p.category)} | Total Stock: ${totalStock}</p>
-                        <p class="text-xs md:text-sm text-gray-700">Cost: ₵${safeToFixed(p.cost_price)} | Selling: ₵${safeToFixed(p.selling_price)} | Discount: ₵${safeToFixed(p.discount)}</p>
-                        <p class="text-xs font-bold mt-1" style="color:#16a34a;">✅ ${displayGood} good units available</p>
+                        <p class="text-gray-600 text-sm">${$t('products.card.category', 'Category')}: ${escapeHtml(p.category)} | ${$t('products.card.total_stock', 'Total Stock')}: ${totalStock}</p>
+                        <p class="text-xs md:text-sm text-gray-700">${IS_ADMIN ? `Cost: ${money(p.cost_price)} | ` : ''}Selling: ${money(p.selling_price)} | Discount: ${money(p.discount)}</p>
+                        <p class="text-xs font-bold mt-1" style="color:#16a34a;">✅ ${displayGood} ${$t('products.card.good_units_label', 'good units available')}</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="pv-status ${inStock ? 'in' : 'out'} text-sm" style="color:${statusColor};">${statusText}</span>
@@ -671,11 +739,11 @@ function renderProducts(products, batchKeyword) {
                 <div class="mt-3 flex flex-wrap justify-end gap-2">
                     <button onclick="viewBatchesWithData('${String(productId).replace(/'/g, "\\'")}')"
                             class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
-                        View Batches
+                        ${$t('products.card.view_batches', 'View Batches')}
                     </button>
                     <button onclick="confirmDeleteProduct('${String(productId).replace(/'/g, "\\'")}')"
                             class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
-                        Delete Product
+                        ${$t('products.card.delete_product', 'Delete Product')}
                     </button>
                 </div>
             </div>
@@ -718,7 +786,7 @@ function renderBatchList(batches) {
             : '';
         const inStock = batch.remaining_quantity > 0;
         const statusColor = inStock ? '#16a34a' : '#dc2626';
-        const statusText  = inStock ? '● In Stock' : '● Depleted';
+        const statusText  = inStock ? ('● ' + $t('products.batch.in_stock', 'In Stock')) : ('● ' + $t('products.batch.depleted', 'Depleted'));
         const totalQty     = batch.quantity || 0;
         const remainingQty = batch.remaining_quantity || 0;
         const claimedQty   = batch.claimed_quantity || 0;
@@ -738,25 +806,25 @@ function renderBatchList(batches) {
                         </div>
                         <div class="batch-item-actions">
                             <span class="batch-status-pill" style="color:${statusColor};">${statusText}</span>
-                            ${hasClaims ? `<button onclick="event.stopPropagation(); viewBatchClaims(${batch.batch_id})" class="batch-btn batch-btn-claims">📋 Claims</button>` : ''}
-                            <button onclick="event.stopPropagation(); navigateToPurchase(${batch.batch_id})" class="batch-btn batch-btn-update">✏️ Update</button>
+                            ${hasClaims ? `<button onclick="event.stopPropagation(); viewBatchClaims(${batch.batch_id})" class="batch-btn batch-btn-claims">📋 ${$t('products.batch.claims', 'Claims')}</button>` : ''}
+                            ${IS_ADMIN ? `<button onclick="event.stopPropagation(); navigateToPurchase(${batch.batch_id})" class="batch-btn batch-btn-update">✏️ ${$t('products.batch.update', 'Update')}</button>` : ''}
                         </div>
                     </div>
                     <div class="batch-item-date">${dateStr}</div>
                     <div class="batch-item-stats">
-                        <div class="batch-stat"><span class="batch-stat-label">Total</span><span class="batch-stat-value">${totalQty}</span></div>
+                        <div class="batch-stat"><span class="batch-stat-label">${$t('products.batch.total', 'Total')}</span><span class="batch-stat-value">${totalQty}</span></div>
                         <div class="batch-stat sold" ${canViewSales ? `onclick="event.stopPropagation(); navigateToBatchSales(${batch.batch_id})" style="cursor:pointer;"` : ''}>
-                            <span class="batch-stat-label">Sold${canViewSales ? ' 🔍' : ''}</span>
+                            <span class="batch-stat-label">${$t('products.batch.sold', 'Sold')}${canViewSales ? ' 🔍' : ''}</span>
                             <span class="batch-stat-value">${soldQty}</span>
                         </div>
-                        <div class="batch-stat"><span class="batch-stat-label">Remaining</span><span class="batch-stat-value">${remainingQty}</span></div>
-                        <div class="batch-stat claimed"><span class="batch-stat-label">Claimed</span><span class="batch-stat-value">${claimedQty}</span></div>
-                        <div class="batch-stat good"><span class="batch-stat-label">✅ Good</span><span class="batch-stat-value">${goodQty}</span></div>
+                        <div class="batch-stat"><span class="batch-stat-label">${$t('products.batch.remaining', 'Remaining')}</span><span class="batch-stat-value">${remainingQty}</span></div>
+                        <div class="batch-stat claimed"><span class="batch-stat-label">${$t('products.batch.claimed', 'Claimed')}</span><span class="batch-stat-value">${claimedQty}</span></div>
+                        <div class="batch-stat good"><span class="batch-stat-label">✅ ${$t('products.batch.good', 'Good')}</span><span class="batch-stat-value">${goodQty}</span></div>
                     </div>
                     <div class="batch-item-prices">
-                        <span class="batch-price">Cost: <strong>₵${safeToFixed(batch.cost_price)}</strong></span>
-                        <span class="batch-price">Selling: <strong>₵${safeToFixed(batch.selling_price)}</strong></span>
-                        ${batch.discount > 0 ? `<span class="batch-price full">Discount: <strong>₵${safeToFixed(batch.discount)}</strong></span>` : ''}
+                        ${IS_ADMIN ? `<span class="batch-price">Cost: <strong>${money(batch.cost_price)}</strong></span>` : ''}
+                        <span class="batch-price">Selling: <strong>${money(batch.selling_price)}</strong></span>
+                        ${batch.discount > 0 ? `<span class="batch-price full">Discount: <strong>${money(batch.discount)}</strong></span>` : ''}
                     </div>
                 </div>
             </div>
@@ -936,11 +1004,38 @@ window.closeClaimModal = closeClaimModal;
 
 // ---------- Navigate to web (opens in system browser) ----------
 function navigateToPurchase(batchId) {
+    if (!IS_ADMIN) return;
     window.open(RENDER + `/purchases?edit_batch=${batchId}`, '_system');
 }
+
 function navigateToBatchSales(batchId) {
     if (!batchId) return;
-    window.open(RENDER + `/today-sales?batch_id=${batchId}`, '_system');
+
+    // Stash the batch id for the today-sales view to pick up.
+    try {
+        sessionStorage.setItem('oxPendingBatchFilter', JSON.stringify({
+            batch_id: batchId,
+            category: 'Accessory',
+            at: Date.now()
+        }));
+    } catch (e) {}
+
+    // Shell router: switchView('today-accessories') — key from VIEWS registry.
+    if (typeof window.switchView === 'function') {
+        try { window.switchView('today-accessories'); return; } catch (e) {}
+    }
+
+    // Fallback: fire an event in case the shell router changes later.
+    try {
+        window.dispatchEvent(new CustomEvent('ox:navigate', {
+            detail: { path: 'today-accessories', query: { batch_id: batchId } }
+        }));
+    } catch (e) {}
+
+    // Absolute last resort — bump sessionStorage so a manual reopen still works.
+    try { sessionStorage.setItem('oxPendingBatchFilter', JSON.stringify({
+        batch_id: batchId, category: 'Accessory', at: Date.now()
+    })); } catch (e) {}
 }
 window.navigateToPurchase   = navigateToPurchase;
 window.navigateToBatchSales = navigateToBatchSales;

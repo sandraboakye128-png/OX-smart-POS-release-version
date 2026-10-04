@@ -7,9 +7,15 @@
 -->
 <div id="lowStockSplitRoot"
      data-category="{{ low_stock_category or 'all' }}"
+     data-currency="{{ settings.currency_symbol if settings else '₵' }}"
+     data-threshold="{{ settings.low_stock_threshold if settings else 10 }}"
+     data-lang="{{ settings.language if settings else 'en' }}"
+     data-label-batch-level="{{ t('products.low_stock.batch_level') }}"
+     data-label-product-level="{{ t('products.low_stock.product_level') }}"
+     data-label-none="{{ t('products.low_stock.none') }}"
      class="bg-white rounded-xl shadow-md p-4 mb-4">
     <div class="flex items-center justify-between mb-3">
-        <h2 class="text-base md:text-xl font-semibold">⚠️ Low Stock & Out of Stock</h2>
+        <h2 class="text-base md:text-xl font-semibold">⚠️ {{ t('products.low_stock.title') }}</h2>
         <span class="text-xs text-gray-400" id="lowStockSplitSubtitle">Loading…</span>
     </div>
     <div id="lowStockSplitBody">

@@ -12,6 +12,15 @@
         });
     }
 
+    // i18n shim — falls back to the fallback string if window.t is absent.
+    function _t(key, fallback) {
+        if (typeof window.t === 'function') {
+            const out = window.t(key);
+            if (out && out !== key) return out;
+        }
+        return fallback || key;
+    }
+
     function categoryTargetPage(category) {
         return (category && category.toLowerCase() === 'screen')
             ? '/products/screens'
@@ -84,17 +93,27 @@
         const bl = data.batch_level || { low_stock: [], out_of_stock: [] };
         const pl = data.product_level || { low_stock: [], out_of_stock: [] };
 
+        const L = {
+            batchLevel:   _t('products.low_stock.batch_level',    '📦 Batch Level'),
+            productLevel: _t('products.low_stock.product_level',  '📦 Product Level'),
+            lowBatches:   _t('products.low_stock.low_batches',    '⚠️ Low Stock Batches'),
+            outBatches:   _t('products.low_stock.out_batches',    '📭 Out of Stock Batches'),
+            lowProducts:  _t('products.low_stock.low_products',   '⚠️ Low Stock Products'),
+            outProducts:  _t('products.low_stock.out_products',   '📭 Out of Stock Products'),
+            none:         _t('products.low_stock.none',           'None'),
+        };
+
         return `
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div class="bg-white rounded-lg border border-gray-100 p-3">
-                    <h3 class="text-sm font-bold text-indigo-700 mb-2">📦 Batch Level</h3>
-                    ${renderSection('⚠️ Low Stock Batches', bl.low_stock, batchRow, 'None')}
-                    ${renderSection('📭 Out of Stock Batches', bl.out_of_stock, batchRow, 'None')}
+                    <h3 class="text-sm font-bold text-indigo-700 mb-2">${L.batchLevel}</h3>
+                    ${renderSection(L.lowBatches, bl.low_stock, batchRow, L.none)}
+                    ${renderSection(L.outBatches, bl.out_of_stock, batchRow, L.none)}
                 </div>
                 <div class="bg-white rounded-lg border border-gray-100 p-3">
-                    <h3 class="text-sm font-bold text-indigo-700 mb-2">📦 Product Level</h3>
-                    ${renderSection('⚠️ Low Stock Products', pl.low_stock, productRow, 'None')}
-                    ${renderSection('📭 Out of Stock Products', pl.out_of_stock, productRow, 'None')}
+                    <h3 class="text-sm font-bold text-indigo-700 mb-2">${L.productLevel}</h3>
+                    ${renderSection(L.lowProducts, pl.low_stock, productRow, L.none)}
+                    ${renderSection(L.outProducts, pl.out_of_stock, productRow, L.none)}
                 </div>
             </div>
         `;
@@ -154,7 +173,7 @@
 
             if (subtitle) {
                 const catLabel = category === 'all'
-                    ? 'Screens + Accessories'
+                    ? _t('products.low_stock.cat_all', 'Screens + Accessories')
                     : category;
                 subtitle.textContent = `${catLabel} · threshold ≤ ${data.threshold}`;
             }
@@ -163,9 +182,10 @@
         } catch (e) {
             console.warn('Low stock split failed:', e);
             if (body) {
+                const errMsg = _t('products.low_stock.error', 'Could not load low stock data.');
                 body.innerHTML = `
                     <div class="text-xs text-red-500 text-center py-4">
-                        ⚠️ Could not load low stock data. ${escapeHtml(e.message || '')}
+                        ⚠️ ${errMsg} ${escapeHtml(e.message || '')}
                     </div>`;
             }
         }

@@ -9,7 +9,7 @@
 <!-- Header with date range, time range and real-time clock -->
 <div class="flex flex-wrap justify-between items-center gap-3 md:gap-4 mb-4 md:mb-6">
     <div class="flex items-center gap-2">
-        <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Dashboard</h1>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-800">{{ t('dashboard.title') }}</h1>
         <span id="dataSourceBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-gray-100 text-gray-500"></span>
     </div>
     <div class="flex flex-wrap items-center gap-2 md:gap-4">
@@ -25,7 +25,7 @@
             <span class="text-gray-500 text-xs md:text-sm">to</span>
             <input type="time" id="endTime" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-xs md:text-sm" step="60">
         </div>
-        <button id="applyFilterBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">Apply Filter</button>
+        <button id="applyFilterBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">{{ t('dashboard.apply_filter') }}</button>
         <span id="clock" class="text-gray-500 font-mono text-xs md:text-sm"></span>
     </div>
 </div>
@@ -33,34 +33,34 @@
 <!-- KPI Cards – 5 columns (2 on mobile) -->
 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4 mb-4 md:mb-6">
     <div class="bg-white rounded-xl shadow-md p-2 md:p-4">
-        <p class="text-gray-500 text-[10px] md:text-sm">Total Sales</p>
-        <p id="salesValue" class="text-base md:text-2xl font-bold text-indigo-600">₵0</p>
+        <p class="text-gray-500 text-[10px] md:text-sm">{{ t('dashboard.kpi.total_sales') }}</p>
+        <p id="salesValue" class="text-base md:text-2xl font-bold text-indigo-600">{{ settings.currency_symbol if settings else '₵' }}0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-2 md:p-4">
-        <p class="text-gray-500 text-[10px] md:text-sm">Total Profit</p>
-        <p id="profitValue" class="text-base md:text-2xl font-bold text-green-600">₵0</p>
+        <p class="text-gray-500 text-[10px] md:text-sm">{{ t('dashboard.kpi.total_profit') }}</p>
+        <p id="profitValue" class="text-base md:text-2xl font-bold text-green-600">{{ settings.currency_symbol if settings else '₵' }}0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-2 md:p-4">
-        <p class="text-gray-500 text-[10px] md:text-sm">Total Products</p>
+        <p class="text-gray-500 text-[10px] md:text-sm">{{ t('dashboard.kpi.total_products') }}</p>
         <p id="productsValue" class="text-base md:text-2xl font-bold text-blue-600">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-2 md:p-4">
-        <p class="text-gray-500 text-[10px] md:text-sm">Total Batches</p>
+        <p class="text-gray-500 text-[10px] md:text-sm">{{ t('dashboard.kpi.total_batches') }}</p>
         <p id="batchesValue" class="text-base md:text-2xl font-bold text-purple-600">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-2 md:p-4 col-span-2 md:col-span-1">
-        <p class="text-gray-500 text-[10px] md:text-sm">Low Stock Items</p>
+        <p class="text-gray-500 text-[10px] md:text-sm">{{ t('dashboard.kpi.low_stock') }}</p>
         <p id="lowStockValue" class="text-base md:text-2xl font-bold text-red-600">0</p>
-        <p class="text-[9px] text-gray-400 mt-0.5">Products with 1–{{ settings.low_stock_threshold if settings else 10 }} units</p>
+        <p class="text-[9px] text-gray-400 mt-0.5">{{ t('dashboard.kpi.low_stock_hint', n=(settings.low_stock_threshold if settings else 10)) }}</p>
     </div>
 </div>
 
 <!-- Top Products & Low Stock Split -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
     <div class="bg-white rounded-xl shadow-md p-3 md:p-4 flex flex-col">
-        <h2 class="text-base md:text-xl font-semibold mb-2 md:mb-3">🏆 Top Products</h2>
+        <h2 class="text-base md:text-xl font-semibold mb-2 md:mb-3">{{ t('dashboard.top_products') }}</h2>
         <div id="topProductsList" class="flex-1 max-h-60 md:max-h-80 overflow-y-auto space-y-1 md:space-y-2 pr-2"></div>
-        <p class="text-[10px] md:text-xs text-gray-400 mt-1 md:mt-2">* Based on total quantity sold for selected period</p>
+        <p class="text-[10px] md:text-xs text-gray-400 mt-1 md:mt-2">{{ t('dashboard.note.top_products') }}</p>
     </div>
 
     <!-- ✅ Split Low Stock Panel (Dashboard = all categories) -->
@@ -72,18 +72,18 @@
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
     <!-- Pie Chart -->
     <div class="bg-white rounded-xl shadow-md p-3 md:p-4">
-        <h2 class="text-base md:text-xl font-semibold mb-2 md:mb-3">🥧 Product Distribution</h2>
+        <h2 class="text-base md:text-xl font-semibold mb-2 md:mb-3">{{ t('dashboard.pie.title') }}</h2>
         <div id="pieChartContainer" class="w-full max-w-[300px] md:max-w-full mx-auto">
             <canvas id="pieChart" class="w-full h-auto"></canvas>
         </div>
-        <div id="pieChartOfflineMsg" class="text-gray-500 text-center text-sm hidden">Offline – pie chart unavailable</div>
+        <div id="pieChartOfflineMsg" class="text-gray-500 text-center text-sm hidden">{{ t('dashboard.pie.offline') }}</div>
     </div>
     <!-- Sales History with Calendar -->
     <div class="bg-white rounded-xl shadow-md p-3 md:p-4 flex flex-col">
         <div class="flex justify-between items-center mb-2 md:mb-3">
-            <h2 class="text-base md:text-xl font-semibold">📊 Sales History</h2>
+            <h2 class="text-base md:text-xl font-semibold">{{ t('dashboard.sales_history') }}</h2>
             <div class="flex items-center gap-1 md:gap-2">
-                <button id="todayHistoryBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-2 py-0.5 md:px-3 md:py-1 rounded-lg text-xs md:text-sm">Today</button>
+                <button id="todayHistoryBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-2 py-0.5 md:px-3 md:py-1 rounded-lg text-xs md:text-sm">{{ t('dashboard.today') }}</button>
             </div>
         </div>
         <!-- Calendar -->
@@ -123,6 +123,22 @@
     //  APK:       IS_APK = true  → OX_DATA.dashboard.* (reads Dexie)
     // ============================================================
     const IS_APK = (typeof OX_ENV !== 'undefined') && !!OX_ENV.useLocalDb;
+
+    // i18n — server-rendered translator, available to all dashboard JS
+    const T = {
+        no_top_products: '{{ t("dashboard.no_top_products")|e }}',
+        select_range:   '{{ t("dashboard.select_range")|e }}',
+        no_history:      '{{ t("dashboard.no_history")|e }}',
+        offline_note:    '{{ t("dashboard.offline_note")|e }}',
+        alert_title:     '{{ t("dashboard.alert.title")|e }}',
+        alert_body:      '{{ t("dashboard.alert.body", n="__N__")|e }}',
+        alert_restock:   '{{ t("dashboard.alert.restock")|e }}',
+        and_more:        '{{ t("dashboard.and_more", n="__N__")|e }}',
+    };
+    function tt(key, fallback) {
+        const v = T[key];
+        return (v && v.length) ? v : (fallback || key);
+    }
 
     document.addEventListener('DOMContentLoaded', async function() {
         console.log("DOM loaded – Dashboard");
@@ -164,8 +180,9 @@
         let calendarYear = new Date().getFullYear();
         let calendarMonth = new Date().getMonth();
 
+        const CURRENCY = '{{ settings.currency_symbol if settings else "₵" }}';
         function formatMoney(amount) {
-            return '₵' + (parseFloat(amount) || 0).toFixed(2);
+            return CURRENCY + (parseFloat(amount) || 0).toFixed(2);
         }
         function escapeHtml(str) {
             if (!str) return '';
@@ -388,7 +405,7 @@
                     topContainer.appendChild(div);
                 });
             } else {
-                topContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">📊 No sales data for this period.</div>';
+                topContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">' + tt('no_top_products') + '</div>';
             }
 
             // Pie chart
@@ -446,11 +463,11 @@
                 if (!navigator.onLine) {
                     const note = document.createElement('div');
                     note.className = 'text-[10px] md:text-xs text-amber-500 mt-2 text-center';
-                    note.innerText = '⚠️ Data may be outdated (offline mode)';
+                    note.innerText = tt('offline_note');
                     historyContainer.appendChild(note);
                 }
             } else {
-                historyContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">📅 No sales history found for this period.</div>';
+                historyContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">' + tt('no_history') + '</div>';
             }
 
             // Low stock alert (once per session)
@@ -458,9 +475,9 @@
                 const previewList = lowStock.slice(0, 5).map(item => {
                     return `• ${item.name} (${item.brand}) - ${item.total_remaining != null ? item.total_remaining : item.stock} left`;
                 }).join('\n');
-                const moreCount = lowStock.length > 5 ? `\n\n... and ${lowStock.length - 5} more items` : '';
+                const moreCount = lowStock.length > 5 ? '\n\n' + tt('and_more').replace('__N__', lowStock.length - 5) : '';
                 setTimeout(() => {
-                    alert(`⚠️ LOW STOCK ALERT ⚠️\n\n${lowStock.length} product(s) are running low:\n\n${previewList}${moreCount}\n\nPlease restock soon!`);
+                    alert(tt('alert_title') + '\n\n' + tt('alert_body').replace('__N__', lowStock.length) + '\n\n' + previewList + moreCount + '\n\n' + tt('alert_restock'));
                 }, 100);
                 lowStockShown = true;
             }
@@ -480,7 +497,7 @@
             const end = document.getElementById('endDate').value;
             const st = document.getElementById('startTime').value;
             const et = document.getElementById('endTime').value;
-            if (!start && !end) { alert('Please select at least a start date or end date'); return; }
+            if (!start && !end) { alert(tt('select_range')); return; }
             startDate = start || null;
             endDate = end || null;
             startTime = st || null;

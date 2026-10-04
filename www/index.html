@@ -1046,21 +1046,21 @@
     <div class="landing-box">
         <div class="landing-logo">🧾</div>
         <h1>OX Smart POS</h1>
-        <p class="landing-sub">Choose how to use the app</p>
+        <p class="landing-sub" data-i18n="shell.landing.sub">Choose how to use the app</p>
 
         <button class="landing-btn landing-btn-offline" onclick="goOffline()" type="button">
             <span class="landing-btn-icon">📴</span>
             <span class="landing-btn-text">
-                <span class="landing-btn-title">Use App Offline</span>
-                <span class="landing-btn-desc">Works without internet · sales sync later</span>
+                <span class="landing-btn-title" data-i18n="shell.landing.use_offline">Use App Offline</span>
+                <span class="landing-btn-desc" data-i18n="shell.landing.use_offline_desc">Works without internet · sales sync later</span>
             </span>
         </button>
 
         <button class="landing-btn" onclick="goOnline()" type="button">
             <span class="landing-btn-icon">🌐</span>
             <span class="landing-btn-text">
-                <span class="landing-btn-title">Use App Online</span>
-                <span class="landing-btn-desc">Full web app in your browser · needs Wi-Fi</span>
+                <span class="landing-btn-title" data-i18n="shell.landing.use_online">Use App Online</span>
+                <span class="landing-btn-desc" data-i18n="shell.landing.use_online_desc">Full web app in your browser · needs Wi-Fi</span>
             </span>
         </button>
 
@@ -1078,12 +1078,12 @@
         </button>
         <div class="login-logo">🧾</div>
         <h1>OX Smart POS</h1>
-        <p class="subtitle">Sign in to enable offline mode</p>
+        <p class="subtitle" data-i18n="shell.login.sub">Sign in to enable offline mode</p>
 
-        <label for="loginUser">Username</label>
+        <label for="loginUser" data-i18n="shell.login.username">Username</label>
         <input type="text" id="loginUser" autocomplete="username" autocapitalize="none" spellcheck="false">
 
-        <label for="loginPass">Password</label>
+        <label for="loginPass" data-i18n="shell.login.password">Password</label>
         <div class="password-wrap">
             <input type="password" id="loginPass" autocomplete="current-password">
             <button type="button"
@@ -1096,7 +1096,7 @@
             </button>
         </div>
 
-        <button id="loginBtn" onclick="doLogin()">Sign In</button>
+        <button id="loginBtn" onclick="doLogin()" data-i18n="shell.login.signin">Sign In</button>
         <div class="login-error" id="loginError"></div>
 
         <button type="button" id="createAccountBtn" onclick="openSignup(event)"
@@ -1111,7 +1111,7 @@
 <!-- LOADING VIEW -->
 <div id="loadingView" class="hidden">
     <div class="loading-spinner"></div>
-    <div class="loading-text" id="loadingText">Starting…</div>
+    <div class="loading-text" id="loadingText" data-i18n="shell.loading.starting">Starting…</div>
 </div>
 
 <!-- APP SHELL -->
@@ -1154,19 +1154,19 @@
 
     <button type="button" id="userChip" class="user-chip hidden" onclick="openMyProfile()" title="Open your profile">
         <div class="user-icon" id="userInitial">?</div>
-        <span>Signed in as</span>
+        <span data-i18n="shell.user.signed_in_as">Signed in as</span>
         <span class="user-name" id="userName">—</span>
         <span class="user-role" id="userRole">—</span>
     </button>
 
     <div id="offlineBanner" class="offline-banner hidden">
         <span>📶</span>
-        <span>Offline — showing cached data. Sync will run when you reconnect.</span>
+        <span data-i18n="shell.offline.banner">Offline — showing cached data. Sync will run when you reconnect.</span>
     </div>
 
     <div id="errorCard" class="error-card hidden">
         <span class="icon">⚠️</span>
-        <span id="errorMessage">Something went wrong.</span>
+        <span id="errorMessage" data-i18n="shell.error.generic">Something went wrong.</span>
     </div>
 
     <div id="viewContainer">
@@ -1186,7 +1186,7 @@
                 <input type="time" id="dashStartTime" step="60">
                 <span class="sep">to</span>
                 <input type="time" id="dashEndTime" step="60">
-                <button class="apply-btn" id="dashApplyBtn">Apply</button>
+                <button class="apply-btn" id="dashApplyBtn" data-i18n="shell.dash.apply">Apply</button>
                 <span class="clock" id="dashClock">--:--:--</span>
             </div>
 
@@ -1195,7 +1195,7 @@
                     <button type="button" class="dash-cal-nav" id="dashCalPrev" aria-label="Previous month">&#x2039;</button>
                     <span class="dash-cal-label" id="dashCalLabel">&mdash;</span>
                     <div style="display:flex; gap:6px; align-items:center;">
-                        <button type="button" class="dash-cal-today-btn" id="dashCalToday">Today</button>
+                        <button type="button" class="dash-cal-today-btn" id="dashCalToday" data-i18n="shell.dash.today">Today</button>
                         <button type="button" class="dash-cal-nav" id="dashCalNext" aria-label="Next month">&#x203a;</button>
                     </div>
                 </div>
@@ -1207,34 +1207,34 @@
 
             <div class="kpis">
                 <div class="kpi teal">
-                    <div class="kpi-label">💰 Sales</div>
+                    <div class="kpi-label" data-i18n="shell.dash.kpi.sales">💰 Sales</div>
                     <div class="kpi-value" id="kpiSales">—</div>
                     <div class="kpi-sub" id="kpiSalesSub"></div>
                 </div>
                 <div class="kpi green">
-                    <div class="kpi-label">📈 Profit</div>
+                    <div class="kpi-label" data-i18n="shell.dash.kpi.profit">📈 Profit</div>
                     <div class="kpi-value" id="kpiProfit">—</div>
                     <div class="kpi-sub" id="kpiProfitSub"></div>
                 </div>
                 <div class="kpi blue">
-                    <div class="kpi-label">📦 Products</div>
+                    <div class="kpi-label" data-i18n="shell.dash.kpi.products">📦 Products</div>
                     <div class="kpi-value" id="kpiProducts">—</div>
                     <div class="kpi-sub" id="kpiProductsSub"></div>
                 </div>
                 <div class="kpi purple">
-                    <div class="kpi-label">📊 Batches</div>
+                    <div class="kpi-label" data-i18n="shell.dash.kpi.batches">📊 Batches</div>
                     <div class="kpi-value" id="kpiBatches">—</div>
                     <div class="kpi-sub">&nbsp;</div>
                 </div>
                 <div class="kpi red">
-                    <div class="kpi-label">⚠️ Low Stock</div>
+                    <div class="kpi-label" data-i18n="shell.dash.kpi.low_stock">⚠️ Low Stock</div>
                     <div class="kpi-value" id="kpiLowStock">—</div>
-                    <div class="kpi-sub">1–10 units left</div>
+                    <div class="kpi-sub" id="kpiLowStockHint">1–10 units left</div>
                 </div>
             </div>
 
             <div class="card">
-                <h2>🏆 Top Products <span class="count" id="topProductsCount">0</span></h2>
+                <h2><span data-i18n="shell.dash.top_products">🏆 Top Products</span> <span class="count" id="topProductsCount">0</span></h2>
                 <div id="topProductsList" class="card-scroll"><div class="empty">Loading…</div></div>
                 <p style="font-size:0.68rem;color:var(--text-faint);margin-top:8px;">
                     * Based on total quantity sold in the selected range
@@ -1242,7 +1242,7 @@
             </div>
 
             <div class="card">
-                <h2>⚠️ Low Stock <span class="count" id="shellLowStockCount">0</span></h2>
+                <h2><span data-i18n="shell.dash.low_stock">⚠️ Low Stock</span> <span class="count" id="shellLowStockCount">0</span></h2>
                 <div id="lowStockList" class="card-scroll"><div class="empty">Loading…</div></div>
                 <p style="font-size:0.68rem;color:var(--text-faint);margin-top:8px;">
                     * Tap any item to open its product page with batch stock highlighted
@@ -1250,7 +1250,7 @@
             </div>
 
             <div class="card">
-                <h2>🥧 Product Distribution <span class="count" id="pieTotal">0</span></h2>
+                <h2><span data-i18n="shell.dash.pie">🥧 Product Distribution</span> <span class="count" id="pieTotal">0</span></h2>
                 <div id="pieChartContainer" class="pie-wrap">
                     <div class="empty">Loading…</div>
                 </div>
@@ -1260,7 +1260,7 @@
             </div>
 
             <div class="card">
-                <h2>🕒 Recent Sales <span class="count" id="recentCount">0</span></h2>
+                <h2><span data-i18n="shell.dash.recent">🕒 Recent Sales</span> <span class="count" id="recentCount">0</span></h2>
                 <div id="recentSales" class="card-scroll"><div class="empty">Loading…</div></div>
             </div>
         </div>
@@ -1271,11 +1271,11 @@
     <div class="actions">
         <button id="syncBtn" class="btn-primary" onclick="syncNow()">
             <span id="syncBtnIcon">🔄</span>
-            <span id="syncBtnText">Sync Now</span>
+            <span id="syncBtnText" data-i18n="shell.action.sync_now">Sync Now</span>
         </button>
         <button id="openFullAppBtn" class="btn-secondary" onclick="openFullApp()">
             <span id="openFullAppIcon">🌐</span>
-            <span id="openFullAppText">Full App</span>
+            <span id="openFullAppText" data-i18n="shell.action.full_app">Full App</span>
         </button>
     </div>
 
@@ -1293,13 +1293,13 @@
 <div id="pendingOpsModal" class="pending-modal hidden">
     <div class="pending-modal-box">
         <div class="pending-modal-header">
-            <h3>⏳ Pending Actions</h3>
+            <h3 data-i18n="shell.pending.title">⏳ Pending Actions</h3>
             <button class="pending-modal-x" onclick="closePendingOpsModal()" aria-label="Close">&times;</button>
         </div>
         <div id="pendingOpsList" class="pending-modal-body"></div>
         <div class="pending-modal-footer">
-            <button class="btn-secondary" onclick="closePendingOpsModal()">Close</button>
-            <button class="btn-primary" onclick="syncFromPendingModal()">Sync Now</button>
+            <button class="btn-secondary" onclick="closePendingOpsModal()" data-i18n="shell.pending.close">Close</button>
+            <button class="btn-primary" onclick="syncFromPendingModal()" data-i18n="shell.pending.sync_now">Sync Now</button>
         </div>
     </div>
 </div>
@@ -1316,7 +1316,7 @@
     </div>
     <nav id="menuNav"></nav>
     <div class="menu-footer-signout">
-        <button class="btn-signout" onclick="doLogout()" style="width:100%;">Sign out</button>
+        <button class="btn-signout" onclick="doLogout()" style="width:100%;" data-i18n="shell.menu.signout">Sign out</button>
     </div>
 </aside>
 
@@ -1396,6 +1396,33 @@ window.applyAppTheme = function (theme) {
 })();
 
 // ============================================================
+//  SERVER-INJECTED SETTINGS + I18N (highest priority)
+//  When served from Flask /offline/, the server puts the current
+//  user's settings + i18n dict inline. Use them directly — no
+//  fetch, no cache, no race condition. On the APK these are
+//  absent, so the cached-localStorage path below still applies.
+// ============================================================
+(function _applyServerInject() {
+    try {
+        if (window.OX_SERVER_I18N && Object.keys(window.OX_SERVER_I18N).length > 0) {
+            window.OX_I18N = window.OX_SERVER_I18N;
+        }
+        if (window.OX_SERVER_SETTINGS && Object.keys(window.OX_SERVER_SETTINGS).length > 0) {
+            const s = window.OX_SERVER_SETTINGS;
+            if (s.font_family) document.documentElement.setAttribute('data-font-family', s.font_family);
+            if (s.font_size)   document.documentElement.setAttribute('data-font-size', s.font_size);
+            const theme = (s.theme === 'light') ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+            if (s.language) window.OX_LANG = s.language;
+            window.OX_SETTINGS = Object.assign(window.OX_SETTINGS || {}, s);
+            window.OX_LOW_STOCK_THRESHOLD = parseInt(s.low_stock_threshold, 10) || 10;
+        }
+    } catch (e) {
+        console.warn('[shell] server inject apply failed:', e);
+    }
+})();
+
+// ============================================================
 //  SHELL SETTINGS HELPERS
 // ============================================================
 window.OX_SETTINGS = window.OX_SETTINGS || {};
@@ -1468,11 +1495,42 @@ async function fetchAndCacheSettings() {
 }
 window.fetchAndCacheSettings = fetchAndCacheSettings;
 
+// ============================================================
+//  STATIC i18n BOOT
+//  Any element with [data-i18n="key"] gets its textContent
+//  replaced by t('key') once the i18n dict is loaded.
+// ============================================================
+function _applyStaticI18n(root) {
+    const scope = root || document;
+    scope.querySelectorAll('[data-i18n]').forEach(function (el) {
+        const key = el.getAttribute('data-i18n');
+        const translated = (typeof window.t === 'function') ? window.t(key) : key;
+        if (translated && translated !== key) {
+            // preserve children if any (icon spans, count spans, etc.)
+            if (el.children.length === 0) {
+                el.textContent = translated;
+            } else {
+                // only replace the leading text node
+                for (let i = 0; i < el.childNodes.length; i++) {
+                    const n = el.childNodes[i];
+                    if (n.nodeType === 3 && n.textContent.trim()) {
+                        n.textContent = translated;
+                        break;
+                    }
+                }
+            }
+        }
+    });
+}
+window._applyStaticI18n = _applyStaticI18n;
+
 document.addEventListener('DOMContentLoaded', function () {
     window.applyAppTheme(window.oxSettings.theme);
+    if (typeof _applyStaticI18n === 'function') _applyStaticI18n();
 });
 
 window.addEventListener('ox:settingsChanged', function (ev) {
+    if (typeof _applyStaticI18n === 'function') _applyStaticI18n();
     const s = (ev && ev.detail) || {};
     const theme = (s.theme === 'light') ? 'light' : 'dark';
     window.applyAppTheme(theme);
@@ -2415,13 +2473,13 @@ function _dispatchPendingAutoOpenBatch(viewName) {
 function renderSvgPieChart(container, data) {
     if (!container) return;
     if (!data || data.length === 0) {
-        container.innerHTML = '<div class="empty">No data to display</div>';
+        container.innerHTML = '<div class="empty">' + (typeof window.t === 'function' ? window.t('shell.dash.empty.no_pie') : 'No data to display') + '</div>';
         return;
     }
 
     const total = data.reduce((s, d) => s + (d.value || 0), 0);
     if (total <= 0) {
-        container.innerHTML = '<div class="empty">No data to display</div>';
+        container.innerHTML = '<div class="empty">' + (typeof window.t === 'function' ? window.t('shell.dash.empty.no_pie') : 'No data to display') + '</div>';
         return;
     }
 
@@ -2672,11 +2730,11 @@ async function renderDashboard() {
             return sum;
         }, 0);
 
-        $('kpiSales').textContent  = '₵' + totalSales.toFixed(2);
+        $('kpiSales').textContent  = (typeof window.formatMoney === 'function' ? window.formatMoney(totalSales) : '₵' + totalSales.toFixed(2));
         $('kpiSalesSub').textContent = filteredSales.length + ' sale' +
             (filteredSales.length === 1 ? '' : 's') + ' · ' + rangeLabel;
 
-        $('kpiProfit').textContent = '₵' + totalProfit.toFixed(2);
+        $('kpiProfit').textContent = (typeof window.formatMoney === 'function' ? window.formatMoney(totalProfit) : '₵' + totalProfit.toFixed(2));
         $('kpiProfitSub').textContent = totalSales > 0
             ? (totalProfit / totalSales * 100).toFixed(1) + '% margin'
             : '';
@@ -2702,16 +2760,23 @@ async function renderDashboard() {
                 category: p.category || '',
                 good: goodByProduct[p.id] || 0
             }))
-            .filter(p => p.good > 0 && p.good <= 10)
+            .filter(p => p.good > 0 && p.good <= (window.OX_LOW_STOCK_THRESHOLD || 10))
             .sort((a, b) => a.good - b.good);
 
         $('kpiLowStock').textContent = lowStock.length;
+        var _hintEl = $('kpiLowStockHint');
+        if (_hintEl) {
+            var _thr = window.OX_LOW_STOCK_THRESHOLD || 10;
+            _hintEl.textContent = (typeof window.t === 'function')
+                ? window.t('shell.dash.kpi.low_stock_hint', { n: _thr })
+                : ('1–' + _thr + ' units left');
+        }
         $('shellLowStockCount').textContent = lowStock.length;
         if (lowStock.length > 0) $('shellLowStockCount').classList.add('alert');
         else                     $('shellLowStockCount').classList.remove('alert');
 
         if (lowStock.length === 0) {
-            $('lowStockList').innerHTML = '<div class="empty">All good — nothing low.</div>';
+            $('lowStockList').innerHTML = '<div class="empty">' + (typeof window.t === 'function' ? window.t('shell.dash.empty.no_low') : 'All good — nothing low.') + '</div>';
         } else {
             $('lowStockList').innerHTML = lowStock.map(p => {
                 const pill = _catPill(p.category);
@@ -2784,14 +2849,14 @@ async function renderDashboard() {
             .slice(0, 10);
         $('recentCount').textContent = recent.length;
         if (recent.length === 0) {
-            $('recentSales').innerHTML = '<div class="empty">No sales yet.</div>';
+            $('recentSales').innerHTML = '<div class="empty">' + (typeof window.t === 'function' ? window.t('shell.dash.empty.no_sales') : 'No sales yet.') + '</div>';
         } else {
             $('recentSales').innerHTML = recent.map(s => {
                 const total = parseFloat(s.total || 0).toFixed(2);
                 const dateStr = String(s.date || '').slice(0, 16).replace('T', ' ');
                 return '<div class="list-item">' +
                     '<div class="left">' +
-                        '<div class="name">₵' + total + '</div>' +
+                        '<div class="name">' + (typeof window.formatMoney === 'function' ? window.formatMoney(total) : '₵' + total) + '</div>' +
                         '<div class="meta">' + dateStr + '</div>' +
                     '</div>' +
                     '<div class="right">' + (s.payment_method || 'cash') + '</div>' +
@@ -2967,7 +3032,7 @@ function renderMenu() {
         items.push(menuItemHtml('dashboard'));
     }
 
-    items.push('<div class="menu-section-label">Inventory &amp; Sales</div>');
+    items.push('<div class="menu-section-label">' + (typeof window.t === 'function' ? window.t('shell.menu.inventory_sales') : 'Inventory &amp; Sales') + '</div>');
     items.push(menuItemHtml('products'));
     items.push(menuItemHtml('products-screen'));
     items.push(menuItemHtml('sales'));
@@ -2994,7 +3059,7 @@ function renderMenu() {
     // Settings view removed — settings are managed on the web app.
 
     if (more.length > 0) {
-        items.push('<div class="menu-section-label">Reports &amp; Admin</div>');
+        items.push('<div class="menu-section-label">' + (typeof window.t === 'function' ? window.t('shell.menu.reports_admin') : 'Reports &amp; Admin') + '</div>');
         more.forEach(i => items.push(i));
     }
 
@@ -3076,6 +3141,9 @@ async function switchView(name) {
             else newScript.textContent = oldScript.textContent;
             oldScript.parentNode.replaceChild(newScript, oldScript);
         });
+
+        // Translate any [data-i18n] in the freshly-injected view
+        if (typeof _applyStaticI18n === 'function') _applyStaticI18n(wrap);
 
         currentView = name;
         renderMenu();

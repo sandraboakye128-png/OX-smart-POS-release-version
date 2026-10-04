@@ -558,7 +558,47 @@ def offline_root():
 
 @app.route('/offline/')
 def offline_shell():
-    return send_from_directory('www', 'index.html')
+    """
+    Serve the shell with the current user's settings + i18n dict
+    pre-injected, so it paints translated on first load with no
+    client-side fetch and no race condition.
+    """
+    import json as _json, os as _os
+
+    settings_dict = {}
+    i18n_dict = {}
+
+    user_id = session.get('user_id')
+    if user_id:
+        try:
+            from services.settings_service import get_user_settings
+            from services.i18n import translations_for
+            settings_dict = get_user_settings(user_id) or {}
+            lang = settings_dict.get('language', 'en')
+            i18n_dict = translations_for(lang) or {}
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"⚠️ /offline/ inject failed: {e}")
+
+    here = _os.path.dirname(_os.path.abspath(__file__))
+    path = _os.path.join(here, 'www', 'index.html')
+    with open(path, 'r', encoding='utf-8') as f:
+        html = f.read()
+
+    inject = (
+        '<script>\n'
+        'window.OX_SERVER_SETTINGS = ' + _json.dumps(settings_dict, ensure_ascii=False) + ';\n'
+        'window.OX_SERVER_I18N = ' + _json.dumps(i18n_dict, ensure_ascii=False) + ';\n'
+        '</script>\n'
+    )
+
+    if '</head>' in html:
+        html = html.replace('</head>', inject + '</head>', 1)
+    else:
+        html = inject + html
+
+    return html
 
 @app.route('/offline/<path:filename>')
 def offline_asset(filename):
@@ -2939,11 +2979,32 @@ def settings_page():
     return render_template('settings.html')
 
 @app.route('/api/i18n/<lang>', methods=['GET'])
-@login_required
 def api_i18n(lang):
-    """Return the merged i18n dict for a language code (falls back to English)."""
-    from services.i18n import translations_for
-    return jsonify(translations_for(lang))
+    """
+    Return the merged i18n dict for a language code (falls back to English).
+
+    Public + defensive:
+      - No @login_required so the shell can always fetch the dict even
+        when its bearer token was invalidated by a server restart.
+      - Wrapped in try/except and using json.dumps so a dict value that
+        isn't JSON-serializable can't 500 the endpoint.
+    """
+    import json as _json
+    try:
+        from services.i18n import translations_for
+        data = translations_for(lang)
+        return app.response_class(
+            _json.dumps(data, ensure_ascii=False),
+            mimetype='application/json'
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return app.response_class(
+            _json.dumps({'error': str(e)}),
+            status=500,
+            mimetype='application/json'
+        )
 
 
 @app.route('/api/settings', methods=['GET'])
