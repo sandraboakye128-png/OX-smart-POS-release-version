@@ -261,11 +261,32 @@ async function pushPending() {
             });
 
             if (!res.ok) {
+                // DELETE 404 means the row is already gone server-side —
+                // treat it as a successful sync so the op stops retrying.
+                if (method === 'DELETE' && res.status === 404) {
+                    console.log(`✅ Op ${op.id} (${op.table} ${op.operation}) — server 404, already gone`);
+                    await db.pending_ops.delete(op.id);
+                    successCount++;
+                    continue;
+                }
                 const errorData = await res.json().catch(() => ({}));
                 throw new Error(errorData.error || `HTTP ${res.status}`);
             }
             const result = await res.json();
-            if (result.success === false) throw new Error(result.error || 'Unknown server error');
+            if (result.success === false) {
+                // Server-side "delete" of a row it doesn't have — same story.
+                // Only treat as success for DELETE ops where the server says
+                // "not found" / "not exist" / gives no error message.
+                const errMsg = String(result.error || '').toLowerCase();
+                if (method === 'DELETE' &&
+                    (errMsg === '' || errMsg.includes('not found') || errMsg.includes('not exist') || errMsg.includes('no such'))) {
+                    console.log(`✅ Op ${op.id} (DELETE) — server reports gone (${result.error || 'no message'}), treating as success`);
+                    await db.pending_ops.delete(op.id);
+                    successCount++;
+                    continue;
+                }
+                throw new Error(result.error || 'Unknown server error');
+            }
 
             if (op.table === 'batches' && (result.batch_id || result.new_batch_id)) {
                 serverId = result.batch_id || result.new_batch_id;
@@ -315,6 +336,53 @@ async function pushPending() {
                 } catch (swapErr) {
                     console.warn('[sync] temp-id swap failed (non-fatal):', swapErr);
                 }
+
+                // Any later op (e.g. a queued "delete batch temp_...") still
+                // holds the temp id. Rewrite it to the real server id so the
+                // delete actually lands instead of 404ing forever.
+                try {
+                    const tempIdStr   = String(op.record_id);
+                    const serverIdStr = String(serverId);
+                    const orphans = await db.pending_ops
+                        .filter(o => o.synced === 0 && o.id !== op.id && String(o.record_id) === tempIdStr)
+                        .toArray();
+                    for (const orphan of orphans) {
+                        await db.pending_ops.update(orphan.id, { record_id: serverIdStr });
+                        console.log(`🔁 Patched pending batch op ${orphan.id}: ${tempIdStr} → ${serverIdStr}`);
+                    }
+                } catch (patchErr) {
+                    console.warn('[sync] batch orphan patch failed (non-fatal):', patchErr);
+                }
+            }
+
+            // ── Same treatment for offline-created CLAIMS ──
+            // An offline-created claim has a temp id. If the user also
+            // deleted/updated it offline, that queued op still holds the
+            // temp id. Rewrite it once the create succeeds so it lands.
+            if (op.table === 'claims' && wasCreate && serverId) {
+                const tempIdStr   = String(op.record_id);
+                const serverIdStr = String(serverId);
+                try {
+                    const tempClaim = await db.claims.get(tempIdStr);
+                    if (tempClaim) {
+                        await db.claims.delete(tempIdStr);
+                        await db.claims.put(Object.assign({}, tempClaim, { id: serverId }));
+                        console.log(`🔁 Swapped claim ${tempIdStr} → ${serverId}`);
+                    }
+                } catch (e) {
+                    console.warn('[sync] claim id swap failed (non-fatal):', e);
+                }
+                try {
+                    const orphans = await db.pending_ops
+                        .filter(o => o.synced === 0 && o.id !== op.id && String(o.record_id) === tempIdStr)
+                        .toArray();
+                    for (const orphan of orphans) {
+                        await db.pending_ops.update(orphan.id, { record_id: serverIdStr });
+                        console.log(`🔁 Patched pending claim op ${orphan.id}: ${tempIdStr} → ${serverIdStr}`);
+                    }
+                } catch (patchErr) {
+                    console.warn('[sync] claim orphan patch failed (non-fatal):', patchErr);
+                }
             }
 
             await db.pending_ops.delete(op.id);
@@ -345,8 +413,19 @@ async function fullSync() {
     _fullSyncRunning = true;
     try {
         console.log('🔄 Starting full sync...');
-        await pullData();
+        // Push first so offline changes reach the server BEFORE we pull.
+        // This means the pull returns a state that already includes our
+        // changes, so the local UI and server converge on the same tick.
         await pushPending();
+        await pullData();
+        // Queue is settled — refresh badge + notification immediately
+        // instead of waiting for the next 8s interval.
+        if (typeof updatePendingBadge === 'function') {
+            try { updatePendingBadge(); } catch (e) {}
+        }
+        if (typeof refreshPendingNotifications === 'function') {
+            try { refreshPendingNotifications(); } catch (e) {}
+        }
         console.log('✅ Full sync completed.');
     } finally { _fullSyncRunning = false; }
 }

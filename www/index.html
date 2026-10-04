@@ -1059,13 +1059,13 @@
         <button class="landing-btn" onclick="goOnline()" type="button">
             <span class="landing-btn-icon">🌐</span>
             <span class="landing-btn-text">
-                <span class="landing-btn-title" data-i18n="shell.landing.use_online">Use App Online</span>
-                <span class="landing-btn-desc" data-i18n="shell.landing.use_online_desc">Full web app in your browser · needs Wi-Fi</span>
+                <span class="landing-btn-title" data-i18n="shell.landing.use_online">Use Full Internet-Based App</span>
+                <span class="landing-btn-desc" data-i18n="shell.landing.use_online_desc">Full web app in your browser · needs internet</span>
             </span>
         </button>
 
         <div class="landing-hint">
-            Tip: offline mode keeps working when Wi-Fi drops.
+            Tip: offline mode keeps working when internet drops.
         </div>
     </div>
 </div>
@@ -1104,7 +1104,7 @@
             ✨ Create Account
         </button>
 
-        <div class="login-hint">First sign-in requires Wi-Fi.<br>After that, the app works offline.</div>
+        <div class="login-hint" data-i18n="shell.login.hint">First sign-in requires internet.<br>After that, the app works offline.</div>
     </div>
 </div>
 
@@ -2062,7 +2062,7 @@ async function goOnline() {
     const online = await probeNetwork();
     _isOnline = online;
     if (!online) {
-        showToast('No connection — check your Wi-Fi', { error: true });
+        showToast('No connection — check your internet', { error: true });
         return;
     }
     try {
@@ -2694,7 +2694,7 @@ async function renderDashboard() {
             $('recentCount').textContent = '0';
             $('pieTotal').textContent = '0';
             const msg = (_isOnline === false)
-                ? '<div class="empty">No data yet.<br>Connect to Wi-Fi to download your inventory.</div>'
+                ? '<div class="empty">No data yet.<br>Connect to internet to download your inventory.</div>'
                 : '<div class="empty">Sync in progress…<br>Tap Sync Now if it doesn\'t fill in.</div>';
             $('topProductsList').innerHTML = msg;
             $('lowStockList').innerHTML = msg;
@@ -2968,7 +2968,7 @@ async function openFullApp() {
     const online = await probeNetwork();
     _isOnline = online;
     setNetBadge(online);
-    if (!online) { showToast('No connection — full app needs Wi-Fi', { error: true }); return; }
+    if (!online) { showToast('No connection — full app needs internet', { error: true }); return; }
 
     icon.classList.add('spinning');
     text.textContent = 'Opening…';
@@ -3160,6 +3160,38 @@ window.switchView = switchView;
 
 function backToDashboard() { switchView('dashboard'); }
 window.backToDashboard = backToDashboard;
+
+// ============================================================
+//  PRE-LOAD — refresh Dexie on shell open if data is stale
+//  Runs in the background while the landing page is visible, so
+//  by the time the user logs in, all data is already in Dexie.
+// ============================================================
+(function preloadIfStale() {
+    const token = localStorage.getItem('ox_api_token');
+    if (!token) return;                       // not signed in → nothing to pull
+    const lastSync = parseInt(localStorage.getItem('lastSyncTime') || '0', 10);
+    const STALE_MS = 30 * 1000;                // 30 seconds
+    if (Date.now() - lastSync < STALE_MS) return;
+
+    (async () => {
+        try {
+            let online = true;
+            if (typeof probeNetwork === 'function') {
+                online = await probeNetwork();
+            } else {
+                online = navigator.onLine;
+            }
+            if (!online) return;
+            if (typeof pullData === 'function') {
+                console.log('[preload] Stale cache — pulling fresh data in background…');
+                await pullData();
+                console.log('[preload] Background pull done');
+            }
+        } catch (e) {
+            console.warn('[preload] Pull failed (non-fatal):', e);
+        }
+    })();
+})();
 
 // ============================================================
 //  BOOT
