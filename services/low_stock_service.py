@@ -14,7 +14,19 @@ from database.db import get_connection, return_connection
 LOW_STOCK_THRESHOLD = 10
 
 
-def get_low_stock_split(category=None):
+def get_low_stock_split(category=None, threshold=None):
+    """
+    threshold: int — items with remaining quantity <= threshold are
+               flagged low-stock. When None, uses the module default.
+               Values are clamped to [1, 500].
+    """
+    # Resolve + clamp the threshold once, then use it everywhere below.
+    try:
+        t = int(threshold) if threshold is not None else int(LOW_STOCK_THRESHOLD)
+    except (TypeError, ValueError):
+        t = int(LOW_STOCK_THRESHOLD)
+    t = max(1, min(500, t))
+
     conn = get_connection()
     cursor = conn.cursor()
     try:
@@ -63,7 +75,7 @@ def get_low_stock_split(category=None):
             batch_params.append(exclude_filter)
 
         batch_query += " AND pb.remaining_quantity BETWEEN 0 AND %s"
-        batch_params.append(LOW_STOCK_THRESHOLD)
+        batch_params.append(t)
 
         cursor.execute(batch_query, batch_params)
         batch_rows = cursor.fetchall()
@@ -117,7 +129,7 @@ def get_low_stock_split(category=None):
             HAVING COALESCE(SUM(pb.remaining_quantity), 0) <= %s
                AND COUNT(pb.id) > 0
         """
-        product_params.append(LOW_STOCK_THRESHOLD)
+        product_params.append(t)
 
         cursor.execute(product_query, product_params)
         product_rows = cursor.fetchall()
@@ -154,7 +166,7 @@ def get_low_stock_split(category=None):
 
         return {
             'category': display_cat,
-            'threshold': LOW_STOCK_THRESHOLD,
+            'threshold': t,
             'batch_level': {
                 'low_stock': batch_low,
                 'out_of_stock': batch_out,

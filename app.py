@@ -1059,11 +1059,15 @@ def api_dashboard_summary():
         except:
             selected_date = None
     
+    # Resolve the user's low-stock threshold (admin-set in Settings).
+    from services.settings_service import get_low_stock_threshold
+    _threshold = get_low_stock_threshold(session.get('user_id'))
+
     sales = get_today_sales(selected_date, start_datetime, end_datetime)
     profit = get_today_profit(selected_date, start_datetime, end_datetime)
     total_products = get_total_products()
     total_batches = get_total_batches()
-    low_stock_products = get_low_stock_products(threshold=10)
+    low_stock_products = get_low_stock_products(threshold=_threshold)
     low_stock_count = len(low_stock_products)
     
     return jsonify({
@@ -1602,12 +1606,34 @@ def api_low_stock_split():
     """
     Returns both batch-level and product-level low/out-of-stock data.
     Query params:
-        category = 'Screen' | 'Accessory' | 'all' (default 'all')
+        category  = 'Screen' | 'Accessory' | 'all' (default 'all')
+        threshold = override for the user's saved low-stock threshold
     """
     category = request.args.get('category')
+
+    # Resolve threshold: query-string override beats user setting beats 10.
+    _qs = request.args.get('threshold')
+    threshold = None
+    if _qs is not None:
+        try:
+            threshold = int(_qs)
+        except (TypeError, ValueError):
+            threshold = None
+    if threshold is None:
+        try:
+            from services.settings_service import get_low_stock_threshold
+            threshold = get_low_stock_threshold(session.get('user_id'))
+        except Exception:
+            threshold = 10
+
     try:
-        data = get_low_stock_split(category)
-        return jsonify({'success': True, **data})
+        # New signature first; fall back to old if the service hasn't been
+        # updated yet (so this endpoint doesn't 500 during rollout).
+        try:
+            data = get_low_stock_split(category, threshold=threshold)
+        except TypeError:
+            data = get_low_stock_split(category)
+        return jsonify({'success': True, 'threshold': threshold, **data})
     except Exception as e:
         print(f"❌ Error in api_low_stock_split: {str(e)}")
         import traceback
@@ -1757,7 +1783,18 @@ def api_delete_product(product_id):
 def api_low_stock():
     category = request.args.get('category')
     exclude_category = request.args.get('exclude_category')
-    threshold = int(request.args.get('threshold', 10))
+
+    # Query-string override wins; otherwise use the user's saved threshold.
+    _qs = request.args.get('threshold')
+    threshold = None
+    if _qs is not None:
+        try:
+            threshold = int(_qs)
+        except (TypeError, ValueError):
+            threshold = None
+    if threshold is None:
+        from services.settings_service import get_low_stock_threshold
+        threshold = get_low_stock_threshold(session.get('user_id'))
     
     low_stock = get_low_stock_products(threshold)
     
@@ -2937,6 +2974,43 @@ def inject_settings():
                 'settings': {'theme': 'light', 'currency_symbol': '₵', 'currency_code': 'GHS', 'language': 'en', 'date_format': 'DD/MM/YYYY'}
             }
     return {'settings': {'theme': 'light', 'currency_symbol': '₵', 'currency_code': 'GHS', 'language': 'en', 'date_format': 'DD/MM/YYYY'}}
+
+
+# ===================== I18N CONTEXT PROCESSOR =====================
+@app.context_processor
+def inject_i18n():
+    """
+    Inject a language-bound `t()` into every template, plus the current
+    language code and a serialised dict for JS.
+
+    Usage in templates:
+        {{ t('nav.dashboard') }}
+        {{ t('settings.low_stock.preset', n=5) }}
+    """
+    try:
+        from services.i18n import make_translator, translations_for, DEFAULT_LANG
+    except Exception:
+        # i18n module missing — return a no-op t() so templates never crash
+        def _noop(key, **kw):
+            return key
+        return {'t': _noop, 'current_language': 'en', 'i18n_dict': {}}
+
+    lang = 'en'
+    user_id = session.get('user_id')
+    if user_id:
+        try:
+            from services.settings_service import get_language
+            lang = get_language(user_id) or DEFAULT_LANG
+        except Exception:
+            lang = DEFAULT_LANG
+
+    return {
+        't': make_translator(user_id) if user_id else (lambda k, **kw: k),
+        'current_language': lang,
+        'i18n_dict': translations_for(lang),
+    }
+
+
 # ===================== ARCHIVE API =====================
 @app.route('/api/archive', methods=['GET'])
 @login_required

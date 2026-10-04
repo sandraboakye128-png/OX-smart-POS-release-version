@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html lang="{{ settings.language if settings else 'en' }}" data-theme="{{ settings.theme if settings else 'light' }}">
+<html lang="{{ settings.language if settings else 'en' }}"
+      data-theme="{{ settings.theme if settings else 'light' }}"
+      data-font-size="{{ settings.font_size if settings else 'medium' }}"
+      data-font-family="{{ settings.font_family if settings else 'system' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -12,19 +15,56 @@
     <!-- ============================================================ -->
     <script src="{{ url_for('static', filename='js/env.js') }}"></script>
 
-    <!-- ===== EARLY THEME (prevents white flash on dark theme) ===== -->
+    <!-- ===== EARLY THEME + TYPOGRAPHY (prevents white flash) ===== -->
     <style>
+        :root {
+            --app-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --app-font-size: 15px;
+            --app-font-size-xs: 11px;
+            --app-font-size-sm: 13px;
+            --app-font-size-lg: 17px;
+        }
+
+        /* Font family — driven by user setting on <html data-font-family="..."> */
+        html[data-font-family="system"]   { --app-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        html[data-font-family="humanist"] { --app-font-family: Verdana, Tahoma, Geneva, sans-serif; }
+        html[data-font-family="serif"]    { --app-font-family: Georgia, "Times New Roman", Times, serif; }
+        html[data-font-family="mono"]     { --app-font-family: "Courier New", Consolas, Monaco, "Lucida Console", monospace; }
+        html[data-font-family="rounded"]  { --app-font-family: "Comic Sans MS", "Trebuchet MS", "Segoe UI", sans-serif; }
+
+        /* Font size — driven by user setting on <html data-font-size="..."> */
+        html[data-font-size="small"]  { --app-font-size: 13px; --app-font-size-xs: 10px; --app-font-size-sm: 11px; --app-font-size-lg: 15px; }
+        html[data-font-size="medium"] { --app-font-size: 15px; --app-font-size-xs: 11px; --app-font-size-sm: 13px; --app-font-size-lg: 17px; }
+        html[data-font-size="large"]  { --app-font-size: 17px; --app-font-size-xs: 12px; --app-font-size-sm: 14px; --app-font-size-lg: 19px; }
+        html[data-font-size="xlarge"] { --app-font-size: 19px; --app-font-size-xs: 13px; --app-font-size-sm: 16px; --app-font-size-lg: 22px; }
+
         html[data-theme="dark"] { background: #0f172a; }
     </style>
     <script>
         // Global settings + theme helper. Must run before any CSS paints.
         window.APP_SETTINGS = {
-            theme:          '{{ (settings.theme if settings else "light")|e }}',
-            currencySymbol: '{{ (settings.currency_symbol if settings else "₵")|e }}',
-            currencyCode:   '{{ (settings.currency_code if settings else "GHS")|e }}',
-            dateFormat:     '{{ (settings.date_format if settings else "DD/MM/YYYY")|e }}',
-            language:       '{{ (settings.language if settings else "en")|e }}'
+            theme:             '{{ (settings.theme if settings else "light")|e }}',
+            currencySymbol:    '{{ (settings.currency_symbol if settings else "₵")|e }}',
+            currencyCode:      '{{ (settings.currency_code if settings else "GHS")|e }}',
+            dateFormat:        '{{ (settings.date_format if settings else "DD/MM/YYYY")|e }}',
+            language:          '{{ (settings.language if settings else "en")|e }}',
+            fontSize:          '{{ (settings.font_size if settings else "medium")|e }}',
+            fontFamily:        '{{ (settings.font_family if settings else "system")|e }}',
+            lowStockThreshold: {{ (settings.low_stock_threshold if settings else 10) }}
         };
+        // i18n — dict + helper for JS (offline shell can call window.t('key'))
+        window.OX_I18N = {{ i18n_dict|tojson }};
+        window.OX_LANG = '{{ current_language|e }}';
+        window.t = function (key, params) {
+            let s = (window.OX_I18N && window.OX_I18N[key]) || key;
+            if (params && typeof s === 'string') {
+                for (const k in params) {
+                    s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), params[k]);
+                }
+            }
+            return s;
+        };
+
         window.applyAppTheme = function (theme) {
             document.documentElement.setAttribute('data-theme', theme);
             if (theme === 'dark') {
@@ -35,6 +75,13 @@
                 document.body.classList.remove('dark-theme');
             }
         };
+        window.applyAppTypography = function (size, family) {
+            if (size)   document.documentElement.setAttribute('data-font-size', size);
+            if (family) document.documentElement.setAttribute('data-font-family', family);
+        };
+        // Runtime refresh — for live settings changes without a page reload.
+        // (Initial paint is server-rendered on <html>, so no FOUC.)
+        window.applyAppTypography(window.APP_SETTINGS.fontSize, window.APP_SETTINGS.fontFamily);
         document.addEventListener('DOMContentLoaded', function () {
             window.applyAppTheme(window.APP_SETTINGS.theme);
         });
@@ -628,6 +675,26 @@
         body.dark-theme .shadow-xl { box-shadow: 0 2px 12px rgba(0,0,0,0.55) !important; }
 
         body.dark-theme .sidebar { background: #0b1220 !important; }
+
+        /* ============================================================
+           TYPOGRAPHY OVERRIDES
+           Tailwind text-size classes rescale with the user's chosen
+           base font size. Sit after the Tailwind stylesheet so they
+           win the cascade; !important makes it bulletproof.
+           ============================================================ */
+        html, body {
+            font-family: var(--app-font-family) !important;
+        }
+        body {
+            font-size: var(--app-font-size) !important;
+        }
+        .text-xs   { font-size: var(--app-font-size-xs) !important; }
+        .text-sm   { font-size: var(--app-font-size-sm) !important; }
+        .text-base { font-size: var(--app-font-size)    !important; }
+        .text-lg   { font-size: var(--app-font-size-lg) !important; }
+        .text-xl   { font-size: calc(var(--app-font-size) * 1.33) !important; }
+        .text-2xl  { font-size: calc(var(--app-font-size) * 1.60) !important; }
+        .text-3xl  { font-size: calc(var(--app-font-size) * 2.00) !important; }
     </style>
 </head>
 <body>
@@ -699,45 +766,45 @@
         <nav class="flex-1 px-2 space-y-1 overflow-y-auto pb-4">
             {% if current_user and current_user.role == 'admin' %}
             <a href="/" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-tachometer-alt w-5"></i> Dashboard
+                <i class="fas fa-tachometer-alt w-5"></i> {{ t('nav.dashboard') }}
             </a>
             {% endif %}
 
             <a href="/sales" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-cash-register w-5"></i> Sales (Accessories)
+                <i class="fas fa-cash-register w-5"></i> {{ t('nav.sales_acc') }}
             </a>
             <a href="/products" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-boxes w-5"></i> Products (Accessories)
+                <i class="fas fa-boxes w-5"></i> {{ t('nav.products_acc') }}
             </a>
             <a href="/today-sales" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-chart-line w-5"></i> Today's Sales (Accessories)
+                <i class="fas fa-chart-line w-5"></i> {{ t('nav.today_acc') }}
             </a>
 
             {% if current_user and current_user.role == 'admin' %}
             <a href="/analytics" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-chart-pie w-5"></i> Analytics
+                <i class="fas fa-chart-pie w-5"></i> {{ t('nav.analytics') }}
             </a>
             <a href="/archive" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-archive w-5"></i> Archive
+                <i class="fas fa-archive w-5"></i> {{ t('nav.archive') }}
             </a>
             {% endif %}
 
             <div class="mt-2">
                 <div class="dropdown-toggle flex items-center justify-between px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm" onclick="toggleDropdown(this)">
                     <span class="flex items-center gap-3">
-                        <i class="fas fa-mobile-alt w-5"></i> Screens
+                        <i class="fas fa-mobile-alt w-5"></i> {{ t('nav.screens') }}
                     </span>
                     <i class="fas fa-chevron-down text-xs"></i>
                 </div>
                 <div class="dropdown-menu space-y-1 pl-2">
                     <a href="/sales/screens" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                        <i class="fas fa-cash-register w-5"></i> Sales (Screens)
+                        <i class="fas fa-cash-register w-5"></i> {{ t('nav.sales_scr') }}
                     </a>
                     <a href="/products/screens" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                        <i class="fas fa-boxes w-5"></i> Products (Screens)
+                        <i class="fas fa-boxes w-5"></i> {{ t('nav.products_scr') }}
                     </a>
                     <a href="/today-sales/screens" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                        <i class="fas fa-chart-line w-5"></i> Today's Sales (Screens)
+                        <i class="fas fa-chart-line w-5"></i> {{ t('nav.today_scr') }}
                     </a>
                 </div>
             </div>
@@ -749,27 +816,27 @@
 
             {% if current_user %}
             <a href="/claims" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-clipboard-list w-5"></i> Claims
+                <i class="fas fa-clipboard-list w-5"></i> {{ t('nav.claims') }}
                 <span class="text-xs text-yellow-400 ml-auto">⚠️</span>
             </a>
             {% endif %}
 
             {% if current_user and current_user.role == 'admin' %}
             <a href="/logs" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-history w-5"></i> User Logs
+                <i class="fas fa-history w-5"></i> {{ t('nav.logs') }}
                 <span class="text-xs text-blue-400 ml-auto">📋</span>
             </a>
             <a href="/purchases" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-shopping-cart w-5"></i> Purchases (Accessories)
+                <i class="fas fa-shopping-cart w-5"></i> {{ t('nav.purchases_acc') }}
             </a>
             <a href="/purchases/screens" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-shopping-cart w-5"></i> Purchases (Screens)
+                <i class="fas fa-shopping-cart w-5"></i> {{ t('nav.purchases_scr') }}
             </a>
             <a href="/inventory/import" target="_blank" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-file-import w-5"></i> Import Data
+                <i class="fas fa-file-import w-5"></i> {{ t('nav.import') }}
             </a>
             <a href="/admin/users" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-users-cog w-5"></i> Users
+                <i class="fas fa-users-cog w-5"></i> {{ t('nav.users') }}
             </a>
             {% endif %}
 
@@ -779,11 +846,11 @@
                 <i class="fas fa-crown mr-1"></i> System Admin
             </div>
             <a href="/settings" class="nav-link settings-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-cog w-5"></i> Settings
+                <i class="fas fa-cog w-5"></i> {{ t('nav.settings') }}
                 <span class="settings-badge">⭐ System</span>
             </a>
             <a href="/offline" class="nav-link settings-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
-                <i class="fas fa-mobile-alt w-5"></i> Open App in Offline Mode
+                <i class="fas fa-mobile-alt w-5"></i> {{ t('nav.offline') }}
                 <span class="settings-badge">📴 Offline</span>
             </a>
             {% endif %}
@@ -793,24 +860,24 @@
                 <div class="flex items-center gap-2">
                     <span id="pending-badge" class="text-xs text-yellow-300 bg-gray-700 px-2 py-0.5 rounded-full" style="display:none;"></span>
                     <button id="syncOfflineBtn" onclick="syncAllPending()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition">
-                        <i class="fas fa-cloud-upload-alt mr-1"></i> Sync Offline
+                        <i class="fas fa-cloud-upload-alt mr-1"></i> {{ t('nav.sync_offline') }}
                     </button>
                 </div>
 
                 {% if current_user and current_user.username.lower() == 'oxbee' %}
                 <button id="installAppBtn" class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md transition hidden">
-                    <i class="fas fa-download mr-1"></i> Install App
+                    <i class="fas fa-download mr-1"></i> {{ t('nav.install_app') }}
                 </button>
                 {% endif %}
 
                 <button onclick="clearOfflineData()" class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md transition">
-                    <i class="fas fa-trash mr-1"></i> Clear Offline Data
+                    <i class="fas fa-trash mr-1"></i> {{ t('nav.clear_offline') }}
                 </button>
             </div>
 
             <div class="pt-4 pb-2">
                 <button onclick="logout()" class="w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2 text-sm">
-                    <i class="fas fa-sign-out-alt"></i> Logout
+                    <i class="fas fa-sign-out-alt"></i> {{ t('nav.logout') }}
                 </button>
             </div>
             {% endif %}
