@@ -854,16 +854,20 @@ def api_user_logs():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # ✅ Attach auth.db so joins against `users` work (users lives in auth.db)
-    try:
-        from database.db import AUTH_DB_PATH
-        cursor.execute("ATTACH DATABASE ? AS auth", (AUTH_DB_PATH,))
-    except Exception as _attach_err:
-        print(f'[user_logs] ATTACH auth.db: {_attach_err}')
+    # ATTACH is SQLite-only. Postgres uses the same schema for all tables.
+    _AUTH_TABLE_LOGS = _auth_users_table()
+    if not _pg_backend():
+        try:
+            from database.db import AUTH_DB_PATH
+            cursor.execute("ATTACH DATABASE ? AS auth", (AUTH_DB_PATH,))
+        except Exception as _attach_err:
+            print(f'[user_logs] ATTACH auth.db: {_attach_err}')
+            try: conn.rollback()
+            except Exception: pass
 
     try:
         # Get the oxbee user ID
-        cursor.execute("SELECT id FROM auth.users WHERE username = 'oxbee'")
+        cursor.execute(f"SELECT id FROM {_AUTH_TABLE_LOGS} WHERE username = 'oxbee'")
         oxbee_row = cursor.fetchone()
         OXBEE_USER_ID = oxbee_row[0] if oxbee_row else 1
         
@@ -958,7 +962,7 @@ def api_user_logs():
             }
             # Get username
             if log[1]:
-                cursor.execute("SELECT username FROM auth.users WHERE id = %s", (log[1],))
+                cursor.execute(f"SELECT username FROM {_AUTH_TABLE_LOGS} WHERE id = %s", (log[1],))
                 user_row = cursor.fetchone()
                 log_dict['username'] = user_row[0] if user_row else 'Unknown'
             result.append(log_dict)
@@ -2328,13 +2332,17 @@ def api_today_sales():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # ✅ Attach auth.db so we can JOIN users (users lives in auth.db, not retail.db)
-    try:
-        from database.db import AUTH_DB_PATH
-        cursor.execute("ATTACH DATABASE ? AS auth", (AUTH_DB_PATH,))
-    except Exception as _attach_err:
-        # 'already attached' is fine; anything else is logged but not fatal
-        print(f'[today_sales] ATTACH auth.db: {_attach_err}')
+    # ATTACH is SQLite-only. On Postgres the users table lives in the
+    # same schema, so we use the plain name.
+    _AUTH_TABLE = _auth_users_table()
+    if not _pg_backend():
+        try:
+            from database.db import AUTH_DB_PATH
+            cursor.execute("ATTACH DATABASE ? AS auth", (AUTH_DB_PATH,))
+        except Exception as _attach_err:
+            print(f'[today_sales] ATTACH auth.db: {_attach_err}')
+            try: conn.rollback()
+            except Exception: pass
 
     try:
         select_clause = """
@@ -2363,7 +2371,7 @@ def api_today_sales():
             JOIN sales_items ON sales.id = sales_items.sale_id
             JOIN products ON products.id = sales_items.product_id
             LEFT JOIN purchase_batches ON purchase_batches.id = sales_items.batch_id
-            LEFT JOIN auth.users u ON sales.user_id = u.id
+            LEFT JOIN {_AUTH_TABLE} u ON sales.user_id = u.id
         """
         # ✅ Use integer comparison (reversed = 0)
         where_conditions = ["sales.reversed = 0"]
@@ -2424,11 +2432,17 @@ def api_today_sales():
 
     except Exception as e:
         app.logger.error(f"Error in today_sales API: {str(e)}")
+        try: conn.rollback()
+        except Exception: pass
         import traceback
         traceback.print_exc()
-        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+        return jsonify({'error': str(e)}), 500
     finally:
-        conn.close()
+        try:
+            try: conn.rollback()
+            except Exception: pass
+            conn.close()
+        except Exception: pass
 @app.route('/api/today_sales/pdf', methods=['POST'])
 @login_required
 def api_today_sales_pdf():
@@ -5087,6 +5101,38 @@ def init_claims_table():
 init_claims_table()
 
 # ===================== NOTIFICATIONS TABLE + API =====================
+
+# ── Postgres vs SQLite detection ──
+_pg_backend_cache = None
+def _pg_backend():
+    """Detect whether we're talking to Postgres (vs SQLite).
+    Cached after first call. Never raises."""
+    global _pg_backend_cache
+    if _pg_backend_cache is not None:
+        return _pg_backend_cache
+    import os
+    url = os.getenv('DATABASE_URL', '')
+    if url.startswith('postgres://') or url.startswith('postgresql://'):
+        _pg_backend_cache = True
+        return True
+    # Fall back to introspecting an actual connection
+    try:
+        conn = get_connection()
+        modname = (type(conn).__module__ or '').lower()
+        is_pg = 'psycopg' in modname
+        try: conn.close()
+        except Exception: pass
+        _pg_backend_cache = is_pg
+    except Exception:
+        _pg_backend_cache = False
+    return _pg_backend_cache
+
+
+def _auth_users_table():
+    """Return the right qualified name for the users table."""
+    return 'users' if _pg_backend() else 'auth.users'
+
+
 def init_notifications_table():
     conn = get_connection()
     cur = conn.cursor()
@@ -5127,8 +5173,18 @@ def add_notification(kind, title, message='', meta=None, user_id=None):
         conn.close()
         return True
     except Exception as e:
+        try:
+            if 'conn' in locals(): conn.rollback()
+        except Exception: pass
         print(f"[notify] insert failed: {e}")
         return False
+    finally:
+        try:
+            if 'conn' in locals():
+                try: conn.rollback()
+                except Exception: pass
+                conn.close()
+        except Exception: pass
 
 
 init_notifications_table()
@@ -5162,8 +5218,17 @@ def api_list_notifications():
                 'created_at': r[5].isoformat() if hasattr(r[5], 'isoformat') else str(r[5]),
             })
         return jsonify({'success': True, 'items': items})
+    except Exception as e:
+        try: conn.rollback()
+        except Exception: pass
+        print(f"[notifications] list failed: {e}")
+        return jsonify({'success': True, 'items': []})
     finally:
-        conn.close()
+        try:
+            try: conn.rollback()
+            except Exception: pass
+            conn.close()
+        except Exception: pass
 
 
 @app.route('/api/notifications/<int:nid>/dismiss', methods=['POST'])
