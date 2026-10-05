@@ -2377,18 +2377,39 @@ def api_today_sales():
         where_conditions = ["sales.reversed = 0"]
         params = []
 
+        _is_pg = _pg_backend()
         if start_date and end_date:
-            where_conditions.append("DATE(sales.date) BETWEEN DATE(%s) AND DATE(%s)")
+            where_conditions.append(
+                "CAST(sales.date AS date) BETWEEN CAST(%s AS date) AND CAST(%s AS date)"
+                if _is_pg else
+                "DATE(sales.date) BETWEEN DATE(%s) AND DATE(%s)"
+            )
             params.extend([start_date, end_date])
         else:
             if period == 'daily':
-                where_conditions.append("DATE(sales.date) = DATE('now')")
+                where_conditions.append(
+                    "CAST(sales.date AS date) = CURRENT_DATE"
+                    if _is_pg else
+                    "DATE(sales.date) = DATE('now')"
+                )
             elif period == 'weekly':
-                where_conditions.append("DATE(sales.date) >= DATE('now', '-6 days')")
+                where_conditions.append(
+                    "CAST(sales.date AS date) >= CURRENT_DATE - INTERVAL '6 days'"
+                    if _is_pg else
+                    "DATE(sales.date) >= DATE('now', '-6 days')"
+                )
             elif period == 'monthly':
-                where_conditions.append("strftime('%Y-%m', sales.date) = strftime('%Y-%m', 'now')")
+                where_conditions.append(
+                    "to_char(sales.date, 'YYYY-MM') = to_char(CURRENT_DATE, 'YYYY-MM')"
+                    if _is_pg else
+                    "strftime('%Y-%m', sales.date) = strftime('%Y-%m', 'now')"
+                )
             elif period == 'yearly':
-                where_conditions.append("strftime('%Y', sales.date) = strftime('%Y', 'now')")
+                where_conditions.append(
+                    "to_char(sales.date, 'YYYY') = to_char(CURRENT_DATE, 'YYYY')"
+                    if _is_pg else
+                    "strftime('%Y', sales.date) = strftime('%Y', 'now')"
+                )
             # 'all' – no date filter
 
         if category:
