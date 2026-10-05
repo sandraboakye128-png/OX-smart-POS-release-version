@@ -1,6 +1,42 @@
 {% extends 'base.html' %}
 {% block content %}
 
+<style id="pv-fix-style">
+    #pvRecentBox {
+        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                    width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                    height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                    max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                    max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #pvRecentModal.pv-rotated #pvRecentBox {
+        width: 92vh !important;
+        max-width: 92vh !important;
+        height: 92vw !important;
+        max-height: 92vw !important;
+        transform: rotate(90deg);
+        transform-origin: center center;
+    }
+    .pv-row-new td { background: #fef9c3 !important; }
+    .pv-row-import-added td {
+        background: #dcfce7 !important;
+        border-bottom: 1px solid #86efac !important;
+    }
+    .pv-row-import-updated td {
+        background: #e9d5ff !important;
+        border-bottom: 1px solid #d8b4fe !important;
+    }
+    .pv-row-not-in-db td {
+        background: #fee2e2 !important;
+        border-bottom: 1px solid #fca5a5 !important;
+    }
+    @media (max-width: 480px) {
+        #pvRotateBtn { padding: 4px 6px !important; }
+    }
+</style>
+
+
+
 <div class="p-4 md:p-6 space-y-4">
 
     <!-- ============ HEADER ============ -->
@@ -129,10 +165,18 @@
 <!-- ============ RECENTLY ADDED MODAL ============ -->
 <div id="pvRecentModal" class="hidden flex items-center justify-center p-4"
      style="position:fixed !important; inset:0 !important; z-index:2147483646 !important; background:rgba(0,0,0,0.7) !important; isolation:isolate;">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <div class="flex items-center justify-between p-4 border-b">
+    <div id="pvRecentBox" class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between p-4 border-b flex-shrink-0">
             <h3 class="text-lg font-bold text-gray-800">🆕 Recently Added from Excel</h3>
-            <button onclick="pvCloseRecentModal()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+            <div class="flex items-center gap-1">
+                <button type="button" onclick="pvToggleRotate()" id="pvRotateBtn"
+                        class="text-gray-500 hover:text-gray-700 text-sm px-2 py-1 rounded-lg hover:bg-gray-100 flex items-center gap-1"
+                        title="Rotate to landscape">
+                    <span id="pvRotateIcon">&#8635;</span>
+                    <span id="pvRotateLabel" class="hidden sm:inline">Rotate</span>
+                </button>
+                <button onclick="pvCloseRecentModal()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+            </div>
         </div>
         <div id="pvRecentBody" class="flex-1 overflow-auto p-4"></div>
         <div class="p-3 border-t flex justify-end">
@@ -323,7 +367,15 @@ function previewRenderBody() {
             return `<td data-key="${c.key}" data-type="${c.type}" ${edit}
                     class="${cls} whitespace-nowrap focus:outline-none focus:bg-amber-50">${escapeHtml(String(val))}</td>`;
         }).join('');
-        const rowCls = isNew ? 'pv-row-new' : '';
+        const _action = String(r.action || '').toLowerCase();
+        let rowCls = '';
+        if (isNew) {
+            rowCls = 'pv-row-new';
+        } else if (_action === 'added_from_excel') {
+            rowCls = 'pv-row-import-added';
+        } else if (_action === 'updated_from_excel') {
+            rowCls = 'pv-row-import-updated';
+        }
         return `${divider}<tr data-row="${i}" class="${rowCls}">
             <td class="px-2 py-1.5 border-b text-[10px] text-gray-400 bg-gray-50 sticky left-0">${i+1}</td>
             ${cells}
@@ -560,13 +612,20 @@ function pvRenderRecentBar() {
     const bar = document.getElementById('pvRecentBar');
     const n = document.getElementById('pvRecentCount');
     if (!bar || !n) return;
-    let count = PV.recentIds ? PV.recentIds.size : 0;
+    const seen = new Set();
+    let total = 0;
     (PV.rows || []).forEach(r => {
-        const a = (r.action || '').toString();
-        if (a === 'added_from_excel' || a === 'updated_from_excel') count++;
+        const rid = String(r.batch_id || r.sale_id || '') || (r.__tempId || '');
+        if (seen.has(rid)) return;
+        seen.add(rid);
+        const isTemp = !!r.__tempId && PV.recentIds.has(r.__tempId);
+        const action = String(r.action || '').toLowerCase();
+        if (isTemp || action === 'added_from_excel' || action === 'updated_from_excel') {
+            total++;
+        }
     });
-    n.textContent = String(count);
-    if (count === 0) bar.classList.add('hidden');
+    n.textContent = String(total);
+    if (total === 0) bar.classList.add('hidden');
     else bar.classList.remove('hidden');
 }
 
@@ -582,9 +641,16 @@ window.pvShowRecentModal = function() {
     const cols = PV.columns;
     const rows = PV.rows;
     const body_html = rows.map((r, i) => {
-        const rid = String(r.batch_id || r.sale_id || '') || (r.__tempId || '');
-        const isNew = PV.recentIds.has(rid) || (r.__tempId && PV.recentIds.has(r.__tempId));
-        const cls = isNew ? 'bg-yellow-100' : '';
+        const isTemp = !!r.__tempId && PV.recentIds.has(r.__tempId);
+        const action = String(r.action || '').toLowerCase();
+        let cls = '';
+        if (isTemp) {
+            cls = 'pv-row-new';
+        } else if (action === 'added_from_excel') {
+            cls = 'pv-row-import-added';
+        } else if (action === 'updated_from_excel') {
+            cls = 'pv-row-import-updated';
+        }
         const cells = cols.map(c => {
             const v = r[c.key];
             return `<td class="px-2 py-1 border-b text-xs whitespace-nowrap">${escapeHtml(String(v == null ? '' : v))}</td>`;
@@ -607,7 +673,45 @@ window.pvShowRecentModal = function() {
 };
 
 window.pvCloseRecentModal = function() {
-    document.getElementById('pvRecentModal').classList.add('hidden');
+    const modal = document.getElementById('pvRecentModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    if (modal.classList.contains('pv-rotated')) {
+        modal.classList.remove('pv-rotated');
+        const label = document.getElementById('pvRotateLabel');
+        const icon  = document.getElementById('pvRotateIcon');
+        if (label) label.textContent = 'Rotate';
+        if (icon)  icon.innerHTML = '&#8635;';
+        try {
+            if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+                screen.orientation.unlock();
+            }
+        } catch (e) {}
+    }
+};
+
+window.pvToggleRotate = function() {
+    const modal = document.getElementById('pvRecentModal');
+    if (!modal) return;
+    const willRotate = !modal.classList.contains('pv-rotated');
+    modal.classList.toggle('pv-rotated', willRotate);
+
+    const label = document.getElementById('pvRotateLabel');
+    const icon  = document.getElementById('pvRotateIcon');
+    if (label) label.textContent = willRotate ? 'Restore' : 'Rotate';
+    if (icon)  icon.innerHTML = willRotate ? '&#8634;' : '&#8635;';
+
+    try {
+        if (willRotate) {
+            if (screen.orientation && typeof screen.orientation.lock === 'function') {
+                screen.orientation.lock('landscape').catch(function () {});
+            }
+        } else {
+            if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+                screen.orientation.unlock();
+            }
+        }
+    } catch (e) {}
 };
 
 // ============================================================
