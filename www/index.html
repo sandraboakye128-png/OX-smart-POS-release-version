@@ -1581,6 +1581,8 @@ const VIEWS = {
 };
 
 let currentView = 'dashboard';
+const _viewHtmlCache = Object.create(null);  // path -> raw html (per session)
+
 
 // ============================================================
 //  TOAST
@@ -1997,15 +1999,33 @@ async function probeNetwork(force) {
 }
 
 let _lastOnlineState = null;
+let _netSettleTimer = null;
+let _pendingOnlineState = null;
+
 async function refreshNetStatus(opts) {
     opts = opts || {};
     const online = await probeNetwork(opts.force === true);
-    const changed = (_lastOnlineState !== null && online !== _lastOnlineState);
-    _lastOnlineState = online;
     _isOnline = online;
     setNetBadge(online);
-    if (changed) {
-        if (online) {
+
+    // Debounce the "state changed" toast: network flaps (transient drops,
+    // SW timeouts) shouldn't spam the notification bell.
+    if (_lastOnlineState === null) {
+        _lastOnlineState = online;       // first observation — no toast
+        return;
+    }
+    if (online === _lastOnlineState) return;
+
+    _pendingOnlineState = online;
+    if (_netSettleTimer) clearTimeout(_netSettleTimer);
+    _netSettleTimer = setTimeout(function () {
+        _netSettleTimer = null;
+        const settled = _pendingOnlineState;
+        _pendingOnlineState = null;
+        if (settled === _lastOnlineState) return;
+        _lastOnlineState = settled;
+
+        if (settled) {
             Notifications.add({ type: 'online', title: 'Back online',
                 message: 'Connection restored · refreshing data…', persistent: true });
             if (opts.syncOnRecover !== false) maybeSyncOnReconnect();
@@ -2014,7 +2034,7 @@ async function refreshNetStatus(opts) {
                 message: 'Changes will be saved locally and synced later.',
                 persistent: true });
         }
-    }
+    }, 2500);   // 2.5s settle — must stay up this long to count as a real change
 }
 
 window.addEventListener('online', () => refreshNetStatus({ syncOnRecover: true, force: true }));
@@ -3141,9 +3161,16 @@ async function switchView(name) {
         $('viewDashboard').classList.add('hidden');
         $('viewDynamic').classList.remove('hidden');
 
-        const res = await fetch(v.path + '?_=' + Date.now(), { cache: 'no-store' });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const html = await res.text();
+        // Reuse cached view html if we already fetched it this session.
+        // Falls back to network, but WITHOUT a cache-buster so the Service
+        // Worker can also serve it offline.
+        let html = _viewHtmlCache[v.path];
+        if (!html) {
+            const res = await fetch(v.path, { cache: 'default' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            html = await res.text();
+            _viewHtmlCache[v.path] = html;
+        }
 
         const container = $('viewDynamic');
         container.innerHTML = '';
@@ -3326,9 +3353,16 @@ document.addEventListener('keydown', e => {
       return { 'Authorization': 'Bearer ' + (_tok() || ''), 'Content-Type': 'application/json' };
     }
 
-    N.refreshFromServer = function () {
+    var NOTIF_SRV_THROTTLE = 30000;
+    var _lastSrvRefreshAt = 0;
+    N.refreshFromServer = function (opts) {
+      opts = opts || {};
+      if (!opts.force && (Date.now() - _lastSrvRefreshAt) < NOTIF_SRV_THROTTLE) {
+        return Promise.resolve();
+      }
       var token = _tok();
       if (!token) return Promise.resolve();
+      _lastSrvRefreshAt = Date.now();
       return fetch(_base() + '/api/notifications', {
         headers: _hdr(), credentials: 'include'
       })
@@ -3393,6 +3427,7 @@ document.addEventListener('keydown', e => {
           }
         }
       } catch (e) {}
+      _lastSrvRefreshAt = 0;
       return origRemove.apply(this, arguments);
     };
 
@@ -3406,6 +3441,7 @@ document.addEventListener('keydown', e => {
           }).catch(function () {});
         }
       } catch (e) {}
+      _lastSrvRefreshAt = 0;
       return origClearAll.apply(this, arguments);
     };
 

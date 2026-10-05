@@ -1183,6 +1183,7 @@
             _save();
         }
         function clearAll() {
+    _lastNotifAt = 0;
             items.forEach(i => { if (i._timer) clearTimeout(i._timer); });
             items.length = 0;
             _refresh();
@@ -1837,7 +1838,14 @@
 
   function _N() { return window.Notifications; }
 
-  function refresh() {
+  var NOTIF_REFRESH_MS = 30000;
+  var _lastNotifAt = 0;
+  function refresh(opts) {
+    opts = opts || {};
+    if (!opts.force && (Date.now() - _lastNotifAt) < NOTIF_REFRESH_MS) {
+      return Promise.resolve();
+    }
+    _lastNotifAt = Date.now();
     var N = _N();
     if (!N) return Promise.resolve();
     return fetch('/api/notifications', { credentials: 'same-origin' })
@@ -1894,6 +1902,7 @@
   }
 
   function dismissRemote(id) {
+    _lastNotifAt = 0;
     if (typeof id !== 'string' || id.indexOf(PREFIX) !== 0) return Promise.resolve();
     var sid = id.slice(PREFIX.length);
     return fetch('/api/notifications/' + encodeURIComponent(sid) + '/dismiss', {
@@ -1902,6 +1911,7 @@
   }
 
   function clearRemote() {
+    _lastNotifAt = 0;
     return fetch('/api/notifications/clear', {
       method: 'POST', credentials: 'same-origin'
     }).catch(function () {}).then(refresh);

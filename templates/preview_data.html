@@ -33,6 +33,50 @@
     @media (max-width: 480px) {
         #pvRotateBtn { padding: 4px 6px !important; }
     }
+
+    /* Landscape + fullscreen mode for the main Excel sheet */
+    #pvStep3.pv-sheet-fullscreen {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 2147483640 !important;
+        background: #f3f4f6 !important;
+        padding: 6px !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+        box-sizing: border-box;
+    }
+    #pvStep3.pv-sheet-fullscreen > .bg-white {
+        margin: 0 !important;
+        border-radius: 8px !important;
+    }
+    #pvStep3.pv-sheet-fullscreen #pvSheetWrapper {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+    }
+    #pvStep3.pv-sheet-fullscreen #pvSheetWrapper > .overflow-auto {
+        max-height: none !important;
+        height: 100% !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow: auto !important;
+    }
+    #pvStep3.pv-sheet-fullscreen #pvRecentBar,
+    #pvStep3.pv-sheet-fullscreen #pvStatus {
+        flex: 0 0 auto;
+        font-size: 11px;
+    }
+    #pvStep3.pv-sheet-fullscreen #pvSheetRotateBtn {
+        background: #dc2626 !important;
+    }
+    #pvStep3.pv-sheet-fullscreen #pvSheetRotateBtn:hover {
+        background: #b91c1c !important;
+    }
 </style>
 
 
@@ -108,6 +152,13 @@
                     class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm">
                 🖥 {{ t('preview.open_excel') }}
             </button>
+
+            <button onclick="pvToggleSheetRotate()" id="pvSheetRotateBtn"
+                    class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm"
+                    title="Rotate to landscape &amp; fullscreen for mobile">
+                <span id="pvSheetRotateIcon">&#8635;</span>
+                <span id="pvSheetRotateLabel"> Landscape</span>
+            </button>
             {% if current_user and (current_user.role == 'admin' or current_user.username|lower == 'oxbee') %}
             <button onclick="previewSavePrompt()"
                     class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold">
@@ -117,7 +168,7 @@
         </div>
 
         <!-- Sheet -->
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div id="pvSheetWrapper" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="overflow-auto" style="max-height: 65vh;">
                 <table id="pvTable" class="min-w-full text-xs md:text-sm" style="border-collapse: collapse;">
                     <thead class="bg-gray-100 sticky top-0 z-10">
@@ -713,6 +764,85 @@ window.pvToggleRotate = function() {
         }
     } catch (e) {}
 };
+
+// ============================================================
+//  ROTATE + FULLSCREEN -- main Excel sheet
+// ============================================================
+window.pvToggleSheetRotate = async function() {
+    const step3 = document.getElementById('pvStep3');
+    if (!step3) return;
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    const isFs = fsEl === step3 || step3.classList.contains('pv-sheet-fullscreen');
+    if (isFs) { await _pvExitSheetFs(); return; }
+    await _pvEnterSheetFs();
+};
+
+async function _pvEnterSheetFs() {
+    const step3 = document.getElementById('pvStep3');
+    if (!step3) return;
+    try {
+        if (step3.requestFullscreen)                await step3.requestFullscreen();
+        else if (step3.webkitRequestFullscreen)     step3.webkitRequestFullscreen();
+        else if (step3.msRequestFullscreen)         step3.msRequestFullscreen();
+    } catch (e) { console.warn('[pv-sheet-fs] fullscreen failed:', e); }
+    try {
+        if (screen.orientation && typeof screen.orientation.lock === 'function') {
+            await screen.orientation.lock('landscape').catch(function(){});
+        } else if (screen.lockOrientation) {
+            screen.lockOrientation('landscape');
+        } else if (screen.mozLockOrientation) {
+            screen.mozLockOrientation('landscape');
+        }
+    } catch (e) {}
+    step3.classList.add('pv-sheet-fullscreen');
+    _pvUpdateSheetRotateBtn(true);
+}
+
+async function _pvExitSheetFs() {
+    const step3 = document.getElementById('pvStep3');
+    try {
+        if (document.exitFullscreen)                await document.exitFullscreen();
+        else if (document.webkitExitFullscreen)     document.webkitExitFullscreen();
+        else if (document.msExitFullscreen)         document.msExitFullscreen();
+    } catch (e) {}
+    try {
+        if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+            screen.orientation.unlock();
+        } else if (screen.unlockOrientation) {
+            screen.unlockOrientation();
+        }
+    } catch (e) {}
+    if (step3) step3.classList.remove('pv-sheet-fullscreen');
+    _pvUpdateSheetRotateBtn(false);
+}
+
+function _pvUpdateSheetRotateBtn(isFs) {
+    const label = document.getElementById('pvSheetRotateLabel');
+    const icon  = document.getElementById('pvSheetRotateIcon');
+    const btn   = document.getElementById('pvSheetRotateBtn');
+    if (label) label.textContent = isFs ? ' Restore' : ' Landscape';
+    if (icon)  icon.innerHTML = isFs ? '&#8634;' : '&#8635;';
+    if (btn)   btn.title = isFs ? 'Exit landscape / fullscreen' : 'Rotate to landscape & fullscreen for mobile';
+}
+
+// Sync button state if user exits via Esc / system back / browser control
+['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(function(ev) {
+    document.addEventListener(ev, function() {
+        const step3 = document.getElementById('pvStep3');
+        if (!step3) return;
+        const fsEl = document.fullscreenElement || document.webkitFullscreenElement
+                     || document.mozFullScreenElement || document.msFullscreenElement;
+        if (fsEl !== step3 && step3.classList.contains('pv-sheet-fullscreen')) {
+            step3.classList.remove('pv-sheet-fullscreen');
+            _pvUpdateSheetRotateBtn(false);
+            try {
+                if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+                    screen.orientation.unlock();
+                }
+            } catch (e) {}
+        }
+    });
+});
 
 // ============================================================
 //  SAVE — track newly returned IDs as recent
