@@ -507,7 +507,8 @@ async function tsLoadSales() {
                 subtotal: (item.quantity || 0) * parseFloat(item.selling_price || 0),
                 profit: parseFloat(item.profit || 0),
                 batch_id: item.batch_id || -1,
-                is_deleted_batch: !batch
+                is_deleted_batch: false,  // shell can't distinguish; see batch_state
+                batch_state: !batch ? 2 : 0
             });
         }
 
@@ -622,7 +623,11 @@ function tsRenderSales(items, searchTerm) {
         const paymentBadge = getPaymentBadge(g.payment_method, g.cheque_number);
 
         const itemsHtml = g.items.map(item => {
-            const status = item.is_deleted_batch ? '⚠️ (Batch Deleted - History Only)' : '';
+            const _bs = item.batch_state || 0;
+            const status =
+                _bs === 2 ? '⚠️ (No Batch — sold from unstocked units)' :
+                _bs === 1 ? '⚠️ (Batch Deleted - History Only)' :
+                '';
 
             let dName  = escapeHtml(item.name);
             let dBrand = escapeHtml(item.brand);
@@ -879,7 +884,11 @@ function tsOpenReverseModal(saleId, items) {
         info.className = 'ts-rev-info';
         let details = `
             <strong>${escapeHtml(item.name)} (${escapeHtml(item.brand)})</strong><br>
-            Batch #${item.batch_id === -1 ? 'DELETED' : item.batch_id}<br>
+            Batch #${
+                                    item.batch_state === 2 ? 'NONE' :
+                                    item.batch_state === 1 ? 'DELETED' :
+                                    item.batch_id
+                                }<br>
             Quantity: ${item.quantity}<br>
             Selling: ${formatMoney(item.selling_price)}
         `;

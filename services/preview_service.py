@@ -34,7 +34,7 @@ PURCHASE_COLUMNS = [
 
 SALES_COLUMNS = [
     ('sale_id',        'Sale ID',    'int',   False),
-    ('item_id',        'Item ID',    'int',   False),
+    ('item_id',        'Item ID',    'int',   True),
     ('name',           'Product',    'text',  True),
     ('brand',          'Brand',      'text',  True),
     ('category',       'Category',   'text',  False),
@@ -45,6 +45,7 @@ SALES_COLUMNS = [
     ('date',           'Date',       'date',  True),
     ('payment_method', 'Payment',    'text',  True),
     ('cheque_number',  'Cheque #',   'text',  True),
+    ('username',       'Sold By',    'text',  False),
 ]
 
 
@@ -194,37 +195,79 @@ def get_purchase_rows(category):
         conn.close()
 
 
+def _ensure_sales_action_column(cur):
+    """Add sales.action if it's missing. Idempotent — safe to call every load."""
+    try:
+        cur.execute("ALTER TABLE sales ADD COLUMN action TEXT DEFAULT 'sale'")
+    except Exception:
+        pass  # column already exists
+
+
+def _resolve_users_table(cur):
+    """Return the correct users-table name for the current DB.
+
+    SQLite → attach auth.db and use 'auth.users'
+    Postgres → single schema, use 'users'
+
+    Idempotent: 'already attached' errors from a second ATTACH are
+    swallowed (the table name is what matters, not whether ATTACH
+    succeeded on this specific call).
+    """
+    import os
+    url = os.getenv('DATABASE_URL', '') or ''
+    if url.startswith('postgres://') or url.startswith('postgresql://'):
+        return 'users'
+    try:
+        from database.db import AUTH_DB_PATH
+        cur.execute("ATTACH DATABASE ? AS auth", (AUTH_DB_PATH,))
+    except Exception as e:
+        # Usually 'already attached' — fine.
+        msg = str(e).lower()
+        if 'already' not in msg and 'attach' not in msg:
+            print(f'[preview] ATTACH auth.db: {e}')
+    return 'auth.users'
+
+
 def get_sales_rows(category):
     """Return sales item rows for a category ('Accessory' | 'Screen')."""
     conn = get_connection()
     cur = conn.cursor()
     try:
+        _ensure_sales_action_column(cur)
         if category == 'Screen':
             where = "LOWER(COALESCE(p.category, '')) = 'screen'"
         else:
             where = "LOWER(COALESCE(p.category, '')) != 'screen'"
 
+        users_table = _resolve_users_table(cur)
+        # GROUP BY (sale_id, product_id) so a single sale that drew stock
+        # from multiple batches shows as ONE row. Weighted-average cost.
         cur.execute(f"""
             SELECT
-                s.id            AS sale_id,
-                si.id           AS item_id,
-                p.name,
-                p.brand,
-                p.category,
-                si.quantity,
-                si.selling_price,
-                si.cost_price,
-                s.discount,
-                s.date,
-                COALESCE(s.payment_method, 'cash'),
-                COALESCE(s.cheque_number, ''),
-                COALESCE(s.action, 'sale')
+                s.id                   AS sale_id,
+                si.product_id          AS item_id,
+                MAX(p.name)            AS name,
+                MAX(p.brand)           AS brand,
+                MAX(p.category)        AS category,
+                SUM(si.quantity)       AS quantity,
+                MAX(si.selling_price)  AS selling_price,
+                CASE WHEN SUM(si.quantity) > 0
+                     THEN SUM(si.cost_price * si.quantity) / SUM(si.quantity)
+                     ELSE 0 END        AS cost_price,
+                MAX(s.discount)        AS discount,
+                MAX(s.date)            AS sale_date,
+                MAX(COALESCE(s.payment_method, 'cash')) AS payment_method,
+                MAX(COALESCE(s.cheque_number, ''))      AS cheque_number,
+                MAX(COALESCE(s.action, 'sale'))         AS action,
+                MAX(COALESCE(u.username, ''))           AS username
             FROM sales_items si
             JOIN sales s     ON s.id = si.sale_id
             JOIN products p  ON p.id = si.product_id
+            LEFT JOIN {users_table} u ON u.id = s.user_id
             WHERE s.reversed = 0
               AND {where}
-            ORDER BY s.date DESC, s.id DESC
+            GROUP BY s.id, si.product_id
+            ORDER BY MAX(s.date) DESC, s.id DESC
         """)
         rows = []
         for r in cur.fetchall():
@@ -242,6 +285,7 @@ def get_sales_rows(category):
                 'payment_method': r[10] or 'cash',
                 'cheque_number':  r[11] or '',
                 'action':         r[12] or 'sale',
+                'username':       r[13] or '',
             })
         return rows
     finally:
@@ -542,7 +586,7 @@ def save_purchases(rows, category, mode, deleted_ids=None):
         conn.close()
 
 
-def save_sales(rows, category, mode, deleted_ids=None):
+def save_sales(rows, category, mode, deleted_ids=None, user_id=None):
     """mode: 'replace' | 'append' | 'merge'.
 
     When a new sale row is inserted (mode != 'replace' with matching
@@ -571,9 +615,11 @@ def save_sales(rows, category, mode, deleted_ids=None):
     except Exception:
         pass
 
-    def _deduct_from_batches(product_id, needed_qty, sale_id):
+    def _deduct_from_batches(product_id, needed_qty, sale_id, rate):
         """FIFO-deduct `needed_qty` from product's batches. Inserts sales_items
-        rows with proper batch_id + cost_price. Returns (units_deducted, cost_sum)."""
+        rows using the given selling rate (the old code hardcoded 0 here,
+        which is why batch rows showed Rate=$0.00 in the preview). Returns
+        (units_deducted, cost_sum)."""
         cur.execute("""
             SELECT id, remaining_quantity, cost_price
             FROM purchase_batches
@@ -595,13 +641,13 @@ def save_sales(rows, category, mode, deleted_ids=None):
                 SET remaining_quantity = remaining_quantity - %s
                 WHERE id = %s
             """, (take, bid))
-            # sales_items row per batch slice
-            rate = cost_sum  # will be overridden by caller for selling_price
+            item_profit = (float(rate) - float(batch_cost or 0)) * take
             cur.execute("""
                 INSERT INTO sales_items
                 (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
-                VALUES (%s, %s, %s, %s, 0, %s, 0)
-            """, (sale_id, product_id, bid, take, float(batch_cost or 0)))
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (sale_id, product_id, bid, take,
+                  float(rate), float(batch_cost or 0), item_profit))
             deducted += take
             cost_sum += float(batch_cost or 0) * take
             remaining -= take
@@ -649,23 +695,64 @@ def save_sales(rows, category, mode, deleted_ids=None):
                     if sid_int:
                         cur.execute("SELECT id FROM sales WHERE id = %s", (sid_int,))
                         if cur.fetchone():
+                            # Resolve product_id (needed for re-deduct)
+                            cur.execute("SELECT id FROM products WHERE name = %s AND brand = %s LIMIT 1",
+                                        (name, brand))
+                            _p = cur.fetchone()
+                            if not _p:
+                                cur.execute("SELECT id FROM products WHERE name = %s LIMIT 1", (name,))
+                                _p = cur.fetchone()
+                            if not _p:
+                                stats['errors'].append(f"Row {i+1}: product '{name}' not found, skipped")
+                                continue
+                            _pid = _p[0]
+
+                            # Restore batch quantities from the sale's current items
+                            cur.execute("SELECT batch_id, quantity FROM sales_items WHERE sale_id = %s", (sid_int,))
+                            for _obid, _oqty in cur.fetchall():
+                                if _obid:
+                                    cur.execute(
+                                        "UPDATE purchase_batches SET remaining_quantity = remaining_quantity + %s WHERE id = %s",
+                                        (int(_oqty or 0), _obid)
+                                    )
+                            # Delete old items — we'll re-deduct cleanly below
+                            cur.execute("DELETE FROM sales_items WHERE sale_id = %s", (sid_int,))
+
                             subtotal = qty * rate
                             total = subtotal - discount
-                            profit = (rate - cost) * qty - discount
                             cur.execute("""
                                 UPDATE sales
                                 SET discount = %s, date = %s, subtotal = %s,
-                                    total = %s, profit = %s,
-                                    payment_method = %s, cheque_number = %s
+                                    total = %s, payment_method = %s, cheque_number = %s
                                 WHERE id = %s
-                            """, (discount, date, subtotal, total, profit,
+                            """, (discount, date, subtotal, total,
                                   payment, cheque or None, sid_int))
-                            # Also refresh the sales_items qty/cost/profit
+
+                            # Re-deduct fresh
+                            deducted, _csum = _deduct_from_batches(_pid, qty, sid_int, rate)
+                            if deducted < qty:
+                                short = qty - deducted
+                                cur.execute("""
+                                    INSERT INTO sales_items
+                                    (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
+                                    VALUES (%s, %s, NULL, %s, %s, %s, 0)
+                                """, (sid_int, _pid, short, rate, cost))
+                                stats['errors'].append(
+                                    f"Row {i+1}: only {deducted}/{qty} units had batch stock for '{name}'"
+                                )
+
+                            # Recompute item-level profit, then roll up to sale
                             cur.execute("""
                                 UPDATE sales_items
-                                SET quantity = %s, selling_price = %s, cost_price = %s, profit = %s
+                                SET profit = (selling_price - cost_price) * quantity
                                 WHERE sale_id = %s
-                            """, (qty, rate, cost, profit, sid_int))
+                            """, (sid_int,))
+                            cur.execute("SELECT COALESCE(SUM(profit), 0) FROM sales_items WHERE sale_id = %s",
+                                        (sid_int,))
+                            _ip = float(cur.fetchone()[0] or 0)
+                            cur.execute("UPDATE sales SET profit = %s WHERE id = %s",
+                                        (_ip - float(discount or 0), sid_int))
+
                             stats['updated'] += 1
                             stats.setdefault('updated_ids', []).append(sid_int)
                             continue
@@ -689,9 +776,9 @@ def save_sales(rows, category, mode, deleted_ids=None):
                 profit = (rate - cost) * qty - discount
                 cur.execute("""
                     INSERT INTO sales
-                    (date, subtotal, discount, total, profit, reversed, payment_method, cheque_number)
-                    VALUES (%s, %s, %s, %s, %s, 0, %s, %s)
-                """, (date, subtotal, discount, total, profit, payment, cheque or None))
+                    (date, subtotal, discount, total, profit, reversed, payment_method, cheque_number, user_id)
+                    VALUES (%s, %s, %s, %s, %s, 0, %s, %s, %s)
+                """, (date, subtotal, discount, total, profit, payment, cheque or None, user_id))
                 cur.execute("SELECT last_insert_rowid()")
                 new_sale_id = cur.fetchone()[0]
                 stats.setdefault('inserted_ids', []).append(new_sale_id)
@@ -699,41 +786,39 @@ def save_sales(rows, category, mode, deleted_ids=None):
                 # Try to deduct from real batches. If no batches exist, fall
                 # back to a single sales_items row without batch_id so the
                 # sale is still recorded.
-                deducted, cost_sum = _deduct_from_batches(product_id, qty, new_sale_id)
+                deducted, cost_sum = _deduct_from_batches(product_id, qty, new_sale_id, rate)
                 if deducted == 0:
                     cur.execute("""
                         INSERT INTO sales_items
                         (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
                         VALUES (%s, %s, NULL, %s, %s, %s, %s)
-                    """, (new_sale_id, product_id, qty, rate, cost, profit))
+                    """, (new_sale_id, product_id, qty, rate, cost, (rate - cost) * qty))
                     stats['errors'].append(
                         f"Row {i+1}: '{name}' had no batch stock — sale recorded without deduction"
                     )
                 else:
-                    # Recompute accurate profit with real batch costs
-                    if deducted == qty:
-                        # All units had batches — refresh sales_items selling_price and profit
-                        avg_cost = cost_sum / deducted if deducted else 0
-                        real_profit = (rate - avg_cost) * deducted - discount
-                        cur.execute("""
-                            UPDATE sales_items
-                            SET selling_price = %s, profit = %s
-                            WHERE sale_id = %s
-                        """, (rate, real_profit, new_sale_id))
-                        cur.execute("""
-                            UPDATE sales SET profit = %s, total = %s WHERE id = %s
-                        """, (real_profit, subtotal - discount, new_sale_id))
                     if deducted < qty:
-                        # Partial — record the remainder as unbatch'd
                         short = qty - deducted
                         cur.execute("""
                             INSERT INTO sales_items
                             (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
-                            VALUES (%s, %s, NULL, %s, %s, %s, 0)
-                        """, (new_sale_id, product_id, short, rate, cost))
+                            VALUES (%s, %s, NULL, %s, %s, %s, %s)
+                        """, (new_sale_id, product_id, short, rate, cost, (rate - cost) * short))
                         stats['errors'].append(
                             f"Row {i+1}: only {deducted}/{qty} units had batch stock for '{name}'"
                         )
+                    # Batch rows already carry their per-batch cost + rate.
+                    # Recompute profit = (selling - cost) * qty, then roll up.
+                    cur.execute("""
+                        UPDATE sales_items
+                        SET profit = (selling_price - cost_price) * quantity
+                        WHERE sale_id = %s
+                    """, (new_sale_id,))
+                    cur.execute("SELECT COALESCE(SUM(profit), 0) FROM sales_items WHERE sale_id = %s",
+                                (new_sale_id,))
+                    _ip = float(cur.fetchone()[0] or 0)
+                    cur.execute("UPDATE sales SET profit = %s, total = %s WHERE id = %s",
+                                (_ip - float(discount or 0), subtotal - discount, new_sale_id))
 
                 # Update product stock to reflect batch deductions
                 cur.execute("""
@@ -788,13 +873,20 @@ def get_product_suggestions(category):
         else:
             where = "LOWER(COALESCE(category, '')) != 'screen'"
         cur.execute(f"""
-            SELECT DISTINCT name, COALESCE(brand, ''), COALESCE(category, '')
+            SELECT id, name, COALESCE(brand, ''), COALESCE(category, ''),
+                   COALESCE(cost_price, 0), COALESCE(selling_price, 0)
             FROM products
             WHERE {where} AND name IS NOT NULL AND name != ''
             ORDER BY name ASC
         """)
-        products = [{'name': r[0], 'brand': r[1], 'category': r[2]}
-                    for r in cur.fetchall()]
+        products = [{
+            'id':             int(r[0]),
+            'name':           r[1] or '',
+            'brand':          r[2] or '',
+            'category':       r[3] or '',
+            'cost_price':     float(r[4] or 0),
+            'selling_price':  float(r[5] or 0),
+        } for r in cur.fetchall()]
 
         # Category list (for loose-category mode in Accessory view)
         cur.execute(f"""

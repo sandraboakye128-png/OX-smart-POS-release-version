@@ -486,7 +486,11 @@
                 saleCount++;
                 const paymentBadge = getPaymentBadge(saleGroup.payment_method, saleGroup.cheque_number);
                 const itemsHtml = saleGroup.items.map(item => {
-                    const statusText = item.is_deleted_batch ? '⚠️ (Batch Deleted - History Only)' : '';
+                    const _bs = item.batch_state || 0;
+                    const statusText =
+                        _bs === 2 ? '⚠️ (No Batch — sold from unstocked units)' :
+                        _bs === 1 ? '⚠️ (Batch Deleted - History Only)' :
+                        '';
                     let displayName = escapeHtml(item.name);
                     let displayBrand = escapeHtml(item.brand);
                     if (searchTerm && searchTerm.trim()) {
@@ -513,7 +517,11 @@
                             <div class="text-xs md:text-sm grid grid-cols-2 gap-0.5 md:gap-1">
                                 <div>Qty: ${item.quantity}</div>
                                 <div>Selling: ${formatMoney(item.selling_price)}</div>
-                                <div>Batch: ${item.batch_id === -1 ? 'DELETED' : '#' + item.batch_id}</div>
+                                <div>Batch: ${
+                                    item.batch_state === 2 ? 'NONE' :
+                                    item.batch_state === 1 ? 'DELETED' :
+                                    '#' + item.batch_id
+                                }</div>
                                 ${extraDetails}
                                 <div>Subtotal: ${formatMoney(item.subtotal)}</div>
                             </div>

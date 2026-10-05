@@ -2358,15 +2358,19 @@ def api_today_sales():
                 sales.total, 
                 COALESCE(sales_items.profit, 0) as profit,
                 COALESCE(purchase_batches.id, -1) as batch_id,
-                COALESCE(purchase_batches.cost_price, 0) as cost_price, 
+                COALESCE(purchase_batches.cost_price, sales_items.cost_price, 0) as cost_price,
                 sales.date,
-                CASE WHEN purchase_batches.id IS NULL THEN 1 ELSE 0 END as is_deleted_batch,
+                CASE
+                    WHEN sales_items.batch_id IS NULL THEN 2
+                    WHEN purchase_batches.id IS NULL THEN 1
+                    ELSE 0
+                END as batch_state,
                 COALESCE(sales.profit, 0) as net_profit,
                 COALESCE(sales.payment_method, 'cash') as payment_method,
                 sales.cheque_number,
                 u.username
         """
-        from_clause = """
+        from_clause = f"""
             FROM sales
             JOIN sales_items ON sales.id = sales_items.sale_id
             JOIN products ON products.id = sales_items.product_id
@@ -2443,7 +2447,8 @@ def api_today_sales():
                 'batch_id': r[10],
                 'cost_price': float(r[11]) if r[11] is not None else 0,
                 'sale_date': r[12].isoformat() if hasattr(r[12], 'isoformat') else str(r[12]),
-                'is_deleted_batch': bool(r[13]),
+                'batch_state': int(r[13] or 0),   # 0=normal, 1=batch deleted, 2=no batch
+                'is_deleted_batch': (int(r[13] or 0) == 1),
                 'net_profit': float(r[14]) if r[14] is not None else 0,
                 'payment_method': r[15] if len(r) > 15 else 'cash',
                 'cheque_number': r[16] if len(r) > 16 else None,
@@ -5355,7 +5360,8 @@ def api_preview_save(kind, category):
         if kind == 'purchases':
             stats = save_purchases(rows, category, mode, deleted_ids=deleted_ids)
         else:
-            stats = save_sales(rows, category, mode, deleted_ids=deleted_ids)
+            stats = save_sales(rows, category, mode, deleted_ids=deleted_ids,
+                               user_id=session.get('user_id'))
         try:
             ins = stats.get('inserted', 0); upd = stats.get('updated', 0); dlt = stats.get('deleted', 0)
             bits = []

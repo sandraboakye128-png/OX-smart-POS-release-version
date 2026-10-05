@@ -81,6 +81,8 @@
 
 
 
+<div id="pvCurrentUser" data-username="{{ current_user.username if current_user else '' }}" style="display:none;"></div>
+
 <div class="p-4 md:p-6 space-y-4">
 
     <!-- ============ HEADER ============ -->
@@ -179,39 +181,54 @@
             </div>
         </div>
 
-        <div id="pvRecentBar" class="hidden bg-amber-50 border border-amber-300 rounded-xl p-3 flex flex-wrap items-center gap-3">
-            <span class="text-sm font-semibold text-amber-800">🆕 <span id="pvRecentCount">0</span> new row(s) this session</span>
-            <button onclick="pvShowRecentModal()"
-                    class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
-                View All with highlights
-            </button>
-            <div class="flex flex-wrap items-center gap-3 text-[11px] text-gray-600 ml-2">
-                <span class="flex items-center gap-1">
-                    <span style="display:inline-block;width:14px;height:14px;background:#fef9c3;border:1px solid #ca8a04;border-radius:3px;"></span>
-                    Added this session
-                </span>
-                <span class="flex items-center gap-1">
-                    <span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border:1px solid #16a34a;border-radius:3px;"></span>
-                    Added via import
-                </span>
-                <span class="flex items-center gap-1">
-                    <span style="display:inline-block;width:14px;height:14px;background:#e9d5ff;border:1px solid #9333ea;border-radius:3px;"></span>
-                    Updated via import
-                </span>
-                <span class="flex items-center gap-1">
-                    <span style="display:inline-block;width:14px;height:14px;background:#fee2e2;border:1px solid #ef4444;border-radius:3px;"></span>
-                    Not in DB anymore
-                </span>
+        <div id="pvRecentBar" class="hidden bg-amber-50 border border-amber-300 rounded-xl p-3 space-y-2">
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="button"
+                        onclick="pvToggleRecentLegend()"
+                        id="pvRecentLegendBtn"
+                        class="flex items-center justify-center w-7 h-7 text-amber-800 hover:text-amber-900 hover:bg-amber-100 rounded-md transition flex-shrink-0"
+                        title="Show / hide the colour legend"
+                        aria-label="Toggle colour legend">
+                    <span id="pvRecentLegendArrow" class="text-xs font-bold">&#9654;</span>
+                </button>
+                <span class="text-sm font-semibold text-amber-800">🆕 <span id="pvRecentCount">0</span> new row(s) this session</span>
+                <button onclick="pvShowRecentModal()"
+                        class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
+                    View All with highlights
+                </button>
+            </div>
+            <div id="pvRecentLegend" class="hidden pt-2 border-t border-amber-300">
+                <div class="flex flex-wrap items-center gap-3 text-[11px] text-gray-600">
+                    <span class="flex items-center gap-1">
+                        <span style="display:inline-block;width:14px;height:14px;background:#fef9c3;border:1px solid #ca8a04;border-radius:3px;"></span>
+                        Added this session
+                    </span>
+                    <span class="flex items-center gap-1">
+                        <span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border:1px solid #16a34a;border-radius:3px;"></span>
+                        Added via import
+                    </span>
+                    <span class="flex items-center gap-1">
+                        <span style="display:inline-block;width:14px;height:14px;background:#e9d5ff;border:1px solid #9333ea;border-radius:3px;"></span>
+                        Updated via import
+                    </span>
+                    <span class="flex items-center gap-1">
+                        <span style="display:inline-block;width:14px;height:14px;background:#fee2e2;border:1px solid #ef4444;border-radius:3px;"></span>
+                        Not in DB anymore
+                    </span>
+                </div>
             </div>
         </div>
         <div id="pvStatus" class="text-sm text-gray-500 px-2"></div>
+
+        <!-- AUTO-SUGGEST DROPDOWN — must live inside pvStep3 so it
+             renders above the fullscreen element on landscape -->
+        <div id="pvSuggestBox"
+             class="hidden bg-white border border-gray-300 rounded-lg shadow-2xl max-h-64 overflow-y-auto"
+             style="position:fixed; z-index:2147483645; min-width:220px; font-size:13px;"></div>
     </div>
 </div>
 
-<!-- ============ AUTO-SUGGEST DROPDOWN ============ -->
-<div id="pvSuggestBox"
-     class="hidden bg-white border border-gray-300 rounded-lg shadow-2xl max-h-64 overflow-y-auto"
-     style="position:fixed; z-index:2147483645; min-width:220px; font-size:13px;"></div>
+
 
 <!-- ============ RECENTLY ADDED MODAL ============ -->
 <div id="pvRecentModal" class="hidden flex items-center justify-center p-4"
@@ -449,6 +466,19 @@ window.previewAddRow = function() {
     const blank = {};
     PV.columns.forEach(c => { blank[c.key] = c.type === 'int' || c.type === 'float' ? 0 : ''; });
     blank.category = (PV.category === 'Screen') ? 'Screen' : '';
+    // Pre-fill Sold By with the current user (server ignores client value
+    // and uses the authenticated session user — this is just a UI hint).
+    try {
+        var _el = document.getElementById('pvCurrentUser');
+        var _uname = _el ? (_el.dataset.username || '') : '';
+        if (!_uname) {
+            try {
+                var _u = JSON.parse(localStorage.getItem('ox_shell_user') || '{}');
+                _uname = _u.username || '';
+            } catch (e) {}
+        }
+        if (_uname) blank.username = _uname;
+    } catch (e) {}
     PV.rows.unshift(blank);
     // Track as recent (use a negative sentinel id)
     const sentinel = '__new_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
@@ -585,7 +615,7 @@ document.addEventListener('input', function(e) {
     if (!td) return;
     const key = td.dataset.key;
     const typed = (td.textContent || '').trim().toLowerCase();
-    if (!['name', 'brand', 'category'].includes(key)) { pvHideSuggest(); return; }
+    if (!['name', 'brand', 'category', 'item_id'].includes(key)) { pvHideSuggest(); return; }
 
     // Find the row index from the tr
     const tr = td.closest('tr');
@@ -634,12 +664,82 @@ document.addEventListener('input', function(e) {
         const matches = cats.filter(c => !typed || c.toLowerCase().includes(typed)).slice(0, 100);
         items = matches.map(c => ({ main: c, sub: '' }));
         onPick = (it) => { td.textContent = it.main; };
+
+    } else if (key === 'item_id') {
+        // Filter by product ID prefix; if empty, show all products
+        const matches = prods.filter(p =>
+            !typed || String(p.id).startsWith(typed)
+        ).slice(0, 100);
+        items = matches.map(p => ({
+            main: '#' + p.id + '  ' + p.name,
+            sub: (p.brand || '\u2014') + ' \u00b7 ' + (p.category || ''),
+            payload: p
+        }));
+        onPick = (it) => {
+            const p = it.payload;
+            td.textContent = String(p.id);
+            // Fill the entire row from the product
+            if (tr) {
+                const fill = (k, v) => {
+                    const cell = tr.querySelector('td[data-key="' + k + '"]');
+                    if (cell) {
+                        if (cell.querySelector('input[type="datetime-local"]')) return; // skip date
+                        cell.textContent = (v == null ? '' : String(v));
+                    }
+                };
+                fill('name', p.name);
+                fill('brand', p.brand || '');
+                fill('category', p.category || '');
+                fill('selling_price', p.selling_price);
+                fill('cost_price', p.cost_price);
+            }
+            if (rowIdx >= 0) {
+                PV.rows[rowIdx] = PV.rows[rowIdx] || {};
+                Object.assign(PV.rows[rowIdx], {
+                    item_id: p.id,
+                    name: p.name,
+                    brand: p.brand,
+                    category: p.category,
+                    selling_price: p.selling_price,
+                    cost_price: p.cost_price
+                });
+            }
+        };
     }
 
     if (items.length === 0) { pvHideSuggest(); return; }
     PV.suggestCell = td;
     pvPositionSuggest(td);
     pvRenderSuggest(items, onPick);
+});
+
+// Auto-fill from a manually typed item_id (on blur/change)
+document.addEventListener('focusout', function(e) {
+    var td = e.target.closest && e.target.closest('td[data-key="item_id"][contenteditable="true"]');
+    if (!td) return;
+    var raw = (td.textContent || '').trim().replace('#', '');
+    var num = parseInt(raw, 10);
+    if (!num || String(num) !== raw) return;
+    var prods = (PV.suggestions && PV.suggestions.products) || [];
+    var match = prods.find(function(p) { return p.id === num; });
+    if (!match) return;
+    // Already filled by suggestion? skip
+    if (String(td.textContent).trim() === '#' + match.id) return;
+    td.textContent = String(match.id);
+    var tr = td.closest('tr');
+    if (tr) {
+        var fill = function(k, v) {
+            var cell = tr.querySelector('td[data-key="' + k + '"]');
+            if (cell && !cell.querySelector('input[type="datetime-local"]')) {
+                cell.textContent = (v == null ? '' : String(v));
+            }
+        };
+        fill('name', match.name);
+        fill('brand', match.brand || '');
+        fill('category', match.category || '');
+        fill('selling_price', match.selling_price);
+        fill('cost_price', match.cost_price);
+    }
 });
 
 // Close on outside click
@@ -679,6 +779,14 @@ function pvRenderRecentBar() {
     if (total === 0) bar.classList.add('hidden');
     else bar.classList.remove('hidden');
 }
+
+window.pvToggleRecentLegend = function() {
+    var legend = document.getElementById('pvRecentLegend');
+    var arrow  = document.getElementById('pvRecentLegendArrow');
+    if (!legend) return;
+    var nowHidden = legend.classList.toggle('hidden');
+    if (arrow) arrow.innerHTML = nowHidden ? '&#9654;' : '&#9660;';
+};
 
 window.pvClearRecent = function() {
     PV.recentIds = new Set();
@@ -780,8 +888,11 @@ window.pvToggleSheetRotate = async function() {
 async function _pvEnterSheetFs() {
     const step3 = document.getElementById('pvStep3');
     if (!step3) return;
+    // navigationUI:'hide' asks the browser to also hide its own back /
+    // home / tab bar (Android Chrome honours this; some WebViews don't).
+    var fsOpts = { navigationUI: 'hide' };
     try {
-        if (step3.requestFullscreen)                await step3.requestFullscreen();
+        if (step3.requestFullscreen)                await step3.requestFullscreen(fsOpts);
         else if (step3.webkitRequestFullscreen)     step3.webkitRequestFullscreen();
         else if (step3.msRequestFullscreen)         step3.msRequestFullscreen();
     } catch (e) { console.warn('[pv-sheet-fs] fullscreen failed:', e); }
