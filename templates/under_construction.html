@@ -4,18 +4,18 @@
 <div class="flex items-center justify-center min-h-[60vh]">
     <div class="text-center">
         <div class="text-6xl mb-4">🚧</div>
-        <h1 class="text-4xl font-bold text-yellow-500 mb-4">Under Construction</h1>
-        <p class="text-xl text-gray-600">The sales page is currently being updated.</p>
-        <p class="text-gray-500 mt-2">We'll be back shortly. Please check back later.</p>
+        <h1 class="text-4xl font-bold text-yellow-500 mb-4">{{ t("uc.title") }}</h1>
+        <p class="text-xl text-gray-600">{{ t("uc.line1") }}</p>
+        <p class="text-gray-500 mt-2">{{ t("uc.line2") }}</p>
         <div class="mt-6 flex flex-wrap justify-center gap-3">
             <a href="/" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition">
-                Go to Dashboard
+                {{ t("uc.to_dashboard") }}
             </a>
             <a href="/products" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition">
-                View Products
+                {{ t("uc.view_products") }}
             </a>
         </div>
-        <p class="text-sm text-gray-400 mt-6">📅 Expected to be available again soon</p>
+        <p class="text-sm text-gray-400 mt-6">{{ t("uc.eta") }}</p>
     </div>
 </div>
 {% endblock %}

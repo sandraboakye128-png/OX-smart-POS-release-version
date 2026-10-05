@@ -3,17 +3,17 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <div>
-        <h1 class="text-3xl font-bold text-gray-800">👥 User Management</h1>
-        <p class="text-sm text-gray-500 mt-1">Manage system users and their permissions</p>
+        <h1 class="text-3xl font-bold text-gray-800">{{ t("admin.title") }}</h1>
+        <p class="text-sm text-gray-500 mt-1">{{ t("admin.subtitle") }}</p>
     </div>
     <div class="text-sm text-gray-500">
-        <span class="bg-green-100 text-green-800 px-2 py-1 rounded">👤 You: {{ current_user.username }}</span>
+        <span class="bg-green-100 text-green-800 px-2 py-1 rounded">{{ t("admin.you_are") }} {{ current_user.username }}</span>
     </div>
 </div>
 
 <!-- Offline banner -->
 <div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
-    ⚠️ You are offline – showing cached user data. Changes will be saved when you reconnect.
+    {{ t("admin.offline_banner") }}
 </div>
 
 <!-- Hidden input to store current user ID -->
@@ -22,27 +22,27 @@
 
 <!-- Create User Form -->
 <div class="bg-white rounded-lg shadow p-6 mb-8">
-    <h2 class="text-xl font-semibold mb-4">➕ Create New User</h2>
+    <h2 class="text-xl font-semibold mb-4">{{ t("admin.create_title") }}</h2>
     <form id="createUserForm" class="flex flex-wrap gap-4 items-end">
         <div>
-            <label class="block text-sm font-medium text-gray-700">Username</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("admin.username") }}</label>
             <input type="text" id="newUsername" required autocomplete="off"
                    class="mt-1 px-3 py-2 border border-gray-300 rounded-md focus:ring focus:ring-indigo-200 w-48">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Password</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("admin.password") }}</label>
             <input type="password" id="newPassword" required autocomplete="new-password"
                    class="mt-1 px-3 py-2 border border-gray-300 rounded-md focus:ring focus:ring-indigo-200 w-48">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Role</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("admin.role") }}</label>
             <select id="newRole" class="mt-1 px-3 py-2 border border-gray-300 rounded-md">
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
+                <option value="user">{{ t("admin.role_user") }}</option>
+                <option value="admin">{{ t("admin.role_admin") }}</option>
             </select>
         </div>
         <button type="submit" class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-md transition">
-            Create User
+            {{ t("admin.create_btn") }}
         </button>
     </form>
     <div id="createMessage" class="mt-2 text-sm"></div>
@@ -53,11 +53,11 @@
     <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t("admin.th_id") }}</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t("admin.th_username") }}</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t("admin.th_role") }}</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t("admin.th_created") }}</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t("admin.th_actions") }}</th>
             </tr>
         </thead>
         <tbody id="usersTableBody" class="bg-white divide-y divide-gray-200">
@@ -72,7 +72,7 @@
         <div class="flex items-start gap-3">
             <div class="text-3xl text-red-500">❌</div>
             <div class="flex-1">
-                <h3 class="text-lg font-bold text-gray-800">Cannot Delete User</h3>
+                <h3 class="text-lg font-bold text-gray-800">{{ t("admin.cannot_delete") }}</h3>
                 <p id="errorModalMessage" class="text-sm text-gray-700 mt-1"></p>
                 <div id="errorModalDetails" class="text-xs text-gray-500 mt-2 border-t pt-2 hidden">
                     <strong>Details:</strong> <span id="errorModalDetailsText"></span>
@@ -81,7 +81,7 @@
         </div>
         <div class="flex justify-end mt-4">
             <button onclick="closeErrorModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded">
-                OK
+                {{ t("admin.ok") }}
             </button>
         </div>
     </div>

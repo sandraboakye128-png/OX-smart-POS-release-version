@@ -1,52 +1,53 @@
 {% extends 'base.html' %}
 
 {% block content %}
+{% set CURRENCY = settings.currency_symbol if settings else '₵' %}
 <!-- Offline banner -->
 <div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
-    ⚠️ You are offline – showing cached archive data. Changes will be synced when you reconnect.
+    {{ t("archive.offline_banner") }}
 </div>
 
 <!-- Header & Filter + Search -->
 <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
-    <h1 class="text-3xl font-bold text-indigo-600">📁 Product Archive</h1>
+    <h1 class="text-3xl font-bold text-indigo-600">{{ t("archive.title") }}</h1>
     <div class="flex flex-wrap items-center gap-3">
         <div>
-            <input type="text" id="searchInput" placeholder="🔍 Search product/brand..." 
+            <input type="text" id="searchInput" placeholder="{{ t('archive.search_ph') }}" 
                    class="border border-gray-300 rounded-lg px-3 py-2 w-48 md:w-64">
         </div>
-        <label class="text-gray-700">Filter:</label>
+        <label class="text-gray-700">{{ t("archive.filter_label") }}</label>
         <select id="statusFilter" class="border border-gray-300 rounded-lg px-3 py-2 bg-white">
-            <option value="ALL">ALL</option>
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="UPDATED">UPDATED</option>
-            <option value="DELETED">DELETED</option>
-            <option value="PRODUCT DELETED">PRODUCT DELETED</option>
-            <option value="BATCH DELETED">BATCH DELETED</option>
-            <option value="PERMANENTLY DELETED">PERMANENTLY DELETED</option>
+            <option value="ALL">{{ t("archive.status_all") }}</option>
+            <option value="ACTIVE">{{ t("archive.status_active") }}</option>
+            <option value="UPDATED">{{ t("archive.status_updated") }}</option>
+            <option value="DELETED">{{ t("archive.status_deleted") }}</option>
+            <option value="PRODUCT DELETED">{{ t("archive.status_product") }}</option>
+            <option value="BATCH DELETED">{{ t("archive.status_batch") }}</option>
+            <option value="PERMANENTLY DELETED">{{ t("archive.status_perm") }}</option>
         </select>
         <button onclick="resetAndLoad()" class="bg-teal-500 hover:bg-teal-600 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1">
-            <i class="fas fa-sync-alt"></i> Refresh
+            <i class="fas fa-sync-alt"></i> {{ t("archive.refresh") }}
         </button>
     </div>
 </div>
 
 <!-- Stats -->
 <div id="statsBar" class="mb-4 text-sm text-gray-600 hidden">
-    Showing <span id="shownCount">0</span> of <span id="totalCount">0</span> items
+    {{ t("archive.showing") }} <span id="shownCount">0</span> {{ t("archive.of") }} <span id="totalCount">0</span> {{ t("archive.items") }}
 </div>
 
 <!-- Archive List -->
 <div id="archiveList" class="space-y-4">
     <div class="text-center text-gray-400 py-8">
         <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-        <p>Loading archive data...</p>
+        <p>{{ t("archive.loading_v2") }}</p>
     </div>
 </div>
 
 <!-- Load More Button -->
 <div id="loadMoreContainer" class="text-center mt-6 hidden">
     <button id="loadMoreBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2 mx-auto">
-        <i class="fas fa-chevron-down"></i> Load More
+        <i class="fas fa-chevron-down"></i> {{ t("archive.load_more") }}
     </button>
 </div>
 
@@ -54,12 +55,12 @@
 <div id="batchModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
     <div class="bg-white rounded-xl shadow-xl w-11/12 max-w-2xl max-h-[80vh] overflow-y-auto">
         <div class="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
-            <h3 class="text-xl font-bold" id="batchModalTitle">Batches</h3>
+            <h3 class="text-xl font-bold" id="batchModalTitle">{{ t("archive.batches") }}</h3>
             <button onclick="closeBatchModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
         </div>
         <div id="batchList" class="p-4 space-y-3"></div>
         <div class="sticky bottom-0 bg-white p-4 border-t text-right">
-            <button onclick="closeBatchModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded">Close</button>
+            <button onclick="closeBatchModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded">{{ t("archive.close") }}</button>
         </div>
     </div>
 </div>
@@ -68,12 +69,12 @@
 <div id="claimsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
     <div class="bg-white rounded-xl shadow-xl w-11/12 max-w-2xl max-h-[80vh] overflow-y-auto">
         <div class="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
-            <h3 class="text-xl font-bold" id="claimsModalTitle">Claims</h3>
+            <h3 class="text-xl font-bold" id="claimsModalTitle">{{ t("archive.claims") }}</h3>
             <button onclick="closeClaimsModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
         </div>
         <div id="claimsList" class="p-4 space-y-3"></div>
         <div class="sticky bottom-0 bg-white p-4 border-t text-right">
-            <button onclick="closeClaimsModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded">Close</button>
+            <button onclick="closeClaimsModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded">{{ t("archive.close") }}</button>
         </div>
     </div>
 </div>
@@ -187,7 +188,7 @@
 
         // Helper: format currency
         function formatMoney(amount) {
-            return '₵' + (parseFloat(amount) || 0).toFixed(2);
+            return "{{ CURRENCY }}" + (parseFloat(amount) || 0).toFixed(2);
         }
 
         // Helper: escape HTML
@@ -261,7 +262,7 @@
                 container.innerHTML = `
                     <div class="text-center text-gray-400 py-8">
                         <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                        <p>Loading archive data...</p>
+                        <p>{{ t("archive.loading_v2") }}</p>
                     </div>
                 `;
                 document.getElementById('statsBar').classList.add('hidden');

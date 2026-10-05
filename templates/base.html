@@ -784,6 +784,10 @@
             <a href="/analytics" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
                 <i class="fas fa-chart-pie w-5"></i> {{ t('nav.analytics') }}
             </a>
+            <a href="/preview-data" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
+                <i class="fas fa-table w-4 text-center"></i>
+                <span>Excel Preview</span>
+            </a>
             <a href="/archive" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
                 <i class="fas fa-archive w-5"></i> {{ t('nav.archive') }}
             </a>
@@ -840,18 +844,13 @@
             </a>
             {% endif %}
 
-            {% if current_user and current_user.username.lower() == 'oxbee' %}
+            {% if current_user %}
             <div class="border-t border-gray-700 my-2"></div>
-            <div class="text-xs text-amber-500 uppercase px-3 py-1 font-bold">
-                <i class="fas fa-crown mr-1"></i> System Admin
-            </div>
             <a href="/settings" class="nav-link settings-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
                 <i class="fas fa-cog w-5"></i> {{ t('nav.settings') }}
-                <span class="settings-badge">⭐ System</span>
             </a>
             <a href="/offline" class="nav-link settings-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
                 <i class="fas fa-mobile-alt w-5"></i> {{ t('nav.offline') }}
-                <span class="settings-badge">📴 Offline</span>
             </a>
             {% endif %}
 
@@ -859,16 +858,11 @@
             <div class="mt-4 flex flex-col gap-2 px-3 py-1">
                 <div class="flex items-center gap-2">
                     <span id="pending-badge" class="text-xs text-yellow-300 bg-gray-700 px-2 py-0.5 rounded-full" style="display:none;"></span>
-                    <button id="syncOfflineBtn" onclick="syncAllPending()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition">
-                        <i class="fas fa-cloud-upload-alt mr-1"></i> {{ t('nav.sync_offline') }}
-                    </button>
                 </div>
 
-                {% if current_user and current_user.username.lower() == 'oxbee' %}
                 <button id="installAppBtn" class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md transition hidden">
                     <i class="fas fa-download mr-1"></i> {{ t('nav.install_app') }}
                 </button>
-                {% endif %}
 
                 <button onclick="clearOfflineData()" class="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md transition">
                     <i class="fas fa-trash mr-1"></i> {{ t('nav.clear_offline') }}
@@ -1221,6 +1215,7 @@
         return {
             add, update, remove, clearAll, purge,
             info, success, warning, error,
+            refresh: _refresh,
             get items() { return items; },
             get unreadCount() { return items.length; }
         };
@@ -1287,7 +1282,7 @@
         '/purchases', '/purchases/screens',
         '/analytics', '/today-sales', '/today-sales/screens',
         '/archive', '/claims', '/logs',
-        '/admin/users', '/settings', '/inventory/import',
+        '/admin/users', '/settings', '/inventory/import', '/preview-data',
         '/activities'
     ];
 
@@ -1828,5 +1823,121 @@
         };
     })();
 </script>
+
+<!-- notif-server-bridge (phase 10b) -->
+<script>
+(function () {
+  'use strict';
+  var PREFIX = 'srv_';
+  var KIND_TYPE = {
+    purchase_added: 'success',
+    sale_reversed:  'warning',
+    preview_save:   'info'
+  };
+
+  function _N() { return window.Notifications; }
+
+  function refresh() {
+    var N = _N();
+    if (!N) return Promise.resolve();
+    return fetch('/api/notifications', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var items = (j && j.items) || [];
+        var onServer = {};
+        items.forEach(function (it) { onServer[PREFIX + it.id] = true; });
+
+        // Add ONLY new items — do not re-add (which would bump timestamp)
+        var existingIds = {};
+        try { N.items.forEach(function (x) { existingIds[x.id] = true; }); } catch (e) {}
+
+        items.forEach(function (it) {
+          var nid = PREFIX + it.id;
+          if (existingIds[nid]) return;
+          try {
+            N.add({
+              id: nid,
+              type: KIND_TYPE[it.kind] || 'info',
+              title: it.title || '',
+              message: it.message || '',
+              persistent: true
+            });
+            // Fix the timestamp to reflect the server's created_at
+            try {
+              var arr = N.items;
+              for (var i = 0; i < arr.length; i++) {
+                if (arr[i].id === nid) {
+                  var ts = Date.parse(it.created_at);
+                  if (!isNaN(ts)) arr[i].timestamp = ts;
+                  break;
+                }
+              }
+            } catch (e) {}
+          } catch (e) {}
+        });
+
+        // Reconcile: drop srv_ items no longer on the server
+        try {
+          var arr = N.items;
+          for (var i = arr.length - 1; i >= 0; i--) {
+            var x = arr[i];
+            if (typeof x.id === 'string' && x.id.indexOf(PREFIX) === 0 && !onServer[x.id]) {
+              arr.splice(i, 1);
+            }
+          }
+        } catch (e) {}
+
+        // Force re-render (badge + list)
+        if (typeof N.refresh === 'function') N.refresh();
+      })
+      .catch(function () {});
+  }
+
+  function dismissRemote(id) {
+    if (typeof id !== 'string' || id.indexOf(PREFIX) !== 0) return Promise.resolve();
+    var sid = id.slice(PREFIX.length);
+    return fetch('/api/notifications/' + encodeURIComponent(sid) + '/dismiss', {
+      method: 'POST', credentials: 'same-origin'
+    }).catch(function () {}).then(refresh);
+  }
+
+  function clearRemote() {
+    return fetch('/api/notifications/clear', {
+      method: 'POST', credentials: 'same-origin'
+    }).catch(function () {}).then(refresh);
+  }
+
+  function hookUI() {
+    var N = _N();
+    if (!N || N.__srvHooked) return;
+    N.__srvHooked = true;
+
+    // Wrap remove() so clicking the ✕ also dismisses server-side
+    var origRemove = N.remove;
+    N.remove = function (id) {
+      var r = origRemove.apply(this, arguments);
+      dismissRemote(id);
+      return r;
+    };
+
+    // Wrap clearAll() so "Clear all" also clears server-side
+    var origClear = N.clearAll;
+    N.clearAll = function () {
+      var r = origClear.apply(this, arguments);
+      clearRemote();
+      return r;
+    };
+  }
+
+  window.ServerNotifs = { refresh: refresh, dismiss: dismissRemote, clearAll: clearRemote, PREFIX: PREFIX };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    hookUI();
+    if (document.getElementById('notifBell')) refresh();
+  });
+  window.addEventListener('online', function () { hookUI(); refresh(); });
+})();
+</script>
+<!-- /notif-server-bridge -->
 </body>
 </html>

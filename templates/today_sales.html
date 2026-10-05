@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
+{% set CURRENCY = settings.currency_symbol if settings else '₵' %}
 <!-- Offline banner -->
 <div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
     ⚠️ You are offline – Please connect to the internet to view sales data.
@@ -11,10 +12,10 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2 text-sm">
             <span>🎯</span>
-            <span>Showing sales for <strong id="batchFilterLabel">Batch #--</strong></span>
+            <span>{{ t("today_sales.showing_batch") }} <strong id="batchFilterLabel">Batch #--</strong></span>
         </div>
         <button id="clearBatchFilterBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs md:text-sm">
-            ✕ Clear Batch Filter
+            {{ t("today_sales.clear_batch") }}
         </button>
     </div>
 </div>
@@ -25,10 +26,10 @@
 <!-- Header with category indicator -->
 <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
     <div class="flex items-center gap-2">
-        <h1 class="text-2xl md:text-3xl font-bold text-indigo-600">📊 Sales Overview</h1>
-        <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">Accessories &amp; Phones</span>
+        <h1 class="text-2xl md:text-3xl font-bold text-indigo-600">{{ t("today_sales.title") }}</h1>
+        <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">{{ t("today_sales.badge.acc") }}</span>
     </div>
-    <button id="refreshBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-sm md:text-base">🔄 Refresh</button>
+    <button id="refreshBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-sm md:text-base">{{ t("today_sales.refresh") }}</button>
 </div>
 
 <!-- Search Bar with Advanced Options -->
@@ -40,9 +41,9 @@
         </div>
         <div class="flex flex-wrap gap-2 items-center">
             <button id="advancedToggle" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm">
-                ⚙️ Advanced
+                {{ t("today_sales.advanced") }}
             </button>
-            <button id="clearSearchBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm">✕ Clear</button>
+            <button id="clearSearchBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm">{{ t("today_sales.clear") }}</button>
         </div>
     </div>
     
@@ -50,7 +51,7 @@
     <div id="advancedSearch" class="hidden mt-3 pt-3 border-t border-gray-200">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
-                <label class="block text-xs font-medium text-gray-700">Search Mode</label>
+                <label class="block text-xs font-medium text-gray-700">{{ t("today_sales.search_mode") }}</label>
                 <select id="searchMode" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm">
                     <option value="contains">Contains (Partial Match)</option>
                     <option value="exact">Exact Match</option>
@@ -60,7 +61,7 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-700">Search In</label>
+                <label class="block text-xs font-medium text-gray-700">{{ t("today_sales.search_in") }}</label>
                 <select id="searchField" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm">
                     <option value="all">All Fields</option>
                     <option value="name">Product Name</option>
@@ -70,7 +71,7 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-700">Case Sensitive</label>
+                <label class="block text-xs font-medium text-gray-700">{{ t("today_sales.case_sensitive") }}</label>
                 <select id="caseSensitive" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm">
                     <option value="false">No</option>
                     <option value="true">Yes</option>
@@ -78,7 +79,7 @@
             </div>
             <div class="flex items-end">
                 <button id="applyAdvancedSearch" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm w-full">
-                    🔍 Apply
+                    {{ t("today_sales.apply") }}
                 </button>
             </div>
         </div>
@@ -92,35 +93,35 @@
 
 <!-- Period Filter Buttons -->
 <div class="flex flex-wrap gap-1.5 md:gap-2 mb-4">
-    <button data-period="daily" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">Today</button>
-    <button data-period="weekly" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">This Week</button>
-    <button data-period="monthly" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">This Month</button>
-    <button data-period="yearly" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">This Year</button>
-    <button data-period="all" class="period-btn bg-purple-500 hover:bg-purple-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">All Time</button>
+    <button data-period="daily" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">{{ t("today_sales.today") }}</button>
+    <button data-period="weekly" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">{{ t("today_sales.week") }}</button>
+    <button data-period="monthly" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">{{ t("today_sales.month") }}</button>
+    <button data-period="yearly" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">{{ t("today_sales.year") }}</button>
+    <button data-period="all" class="period-btn bg-purple-500 hover:bg-purple-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">{{ t("today_sales.all_time") }}</button>
 </div>
 
 <!-- Date Range Filter -->
 <div class="bg-white rounded-xl shadow-md p-3 md:p-4 mb-6">
     <div class="flex flex-wrap items-end gap-2 md:gap-4">
         <div>
-            <label class="block text-xs md:text-sm font-medium text-gray-700">From Date</label>
+            <label class="block text-xs md:text-sm font-medium text-gray-700">{{ t("today_sales.from_date") }}</label>
             <input type="date" id="startDate" class="border rounded-lg px-2 py-1 md:px-3 md:py-2 text-sm">
         </div>
         <div>
-            <label class="block text-xs md:text-sm font-medium text-gray-700">To Date</label>
+            <label class="block text-xs md:text-sm font-medium text-gray-700">{{ t("today_sales.to_date") }}</label>
             <input type="date" id="endDate" class="border rounded-lg px-2 py-1 md:px-3 md:py-2 text-sm">
         </div>
-        <button id="applyDateBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 md:px-5 md:py-2 rounded-lg text-xs md:text-sm">Apply Custom Range</button>
-        <button id="pdfBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 md:px-5 md:py-2 rounded-lg text-xs md:text-sm ml-auto">🖨️ PDF</button>
+        <button id="applyDateBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 md:px-5 md:py-2 rounded-lg text-xs md:text-sm">{{ t("today_sales.apply_range") }}</button>
+        <button id="pdfBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 md:px-5 md:py-2 rounded-lg text-xs md:text-sm ml-auto">{{ t("today_sales.pdf") }}</button>
     </div>
     <div id="filterInfo" class="text-xs text-gray-500 mt-2 hidden">
-        📋 Currently filtered by: <span id="filterDescription"></span>
+        {{ t("today_sales.filter_by") }} <span id="filterDescription"></span>
     </div>
 </div>
 
 <!-- Sales List (cards) – scrollable area with visible scrollbar -->
 <div id="salesList" class="space-y-3 md:space-y-4 scrollable-area" style="max-height: 60vh; overflow-y: auto; padding-right: 4px;">
-    <div class="text-center text-gray-400 py-8">Loading sales data...</div>
+    <div class="text-center text-gray-400 py-8">{{ t("today_sales.loading_acc") }}</div>
 </div>
 
 <!-- ========== SUMMARY ========== -->
@@ -132,18 +133,18 @@
 <div id="reverseModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="sticky top-0 bg-white p-3 md:p-4 border-b flex justify-between items-center">
-            <h3 class="text-base md:text-xl font-bold" id="reverseModalTitle">Select Items to Reverse</h3>
+            <h3 class="text-base md:text-xl font-bold" id="reverseModalTitle">{{ t("today_sales.select_reverse") }}</h3>
             <button onclick="closeReverseModal()" class="text-gray-500 hover:text-gray-700 text-xl md:text-2xl">&times;</button>
         </div>
         <div id="reverseItemList" class="p-3 md:p-4 space-y-3"></div>
         <div class="sticky bottom-0 bg-white p-3 md:p-4 border-t flex flex-wrap justify-between gap-2">
             <div class="flex gap-2">
-                <button onclick="selectAllReverseItems()" class="bg-blue-500 text-white px-2 py-1 md:px-3 md:py-1 rounded text-xs md:text-sm">Select All</button>
-                <button onclick="deselectAllReverseItems()" class="bg-orange-500 text-white px-2 py-1 md:px-3 md:py-1 rounded text-xs md:text-sm">Deselect All</button>
+                <button onclick="selectAllReverseItems()" class="bg-blue-500 text-white px-2 py-1 md:px-3 md:py-1 rounded text-xs md:text-sm">{{ t("today_sales.select_all") }}</button>
+                <button onclick="deselectAllReverseItems()" class="bg-orange-500 text-white px-2 py-1 md:px-3 md:py-1 rounded text-xs md:text-sm">{{ t("today_sales.deselect_all") }}</button>
             </div>
             <div class="flex gap-2">
-                <button id="confirmReverseBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">Reverse Selected</button>
-                <button onclick="closeReverseModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">Cancel</button>
+                <button id="confirmReverseBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">{{ t("today_sales.reverse_selected") }}</button>
+                <button onclick="closeReverseModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">{{ t("today_sales.cancel") }}</button>
             </div>
         </div>
     </div>
@@ -153,12 +154,12 @@
 <div id="viewDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="sticky top-0 bg-white p-3 md:p-4 border-b flex justify-between items-center">
-            <h3 class="text-base md:text-xl font-bold" id="viewDetailsTitle">Select Item to View Details</h3>
+            <h3 class="text-base md:text-xl font-bold" id="viewDetailsTitle">{{ t("today_sales.select_view") }}</h3>
             <button onclick="closeViewDetailsModal()" class="text-gray-500 hover:text-gray-700 text-xl md:text-2xl">&times;</button>
         </div>
         <div id="viewDetailsItemList" class="p-3 md:p-4 space-y-3"></div>
         <div class="sticky bottom-0 bg-white p-3 md:p-4 border-t text-right">
-            <button onclick="closeViewDetailsModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">Close</button>
+            <button onclick="closeViewDetailsModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">{{ t("today_sales.close") }}</button>
         </div>
     </div>
 </div>
@@ -167,7 +168,7 @@
 <div id="batchDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="sticky top-0 bg-white p-3 md:p-4 border-b flex justify-between items-center">
-            <h3 class="text-base md:text-xl font-bold" id="batchDetailsTitle">Batch Details</h3>
+            <h3 class="text-base md:text-xl font-bold" id="batchDetailsTitle">{{ t("today_sales.batch_details") }}</h3>
             <button onclick="closeBatchDetailsModal()" class="text-gray-500 hover:text-gray-700 text-xl md:text-2xl">&times;</button>
         </div>
         <div id="batchDetailsContent" class="p-3 md:p-4">
@@ -177,7 +178,7 @@
             <button id="openInPurchasesBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm hidden">
                 🔗 Open in Purchases
             </button>
-            <button onclick="closeBatchDetailsModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm ml-auto">Close</button>
+            <button onclick="closeBatchDetailsModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm ml-auto">{{ t("today_sales.close") }}</button>
         </div>
     </div>
 </div>
@@ -265,7 +266,7 @@
 
         // ---------- Formatting helpers ----------
         function formatMoney(amount) {
-            return '₵' + (parseFloat(amount) || 0).toFixed(2);
+            return "{{ CURRENCY }}" + (parseFloat(amount) || 0).toFixed(2);
         }
 
         function escapeHtml(str) {

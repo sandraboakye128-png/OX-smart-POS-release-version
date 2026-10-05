@@ -3,12 +3,12 @@
 {% block content %}
 <!-- Offline banner -->
 <div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
-    ⚠️ You are offline – showing cached user data. Changes will be saved when you reconnect.
+    {{ t("admin.offline_banner") }}
 </div>
 
 <div class="flex items-center gap-2 mb-6">
-    <a href="/admin/users" class="text-indigo-600 hover:text-indigo-800 hover:underline">← Back to Users</a>
-    <h1 class="text-3xl font-bold text-gray-800 ml-4">✏️ Edit User</h1>
+    <a href="/admin/users" class="text-indigo-600 hover:text-indigo-800 hover:underline">{{ t("admin.back_users") }}</a>
+    <h1 class="text-3xl font-bold text-gray-800 ml-4">{{ t("admin.edit_title") }}</h1>
 </div>
 
 <!-- Self-edit banner -->
@@ -23,7 +23,7 @@
     <!-- User Info -->
     <div id="userInfo" class="mb-6">
         <div class="flex items-center gap-3 mb-3">
-            <span class="text-lg font-semibold text-gray-700">User:</span>
+            <span class="text-lg font-semibold text-gray-700">{{ t("admin.user_label") }}</span>
             <span id="userName" class="text-lg font-bold text-indigo-700"></span>
             <span id="userRoleBadge" class="px-2 py-1 text-xs font-semibold rounded-full"></span>
             {% if is_oxbee %}
@@ -33,14 +33,14 @@
             <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">👤 You</span>
             {% endif %}
         </div>
-        <p class="text-sm text-gray-500">Joined: <span id="userCreated"></span></p>
-        <p class="text-sm text-gray-500">User ID: <span id="userIdDisplay"></span></p>
+        <p class="text-sm text-gray-500">{{ t("admin.joined") }} <span id="userCreated"></span></p>
+        <p class="text-sm text-gray-500">{{ t("admin.user_id_label") }} <span id="userIdDisplay"></span></p>
     </div>
 
     <!-- Role Change -->
     {% set role_locked = is_oxbee or is_self %}
     <div class="border-t pt-4 mt-4">
-        <h3 class="font-semibold text-gray-700 mb-3">👤 Change Role</h3>
+        <h3 class="font-semibold text-gray-700 mb-3">{{ t("admin.change_role") }}</h3>
         <div class="flex flex-wrap gap-3 items-center">
             <select id="roleSelect" class="border rounded-lg px-3 py-2 bg-white" {% if role_locked %}disabled{% endif %}>
                 <option value="user">User</option>
@@ -49,10 +49,10 @@
             <button id="updateRoleBtn"
                     class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition {% if role_locked %}opacity-50 cursor-not-allowed{% endif %}"
                     {% if role_locked %}disabled{% endif %}>
-                Update Role
+                {{ t("admin.update_role") }}
             </button>
             {% if is_self %}
-            <span class="text-blue-500 text-sm">👤 You cannot change your own role</span>
+            <span class="text-blue-500 text-sm">{{ t("admin.cant_own_role") }}</span>
             {% elif is_oxbee %}
             <span class="text-red-500 text-sm">🔒 Cannot modify system administrator</span>
             {% endif %}
@@ -62,20 +62,20 @@
     <!-- Password Reset -->
     {% set password_locked = is_oxbee and not is_self %}
     <div class="border-t pt-4 mt-4">
-        <h3 class="font-semibold text-gray-700 mb-3">🔑 Reset Password</h3>
+        <h3 class="font-semibold text-gray-700 mb-3">{{ t("admin.reset_pwd") }}</h3>
         <div class="flex flex-wrap gap-3 items-end">
             <div class="flex-1 min-w-[200px]">
-                <label class="block text-sm text-gray-600 mb-1">New Password</label>
+                <label class="block text-sm text-gray-600 mb-1">{{ t("admin.new_pwd") }}</label>
                 <input type="password" id="newPassword" class="w-full border rounded-lg px-3 py-2"
-                       placeholder="Enter new password" {% if password_locked %}disabled{% endif %}>
+                       placeholder="{{ t('admin.new_pwd_ph') }}" {% if password_locked %}disabled{% endif %}>
             </div>
             <button id="resetPasswordBtn"
                     class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition {% if password_locked %}opacity-50 cursor-not-allowed{% endif %}"
                     {% if password_locked %}disabled{% endif %}>
-                {% if is_self %}Reset My Password{% else %}Reset Password{% endif %}
+                {% if is_self %}{{ t("admin.reset_my_pwd") }}{% else %}{{ t("admin.reset_pwd_btn") }}{% endif %}
             </button>
             {% if is_self %}
-            <span class="text-blue-500 text-sm">✓ You can change your own password</span>
+            <span class="text-blue-500 text-sm">{{ t("admin.you_saved_own_pwd") }}</span>
             {% elif is_oxbee %}
             <span class="text-red-500 text-sm">🔒 Cannot modify system administrator</span>
             {% endif %}
@@ -84,30 +84,30 @@
 
     <!-- Password Hash (Admin Only) -->
     <div class="border-t pt-4 mt-4">
-        <h3 class="font-semibold text-gray-700 mb-3">👁️ Password Hash</h3>
+        <h3 class="font-semibold text-gray-700 mb-3">{{ t("admin.pwd_hash") }}</h3>
         <div class="flex flex-wrap gap-3 items-center">
             <button id="viewPasswordBtn" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition">
-                Show Password Hash
+                {{ t("admin.show_hash") }}
             </button>
             <span id="passwordHashDisplay" class="text-xs text-gray-500 font-mono hidden break-all"></span>
         </div>
-        <p class="text-xs text-gray-400 mt-2">⚠️ This shows the SHA-256 hash, not the actual password</p>
+        <p class="text-xs text-gray-400 mt-2">{{ t("admin.hash_warn") }}</p>
     </div>
 
     <!-- Danger Zone -->
     {% set delete_locked = is_oxbee or is_self %}
     <div class="border-t pt-4 mt-4 border-red-200">
-        <h3 class="font-semibold text-red-600 mb-3">⚠️ Danger Zone</h3>
+        <h3 class="font-semibold text-red-600 mb-3">{{ t("admin.danger_zone") }}</h3>
         <div class="flex flex-wrap gap-3 items-center">
             <button id="deleteUserBtn"
                     class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition {% if delete_locked %}opacity-50 cursor-not-allowed{% endif %}"
                     {% if delete_locked %}disabled{% endif %}>
-                🗑️ Delete User
+                {{ t("admin.delete_user") }}
             </button>
             {% if is_self %}
-            <span class="text-blue-500 text-sm">👤 You cannot delete your own account</span>
+            <span class="text-blue-500 text-sm">{{ t("admin.cant_del_own") }}</span>
             {% elif is_oxbee %}
-            <span class="text-red-500 text-sm">🔒 Cannot delete system administrator</span>
+            <span class="text-red-500 text-sm">{{ t("admin.cant_del_admin") }}</span>
             {% endif %}
         </div>
     </div>
@@ -121,7 +121,7 @@
         <div class="flex items-start gap-3">
             <div class="text-3xl text-red-500">❌</div>
             <div class="flex-1">
-                <h3 class="text-lg font-bold text-gray-800">Cannot Delete User</h3>
+                <h3 class="text-lg font-bold text-gray-800">{{ t("admin.cannot_delete") }}</h3>
                 <p id="errorModalMessage" class="text-sm text-gray-700 mt-1"></p>
                 <div id="errorModalDetails" class="text-xs text-gray-500 mt-2 border-t pt-2 hidden">
                     <strong>Details:</strong> <span id="errorModalDetailsText"></span>
@@ -130,7 +130,7 @@
         </div>
         <div class="flex justify-end mt-4">
             <button onclick="closeErrorModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded">
-                OK
+                {{ t("admin.ok") }}
             </button>
         </div>
     </div>

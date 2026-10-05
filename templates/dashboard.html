@@ -36,10 +36,12 @@
         <p class="text-gray-500 text-[10px] md:text-sm">{{ t('dashboard.kpi.total_sales') }}</p>
         <p id="salesValue" class="text-base md:text-2xl font-bold text-indigo-600">{{ settings.currency_symbol if settings else '₵' }}0</p>
     </div>
+    {% if current_user and current_user.role == 'admin' %}
     <div class="bg-white rounded-xl shadow-md p-2 md:p-4">
         <p class="text-gray-500 text-[10px] md:text-sm">{{ t('dashboard.kpi.total_profit') }}</p>
         <p id="profitValue" class="text-base md:text-2xl font-bold text-green-600">{{ settings.currency_symbol if settings else '₵' }}0</p>
     </div>
+    {% endif %}
     <div class="bg-white rounded-xl shadow-md p-2 md:p-4">
         <p class="text-gray-500 text-[10px] md:text-sm">{{ t('dashboard.kpi.total_products') }}</p>
         <p id="productsValue" class="text-base md:text-2xl font-bold text-blue-600">0</p>
@@ -123,6 +125,8 @@
     //  APK:       IS_APK = true  → OX_DATA.dashboard.* (reads Dexie)
     // ============================================================
     const IS_APK = (typeof OX_ENV !== 'undefined') && !!OX_ENV.useLocalDb;
+    // Non-admins never see cost or profit anywhere on the dashboard.
+    const IS_ADMIN = {{ 'true' if (current_user and current_user.role == 'admin') else 'false' }};
 
     // i18n — server-rendered translator, available to all dashboard JS
     const T = {
@@ -381,7 +385,10 @@
             // KPI cards
             if (summary) {
                 document.getElementById('salesValue').innerText    = formatMoney(summary.sales || 0);
-                document.getElementById('profitValue').innerText   = formatMoney(summary.profit || 0);
+                if (IS_ADMIN) {
+                    const pv = document.getElementById('profitValue');
+                    if (pv) pv.innerText = formatMoney(summary.profit || 0);
+                }
                 document.getElementById('productsValue').innerText = summary.total_products || 0;
                 document.getElementById('batchesValue').innerText  = summary.total_batches || 0;
                 document.getElementById('lowStockValue').innerText = lowStock ? lowStock.length : 0;
@@ -454,7 +461,7 @@
                             <span class="font-bold text-green-600 text-xs md:text-base">${formatMoney(item.total_sales)}</span>
                         </div>
                         <div class="text-[10px] md:text-sm text-gray-500 flex justify-between">
-                            <span>Profit: ${formatMoney(item.profit)}</span>
+                            ${IS_ADMIN ? `<span>Profit: ${formatMoney(item.profit)}</span>` : '<span></span>'}
                             <span>Discount: ${formatMoney(item.discount)}</span>
                         </div>
                     `;

@@ -7,12 +7,12 @@
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <button onclick="backToDashboard()"
             class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
-        ← Back
+        <span data-i18n="logs.back">← Back</span>
     </button>
-    <h2 class="text-xl md:text-2xl font-bold text-indigo-600">📋 User Activity Logs</h2>
+    <h2 class="text-xl md:text-2xl font-bold text-indigo-600" data-i18n="logs.title">📋 User Activity Logs</h2>
     <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">APK · Dexie</span>
     <button id="lgRefreshBtn"
-            class="ml-auto bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg text-sm">🔄 Refresh</button>
+            class="ml-auto bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg text-sm" data-i18n="logs.refresh">🔄 Refresh</button>
 </div>
 
 <!-- Security notice -->
@@ -26,43 +26,43 @@
 <div class="bg-white rounded-xl shadow-md p-3 md:p-4 mb-4">
     <div class="flex flex-wrap gap-3 items-end">
         <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Action</label>
+            <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="logs.action_filter">Action Filter</label>
             <select id="lgActionFilter"
                     class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800">
-                <option value="">All Actions</option>
-                <option value="login">Login</option>
-                <option value="logout">Logout</option>
-                <option value="login_failed">Failed Login</option>
+                <option value="" data-i18n="logs.action_all">All Actions</option>
+                <option value="login" data-i18n="logs.action_login">Login</option>
+                <option value="logout" data-i18n="logs.action_logout">Logout</option>
+                <option value="login_failed" data-i18n="logs.action_failed">Failed Login</option>
             </select>
         </div>
         <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">User</label>
+            <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="logs.user_filter">User</label>
             <select id="lgUserFilter"
                     class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800">
                 <option value="">All Users</option>
             </select>
         </div>
         <button id="lgApplyBtn"
-                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm">🔍 Apply</button>
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm" data-i18n="logs.apply">🔍 Apply</button>
         <button id="lgClearBtn"
-                class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-1.5 rounded-lg text-sm">✕ Clear</button>
+                class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-1.5 rounded-lg text-sm" data-i18n="logs.clear">✕ Clear</button>
     </div>
 </div>
 
 <!-- Logs table -->
 <div class="bg-white rounded-xl shadow-md overflow-hidden">
     <div id="lgOfflineNote" class="hidden bg-amber-50 border-b border-amber-200 text-amber-700 text-xs py-2 px-3 text-center">
-        ⚠️ Showing cached logs — data may be outdated
+        <span data-i18n="logs.offline_note">⚠️ Showing cached logs — data may be outdated</span>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full" style="min-width: 560px;">
             <thead class="bg-gray-100 border-b">
                 <tr>
-                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600">Time</th>
-                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600">User</th>
-                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600">Action</th>
-                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600">IP</th>
-                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600">Device</th>
+                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600" data-i18n="logs.th_time">Time</th>
+                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600" data-i18n="logs.th_user">User</th>
+                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600" data-i18n="logs.th_action">Action</th>
+                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600" data-i18n="logs.th_ip">IP</th>
+                    <th class="text-left px-3 py-2 text-xs font-semibold text-gray-600" data-i18n="logs.th_device">Device</th>
                 </tr>
             </thead>
             <tbody id="lgTableBody">
@@ -74,10 +74,10 @@
         <span id="lgTotal" class="text-xs text-gray-500">—</span>
         <div class="flex gap-2 items-center">
             <button id="lgPrevBtn"
-                    class="px-3 py-1 border rounded text-xs disabled:opacity-50 bg-white">Previous</button>
+                    class="px-3 py-1 border rounded text-xs disabled:opacity-50 bg-white" data-i18n="logs.prev">Previous</button>
             <span id="lgPageInfo" class="text-xs text-gray-600">Page 1</span>
             <button id="lgNextBtn"
-                    class="px-3 py-1 border rounded text-xs disabled:opacity-50 bg-white">Next</button>
+                    class="px-3 py-1 border rounded text-xs disabled:opacity-50 bg-white" data-i18n="logs.next">Next</button>
         </div>
     </div>
 </div>
@@ -88,6 +88,16 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
+
+function $t(key, fallback) {
+    try {
+        if (typeof window.t === 'function') {
+            const v = window.t(key);
+            if (v && v !== key) return v;
+        }
+    } catch (e) {}
+    return fallback || key;
+}
 const RENDER = (typeof RENDER_URL !== 'undefined')
     ? RENDER_URL
     : 'https://ox-smart-pos-release-version.onrender.com';
@@ -139,11 +149,11 @@ function truncateUA(ua) {
 function actionBadge(action) {
     switch (action) {
         case 'login':
-            return '<span class="inline-flex items-center bg-green-100 text-green-800 px-2 py-0.5 rounded text-[11px] font-semibold">✅ Login</span>';
+            return '<span class="inline-flex items-center bg-green-100 text-green-800 px-2 py-0.5 rounded text-[11px] font-semibold">' + $t('logs.badge_login','✅ Login') + '</span>';
         case 'logout':
-            return '<span class="inline-flex items-center bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[11px] font-semibold">🚪 Logout</span>';
+            return '<span class="inline-flex items-center bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[11px] font-semibold">' + $t('logs.badge_logout','🚪 Logout') + '</span>';
         case 'login_failed':
-            return '<span class="inline-flex items-center bg-red-100 text-red-800 px-2 py-0.5 rounded text-[11px] font-semibold">❌ Failed</span>';
+            return '<span class="inline-flex items-center bg-red-100 text-red-800 px-2 py-0.5 rounded text-[11px] font-semibold">' + $t('logs.badge_failed','❌ Failed Login') + '</span>';
         default:
             return '<span class="inline-flex items-center bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-[11px] font-semibold">' + escapeHtml(action || 'unknown') + '</span>';
     }
@@ -196,9 +206,9 @@ function initIdentity() {
     isOxbee = !!(u && u.username && u.username.toLowerCase() === 'oxbee');
     const note = $('lgSecurityNote');
     if (isOxbee) {
-        note.textContent = '🔒 Full access — viewing all user activity logs as system administrator.';
+        note.textContent = $t('logs.full_access_short', '🔒 Full access — viewing all user activity logs as system administrator.');
     } else {
-        note.textContent = '🔒 Viewing user activity logs. System administrator (oxbee) logs are hidden.';
+        note.textContent = $t('logs.limited_access_short', '🔒 Viewing user activity logs. System administrator (oxbee) logs are hidden.');
     }
 }
 
@@ -233,7 +243,7 @@ async function lgLoadUsers() {
 
     // 3. Render options
     const currentVal = select.value;
-    select.innerHTML = '<option value="">All Users</option>';
+    select.innerHTML = '<option value="">' + $t('logs.user_all','All Users') + '</option>';
 
     const filtered = isOxbee
         ? users
@@ -273,7 +283,7 @@ async function lgLoad() {
     // 2. If offline — done
     if (!navigator.onLine) {
         if (!entry) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">No cached logs available offline.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">' + $t('logs.no_logs_offline','No logs found. Please connect to the internet to load logs.') + '</td></tr>';
             lgTotal = 0;
             lgUpdatePagination();
         } else {
@@ -285,7 +295,7 @@ async function lgLoad() {
 
     // 3. Online — fetch fresh, update cache
     if (!entry) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">Loading logs…</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">' + $t('logs.loading','Loading logs…') + '</td></tr>';
     }
 
     try {
@@ -334,7 +344,7 @@ async function lgLoad() {
 function lgRender(logs) {
     const tbody = $('lgTableBody');
     if (!logs || logs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">No logs found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">' + $t('logs.no_logs','No logs found.') + '</td></tr>';
         return;
     }
     tbody.innerHTML = logs.map(l => `
@@ -349,10 +359,10 @@ function lgRender(logs) {
 
 function lgUpdatePagination() {
     const pages = Math.max(1, Math.ceil(lgTotal / LIMIT));
-    $('lgPageInfo').textContent = 'Page ' + lgPage + ' of ' + pages;
+    $('lgPageInfo').textContent = $t('logs.page','Page') + ' ' + lgPage + ' ' + $t('logs.of','of') + ' ' + pages;
     $('lgPrevBtn').disabled = lgPage <= 1;
     $('lgNextBtn').disabled = lgPage >= pages;
-    $('lgTotal').textContent = 'Total: ' + lgTotal + ' log' + (lgTotal === 1 ? '' : 's');
+    $('lgTotal').textContent = $t('logs.total','Total:') + ' ' + lgTotal + ' ' + (lgTotal === 1 ? $t('logs.logs_suffix','log') : $t('logs.logs_suffix_plural','logs'));
 }
 
 // ---------- Event wiring ----------

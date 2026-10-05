@@ -7,33 +7,33 @@
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <button onclick="backToDashboard()"
             class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
-        ← Back
+        <span data-i18n="archive.back">← Back</span>
     </button>
-    <h2 class="text-xl md:text-2xl font-bold text-indigo-600">📁 Product Archive</h2>
+    <h2 class="text-xl md:text-2xl font-bold text-indigo-600" data-i18n="archive.title">📁 Product Archive</h2>
     <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">APK · Dexie</span>
     <button id="arRefreshBtn"
-            class="ml-auto bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg text-sm">🔄 Refresh</button>
+            class="ml-auto bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg text-sm" data-i18n="archive.refresh">🔄 Refresh</button>
 </div>
 
 <!-- Filters -->
 <div class="bg-white rounded-xl shadow-md p-3 md:p-4 mb-4">
     <div class="flex flex-wrap gap-3 items-end">
         <div class="flex-1 min-w-[180px]">
-            <label class="block text-xs font-medium text-gray-700 mb-1">Search</label>
+            <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="archive.search_label">Search</label>
             <input type="text" id="arSearchInput" placeholder="🔍 Product or brand..."
                    class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800">
         </div>
         <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Status</label>
+            <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="archive.status_label">Status</label>
             <select id="arStatusFilter"
                     class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800">
-                <option value="ALL">ALL</option>
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="UPDATED">UPDATED</option>
-                <option value="DELETED">DELETED</option>
-                <option value="PRODUCT DELETED">PRODUCT DELETED</option>
-                <option value="BATCH DELETED">BATCH DELETED</option>
-                <option value="PERMANENTLY DELETED">PERMANENTLY DELETED</option>
+                <option value="ALL" data-i18n="archive.status_all">ALL</option>
+                <option value="ACTIVE" data-i18n="archive.status_active">ACTIVE</option>
+                <option value="UPDATED" data-i18n="archive.status_updated">UPDATED</option>
+                <option value="DELETED" data-i18n="archive.status_deleted">DELETED</option>
+                <option value="PRODUCT DELETED" data-i18n="archive.status_product">PRODUCT DELETED</option>
+                <option value="BATCH DELETED" data-i18n="archive.status_batch">BATCH DELETED</option>
+                <option value="PERMANENTLY DELETED" data-i18n="archive.status_perm">PERMANENTLY DELETED</option>
             </select>
         </div>
     </div>
@@ -51,20 +51,20 @@
 <!-- Load more -->
 <div id="arLoadMore" class="text-center mt-4 hidden">
     <button id="arLoadMoreBtn"
-            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg text-sm">📥 Load More</button>
+            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg text-sm" data-i18n="archive.load_more">📥 Load More</button>
 </div>
 
 <!-- ===================== BATCHES MODAL ===================== -->
 <div id="arBatchModal" class="ar-modal hidden">
     <div class="ar-modal-box">
         <div class="ar-modal-header">
-            <h3 class="ar-modal-title" id="arBatchTitle">Batches</h3>
+            <h3 class="ar-modal-title" id="arBatchTitle" data-i18n="archive.batches">Batches</h3>
             <button type="button" class="ar-modal-x" onclick="arCloseBatchModal()">&times;</button>
         </div>
         <div id="arBatchContent" class="ar-modal-body"></div>
         <div class="ar-modal-footer ar-modal-footer-right">
             <button type="button" onclick="arCloseBatchModal()"
-                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm">Close</button>
+                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm" data-i18n="archive.close">Close</button>
         </div>
     </div>
 </div>
@@ -73,13 +73,13 @@
 <div id="arClaimsModal" class="ar-modal hidden">
     <div class="ar-modal-box">
         <div class="ar-modal-header">
-            <h3 class="ar-modal-title" id="arClaimsTitle">Claims</h3>
+            <h3 class="ar-modal-title" id="arClaimsTitle" data-i18n="archive.claims">Claims</h3>
             <button type="button" class="ar-modal-x" onclick="arCloseClaimsModal()">&times;</button>
         </div>
         <div id="arClaimsContent" class="ar-modal-body"></div>
         <div class="ar-modal-footer ar-modal-footer-right">
             <button type="button" onclick="arCloseClaimsModal()"
-                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm">Close</button>
+                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm" data-i18n="archive.close">Close</button>
         </div>
     </div>
 </div>
@@ -145,7 +145,31 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const RENDER = 'https://ox-smart-pos-release-version.onrender.com';
+const RENDER = (function () {
+    const origin = window.location.origin;
+    const APK_ORIGINS = ['https://localhost', 'capacitor://localhost'];
+    if (APK_ORIGINS.indexOf(origin) !== -1) return 'https://ox-smart-pos-release-version.onrender.com';
+    return origin;
+})();
+
+function $t(key, fallback) {
+    try {
+        if (typeof window.t === 'function') {
+            const v = window.t(key);
+            if (v && v !== key) return v;
+        }
+    } catch (e) {}
+    return fallback || key;
+}
+
+function oxCur() {
+    return (window.OX_SETTINGS && window.OX_SETTINGS.currency_symbol) || '₵';
+}
+
+function fillOxCur() {
+    document.querySelectorAll('.ox-cur').forEach(function(el) { el.textContent = oxCur(); });
+}
+window.fillOxCur = fillOxCur;
 const CACHE_KEY = 'archive_full_v1';
 const PER_PAGE = 50;
 
@@ -167,7 +191,7 @@ function safeToFixed(v, d) {
     const n = parseFloat(v); d = d || 2;
     return isNaN(n) ? '0.00' : n.toFixed(d);
 }
-function formatMoney(v) { return '₵' + safeToFixed(v); }
+function formatMoney(v) { return oxCur() + safeToFixed(v); }
 function formatDate(d) {
     if (!d) return '';
     try { return new Date(d).toLocaleString(); } catch (e) { return String(d); }
@@ -228,7 +252,7 @@ async function arLoad(force) {
 
     const list = $('arList');
     const stats = $('arStatsBar');
-    list.innerHTML = '<div class="ar-loading">Loading archive…</div>';
+    list.innerHTML = '<div class="ar-loading">' + $t('archive.loading','Loading archive…') + '</div>';
     stats.classList.add('hidden');
 
     // 1. Show cache immediately
@@ -247,7 +271,7 @@ async function arLoad(force) {
                 await arCachePut(arAllItems);
                 arApplyFilters();
             } else if (arAllItems.length === 0) {
-                list.innerHTML = '<div class="ar-empty">No archive data available.</div>';
+                list.innerHTML = '<div class="ar-empty">' + $t('archive.no_data','No archive data available.') + '</div>';
                 arLoading = false;
                 return;
             }
@@ -330,7 +354,7 @@ function arUpdateStats() {
 function arRender() {
     const list = $('arList');
     if (arFiltered.length === 0) {
-        list.innerHTML = '<div class="ar-empty">No archive items match this filter.</div>';
+        list.innerHTML = '<div class="ar-empty">' + $t('archive.no_match','No archive items match this filter.') + '</div>';
         return;
     }
     const slice = arFiltered.slice(0, arVisible);
@@ -342,16 +366,16 @@ function arRender() {
 
         let details = '';
         if (it.action === 'ACTIVE') {
-            details = '📦 Stock: ' + (it.stock || 0) +
+            details = $t('archive.stock','Stock:') + ' ' + (it.stock || 0) +
                 ' · ' + formatMoney(it.cost) + ' → ' + formatMoney(it.price) +
-                ' · Disc ' + formatMoney(it.discount) +
+                ' · ' + $t('archive.disc','Disc:') + ' ' + formatMoney(it.discount) +
                 ' · 📂 ' + escapeHtml(it.category || '');
         } else {
-            details = 'Category: ' + escapeHtml(it.category || '') +
+            details = $t('archive.category','Category:') + ' ' + escapeHtml(it.category || '') +
                 ' · Stock: ' + (it.stock || 0) + '<br>' +
-                'Cost: ' + formatMoney(it.cost) + ' · Selling: ' + formatMoney(it.price) +
-                ' · Disc: ' + formatMoney(it.discount) + '<br>' +
-                'Date: ' + formatDate(it.date);
+                $t('archive.cost','Cost:') + ' ' + formatMoney(it.cost) + ' · ' + $t('archive.selling','Selling:') + ' ' + formatMoney(it.price) +
+                ' · ' + $t('archive.disc','Disc:') + ' ' + formatMoney(it.discount) + '<br>' +
+                $t('archive.date','Date:') + ' ' + formatDate(it.date);
             if (it.action === 'BATCH DELETED' && it.batch_id) {
                 details += '<br>Batch #' + it.batch_id +
                     ' · Original Qty: ' + (it.batch_quantity || 0) +
@@ -369,21 +393,21 @@ function arRender() {
         let buttons = '';
         if (it.has_claims && it.claims && it.claims.length) {
             buttons += '<button onclick="arViewClaims(' + idx0 + ')" ' +
-                'class="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1 rounded text-xs">⚠️ View Claims</button>';
+                'class="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1 rounded text-xs">' + $t('archive.view_claims','⚠️ View Claims') + '</button>';
         }
         if (it.action === 'ACTIVE') {
             buttons += '<button onclick="arViewBatches(' + idx0 + ')" ' +
-                'class="bg-blue-500 hover:bg-blue-600 text-white px-2.5 py-1 rounded text-xs">📋 View Batches</button>';
+                'class="bg-blue-500 hover:bg-blue-600 text-white px-2.5 py-1 rounded text-xs">' + $t('archive.view_batches','📋 View Batches') + '</button>';
         }
         if (isPermanent) {
             buttons += '<button disabled ' +
-                'class="bg-gray-300 text-gray-600 px-2.5 py-1 rounded text-xs cursor-not-allowed">❌ Cannot Restore</button>';
+                'class="bg-gray-300 text-gray-600 px-2.5 py-1 rounded text-xs cursor-not-allowed">' + $t('archive.cannot_restore','❌ Cannot Restore') + '</button>';
         } else if (canRestore && it.id && !it.is_permanent) {
             buttons += '<button onclick="arRestore(' + idx0 + ')" ' +
-                'class="bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded text-xs">↻ Restore</button>';
+                'class="bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded text-xs">' + $t('archive.restore','↻ Restore') + '</button>';
         } else if (isUpdated) {
             buttons += '<button onclick="arShowUpdateInfo()" ' +
-                'class="bg-yellow-500 hover:bg-yellow-600 text-white px-2.5 py-1 rounded text-xs">ℹ️ Update History</button>';
+                'class="bg-yellow-500 hover:bg-yellow-600 text-white px-2.5 py-1 rounded text-xs">' + $t('archive.update_history','ℹ️ Update History') + '</button>';
         }
 
         return `
@@ -416,7 +440,7 @@ async function arViewBatches(idx) {
     if (!it) return;
     const box = $('arBatchContent');
     $('arBatchTitle').textContent = 'Batches — ' + it.name + ' (' + (it.brand || '') + ')';
-    box.innerHTML = '<div class="ar-loading">Loading…</div>';
+    box.innerHTML = '<div class="ar-loading">' + $t('archive.loading','Loading…') + '</div>';
     $('arBatchModal').classList.remove('hidden');
 
     // 1. Dexie lookup by product name+brand → find product row → its batches
@@ -455,7 +479,7 @@ async function arViewBatches(idx) {
 function arRenderBatches(batches) {
     const box = $('arBatchContent');
     if (!batches || batches.length === 0) {
-        box.innerHTML = '<div class="ar-empty">No batches found in local cache for this product.</div>';
+        box.innerHTML = '<div class="ar-empty">' + $t('archive.no_batches_cache','No batches found in local cache for this product.') + '</div>';
         return;
     }
     box.innerHTML = batches.map(b => {
@@ -488,7 +512,7 @@ function arViewClaims(idx) {
     const claims = Array.isArray(it.claims) ? it.claims : [];
 
     if (claims.length === 0) {
-        box.innerHTML = '<div class="ar-empty">No claims for this product.</div>';
+        box.innerHTML = '<div class="ar-empty">' + $t('archive.no_claims_prod','No claims for this product.') + '</div>';
         $('arClaimsModal').classList.remove('hidden');
         return;
     }
@@ -502,12 +526,12 @@ function arViewClaims(idx) {
                     <span class="text-[11px] font-bold" style="color:${statusColour}">● ${escapeHtml(c.status || '')}</span>
                 </div>
                 <div class="text-xs text-gray-700 mt-1">
-                    <span class="font-medium">Issue:</span> ${escapeHtml(c.issue_type || '')}
+                    <span class="font-medium">${$t('archive.issue','Issue:')}</span> ${escapeHtml(c.issue_type || '')}
                 </div>
                 <div class="text-xs text-gray-700">
-                    <span class="font-medium">Quantity:</span> ${c.quantity || 0} units
+                    <span class="font-medium">${$t('archive.quantity','Quantity:')}</span> ${c.quantity || 0} units
                 </div>
-                ${c.batch_id ? '<div class="text-xs text-gray-700"><span class="font-medium">Batch:</span> #' + c.batch_id + '</div>' : ''}
+                ${c.batch_id ? '<div class="text-xs text-gray-700"><span class="font-medium">' + $t('archive.batch_h','Batch:') + '</span> #' + c.batch_id + '</div>' : ''}
                 ${c.description ? '<div class="text-xs text-gray-600 mt-1">📝 ' + escapeHtml(c.description) + '</div>' : ''}
                 <div class="text-[11px] text-gray-400 mt-1">${formatDate(c.created_at)}</div>
             </div>`;

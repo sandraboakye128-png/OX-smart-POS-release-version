@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% set CURRENCY = settings.currency_symbol if settings else '₵' %}
 <!-- Offline banner -->
 <div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
-    ⚠️ You are offline – showing cached accessories. Sales will be saved and synced when you reconnect.
+    {{ t("sales.offline_banner_acc") }}
 </div>
 
 <!-- One-time notice: Sales page revived -->
@@ -22,7 +23,7 @@
         </div>
     </div>
     <div class="flex-1">
-        <div class="font-semibold">⏳ Loading accessories...</div>
+        <div class="font-semibold">{{ t("sales.loading_acc") }}</div>
         <div class="text-xs text-blue-600 mt-0.5" id="loadingProductsMessage">
             Fetching products and batches from server
         </div>
@@ -36,7 +37,7 @@
         <div class="flex items-center gap-3">
             <i class="fas fa-check-circle text-green-600 text-xl"></i>
             <div>
-                <div class="font-semibold" id="loadingSuccessTitle">✅ Accessories loaded</div>
+                <div class="font-semibold" id="loadingSuccessTitle">{{ t("sales.loaded_acc") }}</div>
                 <div class="text-xs text-green-600 mt-0.5" id="loadingSuccessDetail"></div>
             </div>
         </div>
@@ -46,7 +47,7 @@
 
 <!-- No accessories banner -->
 <div id="noProductsBanner" class="mb-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded hidden">
-    <strong>⚠️ No accessories found.</strong><br>
+    <strong>{{ t("sales.no_products_acc") }}</strong><br>
     Please ensure your inventory imports are correctly categorised as <strong>Accessories</strong> (not Screens).
     <br><br>
     <a href="/inventory/import" class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded inline-block">
@@ -63,35 +64,35 @@
     <div class="w-full lg:w-1/2 px-4 mb-6">
         <div class="bg-white rounded-xl shadow-md p-4">
             <div class="flex items-center gap-2 mb-2">
-                <h2 class="text-xl font-bold text-indigo-600">🛒 Sales Terminal</h2>
-                <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">Accessories</span>
+                <h2 class="text-xl font-bold text-indigo-600">{{ t("sales.title_acc") }}</h2>
+                <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">{{ t("sales.badge.acc") }}</span>
                 <span id="productCountBadge" class="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2.5 py-0.5 rounded hidden"></span>
             </div>
             
-            <input type="text" id="searchProduct" placeholder="🔍 Search accessory..." 
+            <input type="text" id="searchProduct" placeholder="{{ t("sales.search.ph_acc") }}" 
                    class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3">
             
             <div id="productList" class="max-h-80 overflow-y-auto border rounded-lg p-2 mb-4"></div>
             
-            <div id="selectedProductInfo" class="text-gray-600 text-sm mb-2">No accessory selected</div>
+            <div id="selectedProductInfo" class="text-gray-600 text-sm mb-2">{{ t("sales.no_acc_selected") }}</div>
             
             <div class="grid grid-cols-2 gap-3 mb-3">
-                <input type="number" id="quantity" placeholder="Quantity" class="border rounded-lg px-3 py-2">
-                <input type="number" step="0.01" id="discount" placeholder="Discount (₵)" class="border rounded-lg px-3 py-2">
+                <input type="number" id="quantity" placeholder="{{ t("sales.qty") }}" class="border rounded-lg px-3 py-2">
+                <input type="number" step="0.01" id="discount" placeholder="{{ t("sales.discount") }}" class="border rounded-lg px-3 py-2">
             </div>
             
             <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700">Sale Date</label>
+                <label class="block text-sm font-medium text-gray-700">{{ t("sales.sale_date") }}</label>
                 <input type="date" id="saleDate" class="border rounded-lg px-3 py-2 w-full">
             </div>
             <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700">Sale Time (HH:MM with AM/PM or 24h)</label>
+                <label class="block text-sm font-medium text-gray-700">{{ t("sales.sale_time") }}</label>
                 <input type="text" id="saleTime" placeholder="e.g. 2:30 PM or 14:30" 
                        class="border rounded-lg px-3 py-2 w-full">
             </div>
             
             <button id="addToCartBtn" class="w-full bg-teal-500 hover:bg-teal-600 text-white py-2 rounded-lg">
-                ➕ Add to Cart
+                {{ t("sales.add_to_cart") }}
             </button>
         </div>
     </div>
@@ -99,17 +100,17 @@
     <!-- RIGHT PANEL: Cart & Receipt -->
     <div class="w-full lg:w-1/2 px-4">
         <div class="bg-white rounded-xl shadow-md p-4">
-            <h2 class="text-xl font-bold text-indigo-600 mb-3">🧾 Cart</h2>
+            <h2 class="text-xl font-bold text-indigo-600 mb-3">{{ t("sales.cart") }}</h2>
             <div id="cartItems" class="max-h-96 overflow-y-auto border rounded-lg p-2 mb-4 space-y-3"></div>
             <div class="mb-3 text-right">
-                <span class="text-lg font-bold">Grand Total: </span>
-                <span id="grandTotal" class="text-2xl font-bold text-green-600">₵0.00</span>
+                <span class="text-lg font-bold">{{ t("sales.grand_total") }} </span>
+                <span id="grandTotal" class="text-2xl font-bold text-green-600">{{ CURRENCY }}0.00</span>
             </div>
             <button id="completeSaleBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg mb-3">
-                💳 Complete Sale
+                {{ t("sales.complete_sale") }}
             </button>
             <button id="printReceiptBtn" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg mb-3" disabled>
-                🖨 Print Receipt
+                {{ t("sales.print_receipt") }}
             </button>
             <div id="receiptPreview" class="border rounded-lg p-3 bg-gray-50 font-mono text-sm max-h-60 overflow-y-auto"></div>
         </div>
@@ -120,19 +121,19 @@
 <div id="batchModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
     <div class="bg-white rounded-xl shadow-xl w-11/12 max-w-4xl max-h-[90vh] overflow-y-auto">
         <div class="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
-            <h3 class="text-xl font-bold" id="batchModalTitle">Select Batches</h3>
+            <h3 class="text-xl font-bold" id="batchModalTitle">{{ t("sales.select_batches") }}</h3>
             <button onclick="closeBatchModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
         </div>
         <div id="batchList" class="p-4 space-y-3"></div>
         <div class="sticky bottom-0 bg-white p-4 border-t flex justify-between">
             <div>
-                <button onclick="selectAllBatches()" class="bg-blue-500 text-white px-3 py-1 rounded mr-2">Select All</button>
-                <button onclick="deselectAllBatches()" class="bg-orange-500 text-white px-3 py-1 rounded">Deselect All</button>
+                <button onclick="selectAllBatches()" class="bg-blue-500 text-white px-3 py-1 rounded mr-2">{{ t("sales.select_all") }}</button>
+                <button onclick="deselectAllBatches()" class="bg-orange-500 text-white px-3 py-1 rounded">{{ t("sales.deselect_all") }}</button>
             </div>
             <div>
                 <span id="assignedQty" class="mr-4 text-sm font-bold">Assigned: 0</span>
                 <span id="remainingQty" class="mr-4 text-sm font-bold">Remaining: 0</span>
-                <button onclick="confirmBatchSelection()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">✓ Confirm</button>
+                <button onclick="confirmBatchSelection()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">{{ t("sales.confirm") }}</button>
                 <button onclick="closeBatchModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded ml-2">Cancel</button>
             </div>
         </div>
@@ -142,28 +143,28 @@
 <!-- Payment Modal -->
 <div id="paymentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
     <div class="bg-white rounded-xl shadow-xl w-96 p-6">
-        <h3 class="text-xl font-bold mb-4">Select Payment Method</h3>
+        <h3 class="text-xl font-bold mb-4">{{ t("sales.select_payment") }}</h3>
         <div class="space-y-3">
             <button onclick="selectPayment('cash', event)" class="payment-option w-full text-left px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
-                <span class="font-bold text-green-600">💵 Cash</span>
-                <span class="text-sm text-gray-500 block">Pay with cash</span>
+                <span class="font-bold text-green-600">{{ t("sales.cash") }}</span>
+                <span class="text-sm text-gray-500 block">{{ t("sales.cash_desc") }}</span>
             </button>
             <button onclick="selectPayment('momo', event)" class="payment-option w-full text-left px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
-                <span class="font-bold text-blue-600">📱 Mobile Money</span>
-                <span class="text-sm text-gray-500 block">Pay with MoMo (MTN, Vodafone, AirtelTigo)</span>
+                <span class="font-bold text-blue-600">{{ t("sales.momo") }}</span>
+                <span class="text-sm text-gray-500 block">{{ t("sales.momo_desc") }}</span>
             </button>
             <button onclick="showChequeInput(event)" class="payment-option w-full text-left px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
-                <span class="font-bold text-purple-600">📝 Cheque</span>
-                <span class="text-sm text-gray-500 block">Pay with cheque</span>
+                <span class="font-bold text-purple-600">{{ t("sales.cheque") }}</span>
+                <span class="text-sm text-gray-500 block">{{ t("sales.cheque_desc") }}</span>
             </button>
         </div>
         <div id="chequeInputContainer" class="hidden mt-4">
-            <label class="block text-sm font-medium text-gray-700">Cheque Number</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("sales.cheque_number") }}</label>
             <input type="text" id="chequeNumber" placeholder="Enter cheque number" class="w-full border rounded-lg px-3 py-2 mt-1">
         </div>
         <div class="flex justify-end gap-3 mt-6">
             <button id="cancelPaymentBtn" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded">Cancel</button>
-            <button id="confirmPaymentBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Confirm Sale</button>
+            <button id="confirmPaymentBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">{{ t("sales.confirm_sale") }}</button>
         </div>
     </div>
 </div>
@@ -231,8 +232,12 @@
     let selectedChequeNumber = null;
     let pendingSaleCallback = null;
 
+    function safeToFixed(v, d = 2) {
+        const n = parseFloat(v);
+        return isNaN(n) ? '0.00' : n.toFixed(d);
+    }
     function formatMoney(amount) {
-        return '₵' + amount.toFixed(2);
+        return "{{ CURRENCY }}" + safeToFixed(amount);
     }
 
     // =============================================================
@@ -615,7 +620,7 @@
             });
         }
         
-        let statusHtml = `<strong>Selected:</strong> ${product.name} (${product.brand}) - ₵${product.selling_price.toFixed(2)} - Stock: ${product.stock} (${batchCount} batches)`;
+        let statusHtml = `<strong>Selected:</strong> ${product.name} (${product.brand}) - ${formatMoney(product.selling_price)} - Stock: ${product.stock} (${batchCount} batches)`;
         statusHtml += `<br><span class="text-xs">📦 ${goodStock} good units available</span>`;
         if (hasFaulty) {
             statusHtml += `<br><span class="text-red-500 text-xs">⚠️ ${faultyCount} units claimed as faulty in batches: #${faultyBatches.join(', #')}</span>`;
@@ -748,7 +753,7 @@
             goodSpan.className = good > 0 ? 'text-green-600 font-bold' : 'text-red-400';
             
             const priceSpan = document.createElement('span');
-            priceSpan.innerText = `₵${batch.selling_price.toFixed(2)}`;
+            priceSpan.innerText = `${formatMoney(batch.selling_price)}`;
             priceSpan.className = 'text-green-600';
             
             const qtyInput = document.createElement('input');
@@ -1004,7 +1009,7 @@
     function updateCart() {
         const container = document.getElementById('cartItems');
         if (!cart.length) {
-            container.innerHTML = '<div class="text-gray-400 p-4 text-center">Cart is empty</div>';
+            container.innerHTML = '<div class="text-gray-400 p-4 text-center">{{ t("sales.cart_empty") }}</div>';
             document.getElementById('grandTotal').innerText = formatMoney(0);
             return;
         }

@@ -94,95 +94,101 @@ except ImportError:
 
 def parse_date_cell(value):
     """
-    Try to parse a date from an Excel cell.
-    Returns a datetime object or None if parsing fails.
-    Handles Excel serial numbers, DD/MM/YYYY, MM/DD/YYYY, and other formats.
+    Parse an Excel/CSV cell into a datetime.
+
+    Handles:
+      - datetime / date objects (openpyxl)
+      - Excel serial numbers
+      - ISO 8601 (T-separator or space-separator) — tried FIRST
+      - common DD/MM/YYYY and MM/DD/YYYY string formats
+      - dateutil fallback (auto-detect; NO forced dayfirst, so ISO is respected)
+
+    Returns a datetime or None.
     """
     if value is None:
         return None
-    
-    # Case 1: Excel serial number (float or int like 44927)
+
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
+
+    # Excel serial number
     if isinstance(value, (int, float)):
         try:
             dt = datetime(1899, 12, 30) + timedelta(days=float(value))
-            if dt.year < 2000 or dt.year > 2050:
-                pass
-            return dt
-        except:
-            return None
-    
-    # Case 2: Already a datetime object
-    if isinstance(value, datetime):
-        return value
-    
-    # Case 3: Already a date object
-    if isinstance(value, date):
-        return datetime.combine(value, datetime.min.time())
-    
-    # Case 4: String value
-    if isinstance(value, str):
-        s = value.strip()
-        if not s:
-            return None
-        
-        date_formats = [
-            '%d/%m/%Y',      # 28/01/2023
-            '%d/%m/%y',      # 28/01/23
-            '%d-%m-%Y',      # 28-01-2023
-            '%d-%m-%y',      # 28-01-23
-            '%d.%m.%Y',      # 28.01.2023
-            '%d.%m.%y',      # 28.01.23
-            '%d %b %Y',      # 28 Jan 2023
-            '%d %B %Y',      # 28 January 2023
-            '%d/%m/%Y %H:%M:%S',
-            '%d-%m-%Y %H:%M:%S',
-            '%m/%d/%Y',
-            '%m/%d/%y',
-            '%m-%d-%Y',
-            '%m-%d-%y',
-            '%Y-%m-%d',
-            '%Y/%m/%d',
-            '%Y%m%d',
-            '%b %d, %Y',
-            '%B %d, %Y',
-        ]
-        
-        for fmt in date_formats:
-            try:
-                dt = datetime.strptime(s, fmt)
-                if dt.year >= 2000 and dt.year <= 2050:
-                    return dt
-            except ValueError:
-                continue
-        
-        if HAS_DATEUTIL:
-            try:
-                dt = date_parser.parse(s, dayfirst=True, fuzzy=False)
-                if dt.year >= 2000 and dt.year <= 2050:
-                    return dt
-            except:
-                pass
-        
-        try:
-            date_part = s.split(' ')[0]
-            for fmt in ['%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y', '%d-%m-%Y', '%Y/%m/%d']:
-                try:
-                    dt = datetime.strptime(date_part, fmt)
-                    if dt.year >= 2000 and dt.year <= 2050:
-                        return dt
-                except:
-                    continue
-        except:
+            if 2000 <= dt.year <= 2050:
+                return dt
+        except Exception:
             pass
-        
         return None
-    
+
+    s = str(value).strip()
+    if not s:
+        return None
+
+    # ── 1. ISO 8601 native (Python 3.7+) ──
+    #     Handles 'YYYY-MM-DDTHH:MM:SS', 'YYYY-MM-DD HH:MM:SS', 'YYYY-MM-DD'
+    for candidate in (s, s[:19], s[:10]):
+        try:
+            dt = datetime.fromisoformat(candidate)
+            if 2000 <= dt.year <= 2050:
+                return dt
+        except (ValueError, TypeError):
+            continue
+
+    # ── 2. Explicit strptime — YEAR-FIRST formats before day-first ──
+    date_formats = [
+        '%Y-%m-%d',
+        '%Y/%m/%d',
+        '%Y%m%d',
+        '%d/%m/%Y',
+        '%d/%m/%y',
+        '%d-%m-%Y',
+        '%d-%m-%y',
+        '%d.%m.%Y',
+        '%d.%m.%y',
+        '%d %b %Y',
+        '%d %B %Y',
+        '%d/%m/%Y %H:%M:%S',
+        '%d-%m-%Y %H:%M:%S',
+        '%m/%d/%Y',
+        '%m/%d/%y',
+        '%m-%d-%Y',
+        '%m-%d-%y',
+        '%b %d, %Y',
+        '%B %d, %Y',
+    ]
+    for fmt in date_formats:
+        try:
+            dt = datetime.strptime(s, fmt)
+            if 2000 <= dt.year <= 2050:
+                return dt
+        except (ValueError, TypeError):
+            continue
+
+    # ── 3. dateutil — NO dayfirst. Let ISO stay ISO, else auto-detect ──
+    if HAS_DATEUTIL:
+        try:
+            dt = date_parser.parse(s, fuzzy=False)
+            if 2000 <= dt.year <= 2050:
+                return dt
+        except Exception:
+            pass
+
     return None
+
 
 # ===================== CREATE APP =====================
 # ===================== CREATE APP =====================
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "temporary-dev-key")
+
+# ✅ App version / environment — exposed to templates + /settings page
+app.config['APP_VERSION'] = os.getenv('APP_VERSION', 'v1.0.0')
+# Pre-compute production flag now; will be re-affirmed below when
+# IS_PRODUCTION is resolved. Default is 'development'.
+app.config['APP_ENV'] = 'production' if (os.getenv("FLASK_ENV") == "production" or os.getenv("RENDER")) else 'development'
 
 # ✅ Add session lifetime (7 days)
 from datetime import timedelta
@@ -847,9 +853,17 @@ def api_user_logs():
     
     conn = get_connection()
     cursor = conn.cursor()
+
+    # ✅ Attach auth.db so joins against `users` work (users lives in auth.db)
+    try:
+        from database.db import AUTH_DB_PATH
+        cursor.execute("ATTACH DATABASE ? AS auth", (AUTH_DB_PATH,))
+    except Exception as _attach_err:
+        print(f'[user_logs] ATTACH auth.db: {_attach_err}')
+
     try:
         # Get the oxbee user ID
-        cursor.execute("SELECT id FROM users WHERE username = 'oxbee'")
+        cursor.execute("SELECT id FROM auth.users WHERE username = 'oxbee'")
         oxbee_row = cursor.fetchone()
         OXBEE_USER_ID = oxbee_row[0] if oxbee_row else 1
         
@@ -944,7 +958,7 @@ def api_user_logs():
             }
             # Get username
             if log[1]:
-                cursor.execute("SELECT username FROM users WHERE id = %s", (log[1],))
+                cursor.execute("SELECT username FROM auth.users WHERE id = %s", (log[1],))
                 user_row = cursor.fetchone()
                 log_dict['username'] = user_row[0] if user_row else 'Unknown'
             result.append(log_dict)
@@ -1613,6 +1627,16 @@ def api_add_purchase():
         except Exception as _e:
             print(f"⚠️ Could not resolve product_id for batch {batch_id}: {_e}")
 
+        try:
+            add_notification(
+                'purchase_added',
+                '📦 Purchase added',
+                f"{data.get('name','')} ({data.get('brand','')}) · qty {data.get('quantity',0)}",
+                {'batch_id': batch_id, 'product_id': product_id},
+                user_id=session.get('user_id'),
+            )
+        except Exception:
+            pass
         return jsonify({'success': True, 'batch_id': batch_id, 'product_id': product_id})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -2201,6 +2225,16 @@ def api_reverse_sale(sale_id):
             update_product_stock(cursor, product_id)
         cursor.execute("UPDATE sales SET reversed = 1 WHERE id = %s", (sale_id,))
         conn.commit()
+        try:
+            add_notification(
+                'sale_reversed',
+                f'↺ Sale #{sale_id} reversed',
+                f'{len(items)} item(s) restored',
+                {'sale_id': sale_id},
+                user_id=session.get('user_id'),
+            )
+        except Exception:
+            pass
         return jsonify({'success': True})
     except Exception as e:
         conn.rollback()
@@ -2294,6 +2328,14 @@ def api_today_sales():
     conn = get_connection()
     cursor = conn.cursor()
 
+    # ✅ Attach auth.db so we can JOIN users (users lives in auth.db, not retail.db)
+    try:
+        from database.db import AUTH_DB_PATH
+        cursor.execute("ATTACH DATABASE ? AS auth", (AUTH_DB_PATH,))
+    except Exception as _attach_err:
+        # 'already attached' is fine; anything else is logged but not fatal
+        print(f'[today_sales] ATTACH auth.db: {_attach_err}')
+
     try:
         select_clause = """
             SELECT 
@@ -2321,24 +2363,24 @@ def api_today_sales():
             JOIN sales_items ON sales.id = sales_items.sale_id
             JOIN products ON products.id = sales_items.product_id
             LEFT JOIN purchase_batches ON purchase_batches.id = sales_items.batch_id
-            LEFT JOIN users u ON sales.user_id = u.id
+            LEFT JOIN auth.users u ON sales.user_id = u.id
         """
         # ✅ Use integer comparison (reversed = 0)
         where_conditions = ["sales.reversed = 0"]
         params = []
 
         if start_date and end_date:
-            where_conditions.append("sales.date::date BETWEEN %s AND %s")
+            where_conditions.append("DATE(sales.date) BETWEEN DATE(%s) AND DATE(%s)")
             params.extend([start_date, end_date])
         else:
             if period == 'daily':
-                where_conditions.append("sales.date::date = CURRENT_DATE")
+                where_conditions.append("DATE(sales.date) = DATE('now')")
             elif period == 'weekly':
-                where_conditions.append("sales.date >= CURRENT_DATE - INTERVAL '6 days'")
+                where_conditions.append("DATE(sales.date) >= DATE('now', '-6 days')")
             elif period == 'monthly':
-                where_conditions.append("EXTRACT(YEAR FROM sales.date) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM sales.date) = EXTRACT(MONTH FROM CURRENT_DATE)")
+                where_conditions.append("strftime('%Y-%m', sales.date) = strftime('%Y-%m', 'now')")
             elif period == 'yearly':
-                where_conditions.append("EXTRACT(YEAR FROM sales.date) = EXTRACT(YEAR FROM CURRENT_DATE)")
+                where_conditions.append("strftime('%Y', sales.date) = strftime('%Y', 'now')")
             # 'all' – no date filter
 
         if category:
@@ -2631,7 +2673,7 @@ def api_analytics_summary():
                 COALESCE(SUM(si.quantity), 0)
             FROM sales s
             LEFT JOIN sales_items si ON s.id = si.sale_id
-            WHERE s.date::date BETWEEN %s AND %s
+            WHERE DATE(s.date) BETWEEN DATE(%s) AND DATE(%s)
             AND s.reversed = 0
         """, (start_date, end_date))
     elif period == 'weekly':
@@ -2643,7 +2685,7 @@ def api_analytics_summary():
                 COALESCE(SUM(si.quantity), 0)
             FROM sales s
             LEFT JOIN sales_items si ON s.id = si.sale_id
-            WHERE s.date >= CURRENT_DATE - INTERVAL '6 days'
+            WHERE DATE(s.date) >= DATE('now', '-6 days')
             AND s.reversed = 0
         """)
     elif period == 'monthly':
@@ -2655,8 +2697,7 @@ def api_analytics_summary():
                 COALESCE(SUM(si.quantity), 0)
             FROM sales s
             LEFT JOIN sales_items si ON s.id = si.sale_id
-            WHERE EXTRACT(YEAR FROM s.date) = EXTRACT(YEAR FROM CURRENT_DATE)
-            AND EXTRACT(MONTH FROM s.date) = EXTRACT(MONTH FROM CURRENT_DATE)
+            WHERE strftime('%Y-%m', s.date) = strftime('%Y-%m', 'now')
             AND s.reversed = 0
         """)
     elif period == 'yearly':
@@ -2668,7 +2709,7 @@ def api_analytics_summary():
                 COALESCE(SUM(si.quantity), 0)
             FROM sales s
             LEFT JOIN sales_items si ON s.id = si.sale_id
-            WHERE EXTRACT(YEAR FROM s.date) = EXTRACT(YEAR FROM CURRENT_DATE)
+            WHERE strftime('%Y', s.date) = strftime('%Y', 'now')
             AND s.reversed = 0
         """)
     elif period == 'all':
@@ -2691,7 +2732,7 @@ def api_analytics_summary():
                 COALESCE(SUM(si.quantity), 0)
             FROM sales s
             LEFT JOIN sales_items si ON s.id = si.sale_id
-            WHERE s.date::date = CURRENT_DATE
+            WHERE DATE(s.date) = DATE('now')
             AND s.reversed = 0
         """)
 
@@ -2719,38 +2760,37 @@ def api_analytics_trend():
     if start_date and end_date:
         cursor.execute("""
             SELECT 
-                s.date::date as label,
+                DATE(s.date) as label,
                 COALESCE(SUM(s.total), 0) as sales_total,
                 COALESCE(SUM(s.profit), 0) as profit_total
             FROM sales s
-            WHERE s.date::date BETWEEN %s AND %s
+            WHERE DATE(s.date) BETWEEN DATE(%s) AND DATE(%s)
             AND s.reversed = 0
-            GROUP BY s.date::date
+            GROUP BY DATE(s.date)
             ORDER BY label ASC
         """, (start_date, end_date))
     elif period == 'weekly':
         cursor.execute("""
             SELECT 
-                s.date::date as label,
+                DATE(s.date) as label,
                 COALESCE(SUM(s.total), 0) as sales_total,
                 COALESCE(SUM(s.profit), 0) as profit_total
             FROM sales s
-            WHERE s.date >= CURRENT_DATE - INTERVAL '6 days'
+            WHERE DATE(s.date) >= DATE('now', '-6 days')
             AND s.reversed = 0
-            GROUP BY s.date::date
+            GROUP BY DATE(s.date)
             ORDER BY label ASC
         """)
     elif period == 'monthly':
         cursor.execute("""
             SELECT 
-                s.date::date as label,
+                DATE(s.date) as label,
                 COALESCE(SUM(s.total), 0) as sales_total,
                 COALESCE(SUM(s.profit), 0) as profit_total
             FROM sales s
-            WHERE EXTRACT(YEAR FROM s.date) = EXTRACT(YEAR FROM CURRENT_DATE)
-            AND EXTRACT(MONTH FROM s.date) = EXTRACT(MONTH FROM CURRENT_DATE)
+            WHERE strftime('%Y-%m', s.date) = strftime('%Y-%m', 'now')
             AND s.reversed = 0
-            GROUP BY s.date::date
+            GROUP BY DATE(s.date)
             ORDER BY label ASC
         """)
     elif period == 'yearly':
@@ -2760,7 +2800,7 @@ def api_analytics_trend():
                 COALESCE(SUM(s.total), 0) as sales_total,
                 COALESCE(SUM(s.profit), 0) as profit_total
             FROM sales s
-            WHERE EXTRACT(YEAR FROM s.date) = EXTRACT(YEAR FROM CURRENT_DATE)
+            WHERE strftime('%Y', s.date) = strftime('%Y', 'now')
             AND s.reversed = 0
             GROUP BY DATE_TRUNC('month', s.date)
             ORDER BY label ASC
@@ -2780,13 +2820,13 @@ def api_analytics_trend():
     else:
         cursor.execute("""
             SELECT 
-                s.date::date as label,
+                DATE(s.date) as label,
                 COALESCE(SUM(s.total), 0) as sales_total,
                 COALESCE(SUM(s.profit), 0) as profit_total
             FROM sales s
-            WHERE s.date::date = CURRENT_DATE
+            WHERE DATE(s.date) = DATE('now')
             AND s.reversed = 0
-            GROUP BY s.date::date
+            GROUP BY DATE(s.date)
             ORDER BY label ASC
         """)
 
@@ -2836,7 +2876,7 @@ def api_analytics_top_products():
             FROM sales_items si
             JOIN sales s ON si.sale_id = s.id
             JOIN products p ON p.id = si.product_id
-            WHERE s.date::date BETWEEN %s AND %s
+            WHERE DATE(s.date) BETWEEN DATE(%s) AND DATE(%s)
             AND s.reversed = 0
             AND NOT EXISTS (
                 SELECT 1 FROM deleted_products dp 
@@ -2858,7 +2898,7 @@ def api_analytics_top_products():
             FROM sales_items si
             JOIN sales s ON si.sale_id = s.id
             JOIN products p ON p.id = si.product_id
-            WHERE s.date >= CURRENT_DATE - INTERVAL '6 days'
+            WHERE DATE(s.date) >= DATE('now', '-6 days')
             AND s.reversed = 0
             AND NOT EXISTS (
                 SELECT 1 FROM deleted_products dp 
@@ -2880,8 +2920,7 @@ def api_analytics_top_products():
             FROM sales_items si
             JOIN sales s ON si.sale_id = s.id
             JOIN products p ON p.id = si.product_id
-            WHERE EXTRACT(YEAR FROM s.date) = EXTRACT(YEAR FROM CURRENT_DATE)
-            AND EXTRACT(MONTH FROM s.date) = EXTRACT(MONTH FROM CURRENT_DATE)
+            WHERE strftime('%Y-%m', s.date) = strftime('%Y-%m', 'now')
             AND s.reversed = 0
             AND NOT EXISTS (
                 SELECT 1 FROM deleted_products dp 
@@ -2903,7 +2942,7 @@ def api_analytics_top_products():
             FROM sales_items si
             JOIN sales s ON si.sale_id = s.id
             JOIN products p ON p.id = si.product_id
-            WHERE EXTRACT(YEAR FROM s.date) = EXTRACT(YEAR FROM CURRENT_DATE)
+            WHERE strftime('%Y', s.date) = strftime('%Y', 'now')
             AND s.reversed = 0
             AND NOT EXISTS (
                 SELECT 1 FROM deleted_products dp 
@@ -2946,7 +2985,7 @@ def api_analytics_top_products():
             FROM sales_items si
             JOIN sales s ON si.sale_id = s.id
             JOIN products p ON p.id = si.product_id
-            WHERE s.date::date = CURRENT_DATE
+            WHERE DATE(s.date) = DATE('now')
             AND s.reversed = 0
             AND NOT EXISTS (
                 SELECT 1 FROM deleted_products dp 
@@ -3021,16 +3060,50 @@ def api_get_settings():
 @login_required
 def api_update_settings():
     user_id = session.get('user_id')
-    data = request.json
-    
+    data = request.json or {}
+
+    # ============================================================
+    #  BACKEND ROLE GUARD
+    #  The /settings front-end already hides admin-only fields for
+    #  non-admins, but that's cosmetic. This guard stops a devtools
+    #  user from POSTing admin fields (currency, language, threshold)
+    #  directly. Any field outside the caller's whitelist is dropped
+    #  silently — we never reject the whole request, we just strip.
+    # ============================================================
+    is_admin = (
+        session.get('role') == 'admin'
+        or str(session.get('username') or '').lower() == 'oxbee'
+    )
+
+    USER_FIELDS = {'theme', 'font_size', 'font_family'}
+    ADMIN_FIELDS = {
+        'currency_symbol', 'currency_code', 'language',
+        'date_format', 'low_stock_threshold',
+    }
+
+    allowed = (USER_FIELDS | ADMIN_FIELDS) if is_admin else USER_FIELDS
+
+    # Only keep fields the caller is allowed to touch
+    filtered = {k: v for k, v in data.items() if k in allowed}
+
+    if not filtered:
+        return jsonify({
+            'success': False,
+            'error': 'No permitted settings to update'
+        }), 400
+
+    # Merge with existing so partial payloads (theme only) don't wipe
+    # other columns when the service writes a full row.
     try:
-        success = update_user_settings(user_id, data)
+        existing = get_user_settings(user_id) or {}
+        merged = {**existing, **filtered}
+        success = update_user_settings(user_id, merged)
         if success:
-            return jsonify({'success': True})
+            return jsonify({'success': True, 'updated': list(filtered.keys())})
         else:
             return jsonify({'success': False, 'error': 'No settings to update'}), 400
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500 
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.context_processor
@@ -3587,7 +3660,21 @@ cancel_flags = {}
 
 # ========== INVENTORY IMPORT ==========
 def run_inventory_import(job_id, file_stream, target_category, mode='append'):
-    conn = None
+    """
+    Import purchases from Excel. Aligned with preview_service.PURCHASE_COLUMNS.
+
+    Modes:
+      append   → add every row as new
+      replace  → wipe category first, then add every row
+      merge    → match on (name_lower, brand_lower, date);
+                 update existing batch, insert if no match
+
+    Recognized headers (case-insensitive):
+      Name/Item/Product/Details | Brand | Category | Quantity/Qty |
+      Remaining/Remaining Quantity | Claimed/Claimed Quantity |
+      Cost/Cost Price/Unit Cost/Rate | Selling Price/Price/Unit Price |
+      Discount | Date/Purchase Date | Source
+    """
     try:
         wb = load_workbook(file_stream, data_only=True)
         ws = wb.active
@@ -3595,11 +3682,14 @@ def run_inventory_import(job_id, file_stream, target_category, mode='append'):
         update_job_progress(job_id, status='error', errors=[f"Unable to read workbook: {str(e)}"])
         return
 
+    # ── 1. Find header row ──
     header_row_idx = None
     header_row = None
     for i, row in enumerate(ws.iter_rows(min_row=1, max_row=20, values_only=True)):
-        if row and any(cell and isinstance(cell, str) and 
-                       ('item' in cell.lower() or 'qty' in cell.lower() or 'rate' in cell.lower()) for cell in row):
+        if row and any(cell and isinstance(cell, str) and
+                       ('name' in cell.lower() or 'item' in cell.lower()
+                        or 'qty' in cell.lower() or 'rate' in cell.lower())
+                       for cell in row):
             header_row_idx = i + 1
             header_row = row
             break
@@ -3608,36 +3698,68 @@ def run_inventory_import(job_id, file_stream, target_category, mode='append'):
         update_job_progress(job_id, status='error', errors=['Could not find header row'])
         return
 
+    # ── 2. Header map ──
     header_map = {}
     for idx, cell in enumerate(header_row):
         if cell:
-            cell_lower = str(cell).strip().lower()
-            if cell_lower in ['item', 'product', 'name', 'details']:
+            key = str(cell).strip().lower().replace('_', ' ')
+            if key in ('name', 'item', 'product', 'details'):
                 header_map['name'] = idx
-            elif cell_lower in ['qty', 'quantity']:
+            elif key == 'brand':
+                header_map['brand'] = idx
+            elif key == 'category':
+                header_map['category'] = idx
+            elif key in ('quantity', 'qty'):
                 header_map['quantity'] = idx
-            elif cell_lower in ['rate', 'cost', 'cost price', 'unit cost']:
+            elif key in ('remaining', 'remaining quantity', 'remaining qty'):
+                header_map['remaining_quantity'] = idx
+            elif key in ('claimed', 'claimed quantity', 'claimed qty'):
+                header_map['claimed_quantity'] = idx
+            elif key in ('cost', 'cost price', 'unit cost', 'rate'):
                 header_map['cost_price'] = idx
-            elif cell_lower in ['amount', 'total cost']:
-                header_map['total_cost'] = idx
-            elif cell_lower in ['selling price', 'price', 'unit price']:
+            elif key in ('selling price', 'price', 'unit price', 'selling'):
                 header_map['selling_price'] = idx
-            elif cell_lower in ['date', 'purchase date']:
-                header_map['date'] = idx
-            elif cell_lower in ['discount']:
+            elif key == 'discount':
                 header_map['discount'] = idx
+            elif key in ('date', 'purchase date'):
+                header_map['date'] = idx
+            elif key == 'source':
+                header_map['source'] = idx
+            elif key in ('amount', 'total cost'):
+                header_map['total_cost'] = idx
 
-    required = ['name']
-    missing = [f for f in required if f not in header_map]
-    if missing:
-        update_job_progress(job_id, status='error', errors=[f'Missing column: {", ".join(missing)} (only Name is required)'])
+    if 'name' not in header_map:
+        update_job_progress(job_id, status='error',
+                            errors=['Missing required column: Name (or Item/Product)'])
         return
 
+    # ── 3. Detect canonical category string for new products ──
+    _canonical_category = 'Screen' if target_category == 'Screen' else 'accessories'
+    try:
+        _cc = get_connection()
+        _ccur = _cc.cursor()
+        if target_category != 'Screen':
+            _ccur.execute("""
+                SELECT category, COUNT(*) AS n FROM products
+                WHERE LOWER(COALESCE(category, '')) != 'screen'
+                  AND category IS NOT NULL AND category != ''
+                GROUP BY category ORDER BY n DESC LIMIT 1
+            """)
+            _row = _ccur.fetchone()
+            if _row:
+                _canonical_category = _row[0]
+        _cc.close()
+    except Exception as e:
+        print(f"[import] category detection: {e}")
+
+    # ── 4. Parse rows ──
     rows_to_process = []
     skipped_rows = []
     warning_rows = []
+    seen_keys = set()
 
-    for row_idx, row in enumerate(ws.iter_rows(min_row=header_row_idx + 1, values_only=True), start=header_row_idx + 1):
+    for row_idx, row in enumerate(ws.iter_rows(min_row=header_row_idx + 1, values_only=True),
+                                  start=header_row_idx + 1):
         if not any(row):
             continue
         try:
@@ -3645,256 +3767,313 @@ def run_inventory_import(job_id, file_stream, target_category, mode='append'):
             if not name:
                 skipped_rows.append({
                     'row': row_idx,
-                    'data': {
-                        'name': None,
-                        'qty': row[header_map.get('quantity')] if header_map.get('quantity') is not None else None,
-                        'rate': row[header_map.get('cost_price')] if header_map.get('cost_price') is not None else None,
-                        'amount': row[header_map.get('total_cost')] if header_map.get('total_cost') is not None else None
-                    },
-                    'reason': 'Product name is empty (row skipped)'
+                    'data': {'name': None},
+                    'reason': 'Product name is empty'
                 })
                 continue
 
+            brand = ''
+            if 'brand' in header_map and row[header_map['brand']] is not None:
+                brand = str(row[header_map['brand']]).strip()
+
+            file_category = ''
+            if 'category' in header_map and row[header_map['category']] is not None:
+                file_category = str(row[header_map['category']]).strip()
+
+            if target_category == 'Screen':
+                category = 'Screen'
+            else:
+                if file_category.lower() == 'screen':
+                    skipped_rows.append({
+                        'row': row_idx,
+                        'data': {'name': name, 'category': file_category},
+                        'reason': 'Row is a Screen product — cannot import into Accessories'
+                    })
+                    continue
+                category = file_category or _canonical_category
+
             try:
-                quantity = float(row[header_map['quantity']]) if header_map.get('quantity') is not None and row[header_map['quantity']] is not None else 0
+                quantity = float(row[header_map['quantity']]) if 'quantity' in header_map and row[header_map['quantity']] is not None else 0
                 if quantity < 0:
                     quantity = 0
                     warning_rows.append(f"Row {row_idx}: Quantity was negative, set to 0")
-            except:
+            except Exception:
                 quantity = 0
                 warning_rows.append(f"Row {row_idx}: Invalid quantity, set to 0")
 
-            cost_price = 0
+            try:
+                remaining = float(row[header_map['remaining_quantity']]) if 'remaining_quantity' in header_map and row[header_map['remaining_quantity']] is not None else quantity
+            except Exception:
+                remaining = quantity
+            try:
+                claimed = float(row[header_map['claimed_quantity']]) if 'claimed_quantity' in header_map and row[header_map['claimed_quantity']] is not None else 0
+            except Exception:
+                claimed = 0
+
+            cost_price = 0.0
             if 'cost_price' in header_map and row[header_map['cost_price']] is not None:
                 try:
                     cost_price = float(row[header_map['cost_price']])
                     if cost_price < 0:
                         cost_price = 0
-                        warning_rows.append(f"Row {row_idx}: Cost price was negative, set to 0")
-                except:
+                except Exception:
                     cost_price = 0
-                    warning_rows.append(f"Row {row_idx}: Invalid cost price, set to 0")
 
-            total_cost = 0
             if 'total_cost' in header_map and row[header_map['total_cost']] is not None:
                 try:
-                    total_cost = float(row[header_map['total_cost']])
-                    if total_cost < 0:
-                        total_cost = 0
-                        warning_rows.append(f"Row {row_idx}: Total cost was negative, set to 0")
-                except:
-                    total_cost = 0
-                    warning_rows.append(f"Row {row_idx}: Invalid total cost, set to 0")
-            else:
-                total_cost = cost_price * quantity
+                    _tc = float(row[header_map['total_cost']])
+                    if quantity > 0 and _tc > 0:
+                        cost_price = _tc / quantity
+                except Exception:
+                    pass
 
-            if total_cost == 0 and cost_price > 0 and quantity > 0:
-                total_cost = cost_price * quantity
-
-            cost_per_unit = total_cost / quantity if quantity > 0 else 0
-
-            selling_price = 0
+            selling_price = 0.0
             if 'selling_price' in header_map and row[header_map['selling_price']] is not None:
                 try:
                     selling_price = float(row[header_map['selling_price']])
                     if selling_price < 0:
                         selling_price = 0
-                        warning_rows.append(f"Row {row_idx}: Selling price was negative, set to 0")
-                except:
+                except Exception:
                     selling_price = 0
-                    warning_rows.append(f"Row {row_idx}: Invalid selling price, set to 0")
-            else:
-                if quantity > 0 and total_cost > 0:
-                    markup = 1.3
-                    selling_price = cost_per_unit * markup
-                else:
-                    selling_price = 0
+            if selling_price == 0 and quantity > 0 and cost_price > 0:
+                selling_price = cost_price * 1.3
 
             try:
-                discount = float(row[header_map.get('discount')]) if header_map.get('discount') is not None and row[header_map['discount']] is not None else 0
+                discount = float(row[header_map['discount']]) if 'discount' in header_map and row[header_map['discount']] is not None else 0
                 if discount < 0:
                     discount = 0
-            except:
+            except Exception:
                 discount = 0
 
             purchase_date = None
             if 'date' in header_map and row[header_map['date']] is not None:
-                date_value = row[header_map['date']]
                 try:
-                    purchase_date = parse_date_cell(date_value)
-                    
-                    if purchase_date is None:
-                        purchase_date = datetime.now()
-                        warning_rows.append(f"Row {row_idx}: Could not parse date '{date_value}', using current date")
-                    elif purchase_date > datetime.now() + timedelta(days=1):
-                        warning_rows.append(f"Row {row_idx}: Date '{purchase_date.strftime('%Y-%m-%d')}' is in the future (original: '{date_value}') - AUTO-CORRECTED to today")
-                        purchase_date = datetime.now()
-                    elif purchase_date.year < 2000:
-                        warning_rows.append(f"Row {row_idx}: Date '{purchase_date.strftime('%Y-%m-%d')}' is before year 2000 (original: '{date_value}') - AUTO-CORRECTED to today")
-                        purchase_date = datetime.now()
-                except Exception as e:
+                    purchase_date = parse_date_cell(row[header_map['date']])
+                except Exception:
+                    purchase_date = None
+                if purchase_date is None:
                     purchase_date = datetime.now()
-                    warning_rows.append(f"Row {row_idx}: Date parsing error: {str(e)}, using current date")
+                    warning_rows.append(f"Row {row_idx}: Could not parse date, using now()")
+                elif purchase_date > datetime.now() + timedelta(days=1):
+                    purchase_date = datetime.now()
+                    warning_rows.append(f"Row {row_idx}: Date in future — auto-corrected to now")
             else:
                 purchase_date = datetime.now()
 
-            category = target_category
+            source = ''
+            if 'source' in header_map and row[header_map['source']] is not None:
+                source = str(row[header_map['source']]).strip()
+
+            # Dedupe within file
+            key = (name.lower(), brand.lower(), purchase_date.isoformat()[:19])
+            if key in seen_keys:
+                warning_rows.append(f"Row {row_idx}: Duplicate within file — skipped")
+                continue
+            seen_keys.add(key)
 
             rows_to_process.append({
                 'row_idx': row_idx,
                 'name': name,
-                'brand': '',
+                'brand': brand,
+                'category': category,
                 'quantity': int(quantity),
-                'cost_price': cost_per_unit,
+                'remaining_quantity': int(remaining),
+                'claimed_quantity': int(claimed),
+                'cost_price': cost_price,
                 'selling_price': selling_price,
                 'discount': discount,
-                'category': category,
                 'purchase_date': purchase_date,
-                'total_cost': total_cost
-            })   
+                'source': source,
+            })
         except Exception as e:
             skipped_rows.append({
                 'row': row_idx,
-                'data': {
-                    'name': row[header_map.get('name')] if header_map.get('name') is not None else None,
-                    'qty': row[header_map.get('quantity')] if header_map.get('quantity') is not None else None,
-                    'rate': row[header_map.get('cost_price')] if header_map.get('cost_price') is not None else None,
-                    'amount': row[header_map.get('total_cost')] if header_map.get('total_cost') is not None else None
-                },
+                'data': {'name': str(row[header_map.get('name')] or '') if 'name' in header_map else None},
                 'reason': f'Fatal error: {str(e)}'
             })
 
     total_rows = len(rows_to_process)
-    update_job_progress(job_id, 
-                        total=total_rows, 
-                        processed=0, 
-                        status='processing',
-                        errors=warning_rows,
-                        result={'imported': 0, 'skipped': skipped_rows, 'warnings': warning_rows, 'message': 'Parsing completed'})
+    update_job_progress(
+        job_id,
+        total=total_rows,
+        processed=0,
+        status='processing',
+        errors=warning_rows,
+        result={
+            'imported': 0,
+            'inserted': 0,
+            'updated': 0,
+            'matched': 0,
+            'skipped': skipped_rows,
+            'warnings': warning_rows,
+            'message': 'Parsing completed',
+        },
+    )
 
     if total_rows == 0:
-        update_job_progress(job_id, status='done',
-                            result={'imported': 0, 'skipped': skipped_rows, 'warnings': warning_rows,
-                                    'message': 'No valid rows to import (all missing product name or had fatal errors)'})
+        update_job_progress(job_id, status='done', result={
+            'imported': 0, 'inserted': 0, 'updated': 0, 'matched': 0,
+            'skipped': skipped_rows, 'warnings': warning_rows,
+            'message': 'No valid rows to import',
+        })
         return
 
-    if not DATABASE_URL:
-        update_job_progress(job_id, status='error', errors=['DATABASE_URL not configured'])
-        return
-
-    imported_count = 0
-    overall_errors = warning_rows.copy()
+    # ── 5. DB writes ──
+    inserted_count = 0
+    updated_count = 0
+    matched_count = 0
+    overall_errors = list(warning_rows)
+    conn = None
 
     try:
-        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-        conn.autocommit = False
-        cursor = conn.cursor()
+        conn = get_connection()
+        cur = conn.cursor()
 
         if mode == 'replace':
-            categories_in_file = set(item['category'] for item in rows_to_process)
-            for cat in categories_in_file:
-                cursor.execute("""
-                    DELETE FROM purchase_batches
-                    WHERE product_id IN (SELECT id FROM products WHERE category = %s)
-                """, (cat,))
-                cursor.execute("DELETE FROM purchases WHERE category = %s", (cat,))
-                cursor.execute("DELETE FROM products WHERE category = %s", (cat,))
-            cursor.execute("SELECT setval('products_id_seq', (SELECT COALESCE(MAX(id), 1) FROM products))")
-            cursor.execute("SELECT setval('purchases_id_seq', (SELECT COALESCE(MAX(id), 1) FROM purchases))")
-            cursor.execute("SELECT setval('purchase_batches_id_seq', (SELECT COALESCE(MAX(id), 1) FROM purchase_batches))")
-
-        for idx, item in enumerate(rows_to_process, start=1):
-            if mode == 'replace':
-                cursor.execute("""
-                    INSERT INTO products (name, brand, cost_price, selling_price, stock, category)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                """, (item['name'], item['brand'], item['cost_price'], item['selling_price'], 0, item['category']))
-                product_id = cursor.fetchone()[0]
+            if target_category == 'Screen':
+                cat_where = "LOWER(COALESCE(p.category, '')) = 'screen'"
             else:
-                cursor.execute("""
-                    SELECT p.id, p.cost_price, p.selling_price, p.category
-                    FROM products p
-                    LEFT JOIN deleted_products dp ON dp.product_id = p.id AND dp.action = 'PERMANENTLY DELETED' AND dp.source = 'product'
-                    WHERE p.name = %s AND p.brand = %s AND dp.id IS NULL
+                cat_where = "LOWER(COALESCE(p.category, '')) != 'screen'"
+            cur.execute(f"""
+                UPDATE sales_items SET batch_id = NULL
+                WHERE batch_id IN (
+                    SELECT pb.id FROM purchase_batches pb
+                    JOIN products p ON p.id = pb.product_id
+                    WHERE {cat_where}
+                )
+            """)
+            cur.execute(f"""
+                DELETE FROM purchase_batches
+                WHERE product_id IN (
+                    SELECT id FROM products p WHERE {cat_where}
+                )
+            """)
+            cur.execute(f"DELETE FROM products p WHERE {cat_where}")
+
+        for item in rows_to_process:
+            try:
+                # Find or create product
+                cur.execute("""
+                    SELECT id FROM products
+                    WHERE LOWER(name) = LOWER(%s)
+                      AND LOWER(COALESCE(brand, '')) = LOWER(%s)
+                    LIMIT 1
                 """, (item['name'], item['brand']))
-                product = cursor.fetchone()
-
-                if product:
-                    product_id, existing_cost, existing_selling, existing_category = product
-                    if existing_category != item['category']:
-                        cursor.execute("""
-                            UPDATE products
-                            SET category = %s
-                            WHERE id = %s
-                        """, (item['category'], product_id))
-                    if (existing_cost != item['cost_price'] or existing_selling != item['selling_price']):
-                        cursor.execute("""
-                            UPDATE products
-                            SET cost_price = %s, selling_price = %s
-                            WHERE id = %s
-                        """, (item['cost_price'], item['selling_price'], product_id))
+                prow = cur.fetchone()
+                if prow:
+                    product_id = prow[0]
+                    cur.execute("""
+                        UPDATE products SET cost_price = %s, selling_price = %s
+                        WHERE id = %s
+                    """, (item['cost_price'], item['selling_price'], product_id))
                 else:
-                    cursor.execute("""
-                        INSERT INTO products (name, brand, cost_price, selling_price, stock, category)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        RETURNING id
-                    """, (item['name'], item['brand'], item['cost_price'], item['selling_price'], 0, item['category']))
-                    product_id = cursor.fetchone()[0]
+                    cur.execute("""
+                        INSERT INTO products
+                        (name, brand, category, cost_price, selling_price, stock, discount)
+                        VALUES (%s, %s, %s, %s, %s, 0, 0)
+                    """, (item['name'], item['brand'], item['category'],
+                          item['cost_price'], item['selling_price']))
+                    cur.execute("SELECT last_insert_rowid()")
+                    product_id = cur.fetchone()[0]
 
-            total = item['total_cost'] - item['discount']
-            cursor.execute("""
-                INSERT INTO purchases
-                (product_name, brand, category, quantity, cost_price, discount, total, selling_price, date)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (item['name'], item['brand'], item['category'], item['quantity'],
-                  item['cost_price'], item['discount'], total, item['selling_price'], item['purchase_date']))
+                existing_batch_id = None
+                if mode == 'merge':
+                    cur.execute("""
+                        SELECT pb.id FROM purchase_batches pb
+                        JOIN products p ON p.id = pb.product_id
+                        WHERE LOWER(p.name) = LOWER(%s)
+                          AND LOWER(COALESCE(p.brand, '')) = LOWER(%s)
+                          AND DATE(pb.date) = DATE(%s)
+                        LIMIT 1
+                    """, (item['name'], item['brand'], item['purchase_date']))
+                    br = cur.fetchone()
+                    if br:
+                        existing_batch_id = br[0]
 
-            cursor.execute("""
-                INSERT INTO purchase_batches
-                (product_id, quantity, remaining_quantity, cost_price, selling_price, discount, date, action)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (product_id, item['quantity'], item['quantity'], item['cost_price'],
-                  item['selling_price'], item['discount'], item['purchase_date'], "added"))
+                if existing_batch_id:
+                    cur.execute("""
+                        UPDATE purchase_batches
+                        SET quantity = %s, remaining_quantity = %s, claimed_quantity = %s,
+                            cost_price = %s, selling_price = %s, discount = %s,
+                            source = %s, action = 'updated_from_excel'
+                        WHERE id = %s
+                    """, (item['quantity'], item['remaining_quantity'], item['claimed_quantity'],
+                          item['cost_price'], item['selling_price'], item['discount'],
+                          item['source'], existing_batch_id))
+                    updated_count += 1
+                    matched_count += 1
+                else:
+                    cur.execute("""
+                        INSERT INTO purchase_batches
+                        (product_id, quantity, remaining_quantity, claimed_quantity,
+                         cost_price, selling_price, discount, date, action, source)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'added_from_excel', %s)
+                    """, (product_id, item['quantity'], item['remaining_quantity'],
+                          item['claimed_quantity'], item['cost_price'], item['selling_price'],
+                          item['discount'], item['purchase_date'], item['source']))
+                    if item['remaining_quantity'] != 0:
+                        cur.execute("""
+                            UPDATE products SET stock = COALESCE(stock, 0) + %s WHERE id = %s
+                        """, (item['remaining_quantity'], product_id))
+                    inserted_count += 1
 
-            if item['quantity'] != 0:
-                cursor.execute("""
-                    UPDATE products SET stock = stock + %s WHERE id = %s
-                """, (item['quantity'], product_id))
-
-            imported_count += 1
-            if imported_count % 100 == 0:
-                update_job_progress(job_id, processed=imported_count)
+                if (inserted_count + updated_count) % 50 == 0:
+                    update_job_progress(
+                        job_id,
+                        processed=inserted_count + updated_count,
+                        result={
+                            'imported': inserted_count + updated_count,
+                            'inserted': inserted_count,
+                            'updated': updated_count,
+                            'matched': matched_count,
+                            'skipped': skipped_rows,
+                            'warnings': warning_rows,
+                            'message': 'Processing...',
+                        },
+                    )
                 if cancel_flags.get(job_id):
                     raise Exception("CANCELLED_BY_USER")
+            except Exception as e:
+                skipped_rows.append({
+                    'row': item['row_idx'],
+                    'data': {'name': item['name']},
+                    'reason': f'Row error: {str(e)}'
+                })
 
         conn.commit()
         cancel_flags.pop(job_id, None)
 
-        verification = None
-        try:
-            file_stream.seek(0)
-            verification = verify_import(job_id, file_stream, target_category)
-        except Exception as v_err:
-            verification = {'error': str(v_err)}
+        message = f'{inserted_count} added'
+        if mode == 'merge':
+            message += f', {updated_count} updated (matched)'
+        if skipped_rows:
+            message += f', {len(skipped_rows)} skipped'
+        if warning_rows:
+            message += f', {len(warning_rows)} warnings'
 
-        update_job_progress(job_id, status='done',
-                            result={
-                                'imported': imported_count,
-                                'skipped': skipped_rows,
-                                'warnings': warning_rows,
-                                'message': f'Imported {imported_count} records, {len(skipped_rows)} rows skipped, {len(warning_rows)} warnings',
-                                'verification': verification
-                            })
+        update_job_progress(job_id, status='done', result={
+            'imported': inserted_count + updated_count,
+            'inserted': inserted_count,
+            'updated': updated_count,
+            'matched': matched_count,
+            'skipped': skipped_rows,
+            'warnings': warning_rows,
+            'message': message,
+        })
 
     except Exception as e:
         if conn:
             conn.rollback()
         if str(e) == "CANCELLED_BY_USER":
-            update_job_progress(job_id, status='cancelled',
-                                result={'imported': 0, 'skipped': skipped_rows, 'warnings': warning_rows,
-                                        'message': 'Import cancelled – no data was committed'})
+            update_job_progress(job_id, status='cancelled', result={
+                'imported': 0,
+                'inserted': inserted_count,
+                'updated': updated_count,
+                'matched': matched_count,
+                'skipped': skipped_rows,
+                'warnings': warning_rows,
+                'message': 'Import cancelled — no data was committed',
+            })
         else:
             overall_errors.append(str(e))
             update_job_progress(job_id, status='error', errors=overall_errors)
@@ -3903,8 +4082,18 @@ def run_inventory_import(job_id, file_stream, target_category, mode='append'):
             conn.close()
         cancel_flags.pop(job_id, None)
 
+
 # ========== SALES IMPORT ==========
 def run_sales_import(job_id, file_stream, target_category, mode='append', user_id=None):
+    """
+    Import sales from Excel. SQLite-native. Aligned with preview sales columns.
+
+    Modes:
+      append   → add every row as a new sale (FIFO deducts from batches)
+      replace  → wipe category sales first, then add
+      merge    → rows with a valid Sale ID update that record; rows without
+                 are inserted as new sales (FIFO deducts)
+    """
     try:
         wb = load_workbook(file_stream, data_only=True)
         ws = wb.active
@@ -3915,8 +4104,10 @@ def run_sales_import(job_id, file_stream, target_category, mode='append', user_i
     header_row_idx = None
     header_row = None
     for i, row in enumerate(ws.iter_rows(min_row=1, max_row=20, values_only=True)):
-        if row and any(cell and isinstance(cell, str) and 
-                       ('item' in cell.lower() or 'qty' in cell.lower() or 'rate' in cell.lower()) for cell in row):
+        if row and any(cell and isinstance(cell, str) and
+                       ('item' in cell.lower() or 'qty' in cell.lower()
+                        or 'rate' in cell.lower() or 'price' in cell.lower())
+                       for cell in row):
             header_row_idx = i + 1
             header_row = row
             break
@@ -3928,334 +4119,354 @@ def run_sales_import(job_id, file_stream, target_category, mode='append', user_i
     header_map = {}
     for idx, cell in enumerate(header_row):
         if cell:
-            cell_lower = str(cell).strip().lower()
-            if cell_lower in ['item', 'product', 'name', 'details']:
-                header_map['item'] = idx
-            elif cell_lower in ['qty', 'quantity']:
-                header_map['qty'] = idx
-            elif cell_lower in ['rate', 'selling price', 'unit price']:
-                header_map['rate'] = idx
-            elif cell_lower in ['date', 'sale date']:
-                header_map['date'] = idx
-            elif cell_lower in ['discount']:
+            key = str(cell).strip().lower().replace('_', ' ')
+            if key in ('item', 'product', 'name', 'details'):
+                header_map['name'] = idx
+            elif key in ('qty', 'quantity'):
+                header_map['quantity'] = idx
+            elif key in ('rate', 'selling price', 'unit price', 'price'):
+                header_map['selling_price'] = idx
+            elif key in ('cost', 'cost price', 'unit cost'):
+                header_map['cost_price'] = idx
+            elif key == 'discount':
                 header_map['discount'] = idx
+            elif key in ('date', 'sale date', 'sale datetime'):
+                header_map['date'] = idx
+            elif key == 'brand':
+                header_map['brand'] = idx
+            elif key in ('sale id', 'sale_id'):
+                header_map['sale_id'] = idx
+            elif key in ('payment', 'payment method'):
+                header_map['payment_method'] = idx
+            elif key in ('cheque', 'cheque number', 'cheque #'):
+                header_map['cheque_number'] = idx
 
-    required = ['item', 'qty', 'rate']
-    missing = [f for f in required if f not in header_map]
+    missing = []
+    if 'name' not in header_map: missing.append('Item/Name')
+    if 'quantity' not in header_map: missing.append('Qty/Quantity')
+    if 'selling_price' not in header_map: missing.append('Rate/Selling Price')
     if missing:
-        update_job_progress(job_id, status='error', errors=[f'Missing columns: {", ".join(missing)}'])
+        update_job_progress(job_id, status='error',
+                            errors=[f'Missing required columns: {", ".join(missing)}'])
         return
 
     rows_to_process = []
     skipped_rows = []
-    error_rows = []
+    warning_rows = []
+    seen_keys = set()
 
-    for row_idx, row in enumerate(ws.iter_rows(min_row=header_row_idx + 1, values_only=True), start=header_row_idx + 1):
+    for row_idx, row in enumerate(ws.iter_rows(min_row=header_row_idx + 1, values_only=True),
+                                  start=header_row_idx + 1):
         if not any(row):
             continue
         try:
-            item = str(row[header_map['item']]).strip() if row[header_map['item']] else ''
-            if not item:
-                skipped_rows.append({
-                    'row': row_idx,
-                    'data': {
-                        'item': None,
-                        'qty': row[header_map.get('qty')] if header_map.get('qty') is not None else None,
-                        'rate': row[header_map.get('rate')] if header_map.get('rate') is not None else None
-                    },
-                    'reason': 'Product name is empty'
-                })
+            name = str(row[header_map['name']]).strip() if row[header_map['name']] else ''
+            if not name:
+                skipped_rows.append({'row': row_idx, 'data': {'name': None},
+                                     'reason': 'Product name is empty'})
                 continue
 
-            qty = float(row[header_map['qty']]) if row[header_map['qty']] is not None else 0
+            try:
+                qty = int(float(row[header_map['quantity']])) if row[header_map['quantity']] is not None else 0
+            except Exception:
+                qty = 0
             if qty <= 0:
-                skipped_rows.append({
-                    'row': row_idx,
-                    'data': {
-                        'item': item,
-                        'qty': qty,
-                        'rate': row[header_map.get('rate')] if header_map.get('rate') is not None else None
-                    },
-                    'reason': f'Quantity must be positive (got {qty})'
-                })
+                skipped_rows.append({'row': row_idx, 'data': {'name': name, 'qty': qty},
+                                     'reason': 'Quantity must be > 0'})
                 continue
 
-            rate = float(row[header_map['rate']]) if row[header_map['rate']] is not None else 0.0
+            try:
+                rate = float(row[header_map['selling_price']]) if row[header_map['selling_price']] is not None else 0
+            except Exception:
+                rate = 0
             if rate < 0:
-                skipped_rows.append({
-                    'row': row_idx,
-                    'data': {
-                        'item': item,
-                        'qty': qty,
-                        'rate': rate
-                    },
-                    'reason': 'Selling price cannot be negative'
-                })
+                skipped_rows.append({'row': row_idx, 'data': {'name': name, 'rate': rate},
+                                     'reason': 'Rate cannot be negative'})
                 continue
 
-            discount = float(row[header_map.get('discount')]) if header_map.get('discount') is not None and row[header_map['discount']] is not None else 0.0
+            cost = 0.0
+            if 'cost_price' in header_map and row[header_map['cost_price']] is not None:
+                try: cost = float(row[header_map['cost_price']])
+                except Exception: pass
 
-            sale_date = None
+            discount = 0.0
+            if 'discount' in header_map and row[header_map['discount']] is not None:
+                try: discount = float(row[header_map['discount']])
+                except Exception: pass
+
+            brand = ''
+            if 'brand' in header_map and row[header_map['brand']] is not None:
+                brand = str(row[header_map['brand']]).strip()
+
+            sale_date = datetime.now()
             if 'date' in header_map and row[header_map['date']] is not None:
                 parsed = parse_date_cell(row[header_map['date']])
                 if parsed:
-                    if parsed > datetime.now() + timedelta(days=1):
-                        error_rows.append(f"Row {row_idx}: Date '{parsed.strftime('%Y-%m-%d')}' is in the future - AUTO-CORRECTED to today")
-                        sale_date = datetime.now()
-                    elif parsed.year < 2000:
-                        error_rows.append(f"Row {row_idx}: Date '{parsed.strftime('%Y-%m-%d')}' is before year 2000 - AUTO-CORRECTED to today")
-                        sale_date = datetime.now()
+                    if parsed.year < 2000 or parsed > datetime.now() + timedelta(days=1):
+                        warning_rows.append(f"Row {row_idx}: date out of range — using now()")
                     else:
                         sale_date = parsed
                 else:
-                    sale_date = datetime.now()
-                    error_rows.append(f"Row {row_idx}: Could not parse date, using current date.")
-            else:
-                sale_date = datetime.now()
+                    warning_rows.append(f"Row {row_idx}: could not parse date — using now()")
+
+            sale_id = None
+            if 'sale_id' in header_map and row[header_map['sale_id']] is not None:
+                try:
+                    sid = int(float(row[header_map['sale_id']]))
+                    if sid > 0: sale_id = sid
+                except Exception:
+                    pass
+
+            payment = 'cash'
+            if 'payment_method' in header_map and row[header_map['payment_method']] is not None:
+                p = str(row[header_map['payment_method']]).strip().lower()
+                if p in ('cash', 'momo', 'cheque'):
+                    payment = p
+
+            cheque = ''
+            if 'cheque_number' in header_map and row[header_map['cheque_number']] is not None:
+                cheque = str(row[header_map['cheque_number']]).strip()
+
+            key = (name.lower(), sale_date.isoformat()[:19], qty)
+            if key in seen_keys:
+                warning_rows.append(f"Row {row_idx}: duplicate within file — skipped")
+                continue
+            seen_keys.add(key)
 
             rows_to_process.append({
-                'row_idx': row_idx,
-                'item': item,
-                'qty': int(qty),
-                'rate': rate,
-                'discount': discount,
-                'sale_date': sale_date
+                'row_idx': row_idx, 'name': name, 'brand': brand,
+                'quantity': qty, 'selling_price': rate, 'cost_price': cost,
+                'discount': discount, 'sale_date': sale_date, 'sale_id': sale_id,
+                'payment_method': payment, 'cheque_number': cheque,
             })
         except Exception as e:
             skipped_rows.append({
                 'row': row_idx,
-                'data': {
-                    'item': row[header_map.get('item')] if header_map.get('item') is not None else None,
-                    'qty': row[header_map.get('qty')] if header_map.get('qty') is not None else None,
-                    'rate': row[header_map.get('rate')] if header_map.get('rate') is not None else None
-                },
-                'reason': str(e)
+                'data': {'name': (str(row[header_map['name']]) if 'name' in header_map and row[header_map['name']] else None)},
+                'reason': f'Fatal error: {str(e)}'
             })
 
     total_rows = len(rows_to_process)
-    update_job_progress(job_id, 
-                        total=total_rows, 
-                        processed=0, 
-                        status='processing',
-                        errors=error_rows,
-                        result={'imported': 0, 'skipped': skipped_rows, 'message': 'Parsing completed'})
+    update_job_progress(job_id, total=total_rows, processed=0, status='processing',
+                        errors=warning_rows,
+                        result={'imported': 0, 'inserted': 0, 'updated': 0, 'matched': 0,
+                                'skipped': skipped_rows, 'warnings': warning_rows,
+                                'message': 'Parsing completed'})
 
     if total_rows == 0:
         update_job_progress(job_id, status='done',
-                            result={'imported': 0, 'skipped': skipped_rows, 'message': 'No valid rows to import'})
+                            result={'imported': 0, 'inserted': 0, 'updated': 0, 'matched': 0,
+                                    'skipped': skipped_rows, 'warnings': warning_rows,
+                                    'message': 'No valid rows to import'})
         return
 
-    if not DATABASE_URL:
-        update_job_progress(job_id, status='error', errors=['DATABASE_URL not configured'])
-        return
+    inserted_count = 0
+    updated_count = 0
+    matched_count = 0
+    overall_errors = list(warning_rows)
+    conn = None
 
-    imported_count = 0
-    overall_errors = error_rows.copy()
+    def _fifo_deduct(cur, product_id, qty, sale_id, rate, discount_total):
+        """FIFO deduct `qty` from the product's batches. Inserts one
+        sales_items row per batch slice with the real cost_price. Returns
+        (units_deducted, total_profit)."""
+        cur.execute("""
+            SELECT id, remaining_quantity, cost_price
+            FROM purchase_batches
+            WHERE product_id = %s AND remaining_quantity > 0
+            ORDER BY date ASC, id ASC
+        """, (product_id,))
+        batches = cur.fetchall()
+        remaining = qty
+        deducted = 0
+        total_profit = 0.0
+        for bid, b_rem, b_cost in batches:
+            if remaining <= 0: break
+            take = min(int(b_rem or 0), remaining)
+            if take <= 0: continue
+            cur.execute("UPDATE purchase_batches SET remaining_quantity = remaining_quantity - %s WHERE id = %s",
+                        (take, bid))
+            share = (discount_total or 0) * (take / qty) if qty else 0
+            item_profit = (rate - float(b_cost or 0)) * take - share
+            cur.execute("""
+                INSERT INTO sales_items
+                (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (sale_id, product_id, bid, take, rate, float(b_cost or 0), item_profit))
+            deducted += take
+            total_profit += item_profit
+            remaining -= take
+        return deducted, total_profit
 
     try:
-        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-        conn.autocommit = False
-        cursor = conn.cursor()
+        conn = get_connection()
+        cur = conn.cursor()
 
-        if mode == 'replace' and target_category != 'All':
-            cursor.execute("""
-                DELETE FROM sales_items
-                WHERE product_id IN (
-                    SELECT id FROM products WHERE category = %s
-                )
-            """, (target_category,))
-            cursor.execute("""
-                DELETE FROM sales
-                WHERE id NOT IN (SELECT sale_id FROM sales_items)
-            """)
+        # Ensure sales.action column exists (added by preview feature)
+        try:
+            cur.execute("ALTER TABLE sales ADD COLUMN action TEXT DEFAULT 'sale'")
+        except Exception:
+            pass
 
-        for idx, entry in enumerate(rows_to_process, start=1):
-            product = None
-            product_id = None
-            product_category = None
-            product_name = None
-            
-            cursor.execute(
-                "SELECT id, category, name FROM products WHERE name = %s",
-                (entry['item'],)
-            )
-            product = cursor.fetchone()
-            
-            if not product:
-                search_term = entry['item'].strip()
-                cursor.execute("""
-                    SELECT id, category, name 
-                    FROM products 
-                    WHERE LOWER(name) LIKE LOWER(%s)
-                    AND NOT EXISTS (
-                        SELECT 1 FROM deleted_products dp 
-                        WHERE dp.product_id = products.id 
-                        AND dp.action IN ('PERMANENTLY DELETED', 'PRODUCT DELETED')
-                        AND dp.source = 'product'
-                    )
-                    LIMIT 1
-                """, (f'%{search_term}%',))
-                product = cursor.fetchone()
-                
-                if product:
-                    overall_errors.append(f"Row {entry['row_idx']}: Product '{entry['item']}' matched to '{product[2]}' (partial match)")
-            
-            if not product:
-                import re
-                cleaned_name = re.sub(r'\s+\d+$', '', entry['item'])
-                if cleaned_name != entry['item']:
-                    cursor.execute("""
-                        SELECT id, category, name 
-                        FROM products 
-                        WHERE LOWER(name) LIKE LOWER(%s)
-                        AND NOT EXISTS (
-                            SELECT 1 FROM deleted_products dp 
-                            WHERE dp.product_id = products.id 
-                            AND dp.action IN ('PERMANENTLY DELETED', 'PRODUCT DELETED')
-                            AND dp.source = 'product'
-                        )
-                        LIMIT 1
-                    """, (f'%{cleaned_name}%',))
-                    product = cursor.fetchone()
-                    if product:
-                        overall_errors.append(f"Row {entry['row_idx']}: Product '{entry['item']}' matched to '{product[2]}' (cleaned match)")
-
-            if not product:
-                overall_errors.append(f"Row {entry['row_idx']}: Product '{entry['item']}' not found in database")
-                continue
-                
-            product_id, product_category, product_name = product[0], product[1], product[2]
-
-            if target_category == 'Screen' and product_category == 'Accessory':
-                overall_errors.append(f"Row {entry['row_idx']}: Product '{entry['item']}' is in 'Accessory' category - skipping (only Screens/Others allowed)")
-                continue
-            
-            if target_category == 'Accessory' and product_category != 'Accessory':
-                overall_errors.append(f"Row {entry['row_idx']}: Product '{entry['item']}' category '{product_category}' != 'Accessory' - skipping")
-                continue
-
-            subtotal = entry['qty'] * entry['rate']
-            total = subtotal - entry['discount']
-
-            cursor.execute("""
-                INSERT INTO sales (date, subtotal, discount, total, profit, reversed, payment_method, user_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (entry['sale_date'], subtotal, entry['discount'], total, 0, 0, 'cash', user_id))
-            sale_id = cursor.fetchone()[0]
-
-            cursor.execute("""
-                SELECT id, cost_price, selling_price, remaining_quantity
-                FROM purchase_batches
-                WHERE product_id = %s AND remaining_quantity > 0
-                ORDER BY date ASC
-                LIMIT 1
-            """, (product_id,))
-            batch_info = cursor.fetchone()
-            
-            if batch_info:
-                batch_id, cost_price, selling_price, remaining_qty = batch_info
-                
-                if remaining_qty >= entry['qty']:
-                    selling_price = entry['rate']
-                    item_profit = (selling_price - cost_price) * entry['qty'] - entry['discount']
-                    
-                    cursor.execute("""
-                        INSERT INTO sales_items
-                        (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """, (sale_id, product_id, batch_id, entry['qty'], selling_price, cost_price, item_profit))
-                    
-                    cursor.execute("""
-                        UPDATE purchase_batches
-                        SET remaining_quantity = remaining_quantity - %s
-                        WHERE id = %s
-                    """, (entry['qty'], batch_id))
-                    
-                    cursor.execute("""
-                        UPDATE products
-                        SET stock = stock - %s
-                        WHERE id = %s
-                    """, (entry['qty'], product_id))
-                    
-                    cursor.execute("""
-                        UPDATE sales
-                        SET profit = %s
-                        WHERE id = %s
-                    """, (item_profit, sale_id))
-                    
-                else:
-                    available = remaining_qty
-                    selling_price = entry['rate']
-                    cost_price = float(cost_price) if cost_price else 0
-                    item_profit = (selling_price - cost_price) * available - (entry['discount'] * (available / entry['qty']))
-                    
-                    cursor.execute("""
-                        INSERT INTO sales_items
-                        (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """, (sale_id, product_id, batch_id, available, selling_price, cost_price, item_profit))
-                    
-                    cursor.execute("""
-                        UPDATE purchase_batches
-                        SET remaining_quantity = 0
-                        WHERE id = %s
-                    """, (batch_id,))
-                    
-                    cursor.execute("""
-                        UPDATE products
-                        SET stock = stock - %s
-                        WHERE id = %s
-                    """, (available, product_id))
-                    
-                    cursor.execute("""
-                        UPDATE sales
-                        SET profit = %s
-                        WHERE id = %s
-                    """, (item_profit, sale_id))
-                    
-                    overall_errors.append(f"Row {entry['row_idx']}: Product '{entry['item']}' had only {available} stock (needed {entry['qty']}) - sold {available}, rest recorded without stock")
+        if mode == 'replace':
+            if target_category == 'Screen':
+                cat_where = "LOWER(COALESCE(p.category, '')) = 'screen'"
             else:
-                cost_price = 0
-                selling_price = entry['rate']
-                item_profit = (selling_price - cost_price) * entry['qty'] - entry['discount']
-                
-                cursor.execute("""
-                    INSERT INTO sales_items
-                    (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
-                    VALUES (%s, %s, NULL, %s, %s, %s, %s)
-                """, (sale_id, product_id, entry['qty'], selling_price, cost_price, item_profit))
-                
-                cursor.execute("""
-                    UPDATE sales
-                    SET profit = %s
-                    WHERE id = %s
-                """, (item_profit, sale_id))
-                
-                overall_errors.append(f"Row {entry['row_idx']}: Product '{entry['item']}' has 0 stock - recorded sale without stock deduction")
+                cat_where = "LOWER(COALESCE(p.category, '')) != 'screen'"
+            cur.execute(f"""
+                DELETE FROM sales_items
+                WHERE product_id IN (SELECT id FROM products p WHERE {cat_where})
+            """)
+            cur.execute("DELETE FROM sales WHERE id NOT IN (SELECT DISTINCT sale_id FROM sales_items)")
 
-            imported_count += 1
-            if imported_count % 100 == 0:
-                update_job_progress(job_id, processed=imported_count)
+        prod_cache = {}
+        def _find_product(name, brand):
+            key = (name.lower(), (brand or '').lower())
+            if key in prod_cache:
+                return prod_cache[key]
+            cur.execute("SELECT id FROM products WHERE LOWER(name) = LOWER(%s) LIMIT 1", (name,))
+            r = cur.fetchone()
+            pid = r[0] if r else None
+            if not pid and brand:
+                cur.execute("""
+                    SELECT id FROM products
+                    WHERE LOWER(name) = LOWER(%s)
+                      AND LOWER(COALESCE(brand, '')) = LOWER(%s)
+                    LIMIT 1
+                """, (name, brand))
+                r = cur.fetchone()
+                pid = r[0] if r else None
+            prod_cache[key] = pid
+            return pid
+
+        for item in rows_to_process:
+            try:
+                product_id = _find_product(item['name'], item['brand'])
+                if not product_id:
+                    skipped_rows.append({
+                        'row': item['row_idx'],
+                        'data': {'name': item['name']},
+                        'reason': f"Product '{item['name']}' not found in inventory"
+                    })
+                    continue
+
+                existing_sale_id = None
+                if mode == 'merge' and item['sale_id']:
+                    cur.execute("SELECT id FROM sales WHERE id = %s", (item['sale_id'],))
+                    r = cur.fetchone()
+                    if r:
+                        existing_sale_id = r[0]
+
+                subtotal = item['quantity'] * item['selling_price']
+                total = subtotal - item['discount']
+
+                if existing_sale_id:
+                    cur.execute("""
+                        UPDATE sales
+                        SET date = %s, subtotal = %s, discount = %s, total = %s,
+                            payment_method = %s, cheque_number = %s,
+                            action = 'updated_from_excel'
+                        WHERE id = %s
+                    """, (item['sale_date'], subtotal, item['discount'], total,
+                          item['payment_method'], item['cheque_number'] or None,
+                          existing_sale_id))
+                    cur.execute("DELETE FROM sales_items WHERE sale_id = %s AND product_id = %s",
+                                (existing_sale_id, product_id))
+                    item_profit = (item['selling_price'] - item['cost_price']) * item['quantity'] - item['discount']
+                    cur.execute("""
+                        INSERT INTO sales_items
+                        (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
+                        VALUES (%s, %s, NULL, %s, %s, %s, %s)
+                    """, (existing_sale_id, product_id, item['quantity'],
+                          item['selling_price'], item['cost_price'], item_profit))
+                    cur.execute("UPDATE sales SET profit = %s WHERE id = %s", (item_profit, existing_sale_id))
+                    updated_count += 1
+                    matched_count += 1
+                else:
+                    cur.execute("""
+                        INSERT INTO sales
+                        (date, subtotal, discount, total, profit, reversed,
+                         payment_method, cheque_number, user_id, action)
+                        VALUES (%s, %s, %s, %s, %s, 0, %s, %s, %s, 'added_from_excel')
+                    """, (item['sale_date'], subtotal, item['discount'], total, 0,
+                          item['payment_method'], item['cheque_number'] or None,
+                          user_id))
+                    cur.execute("SELECT last_insert_rowid()")
+                    new_sale_id = cur.fetchone()[0]
+
+                    deducted, total_profit = _fifo_deduct(cur, product_id, item['quantity'],
+                                                          new_sale_id, item['selling_price'],
+                                                          item['discount'])
+
+                    if deducted < item['quantity']:
+                        short = item['quantity'] - deducted
+                        cur.execute("""
+                            INSERT INTO sales_items
+                            (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
+                            VALUES (%s, %s, NULL, %s, %s, %s, 0)
+                        """, (new_sale_id, product_id, short,
+                              item['selling_price'], item['cost_price']))
+                        overall_errors.append(
+                            f"Row {item['row_idx']}: only {deducted}/{item['quantity']} units had batch stock"
+                        )
+
+                    cur.execute("""
+                        UPDATE products
+                        SET stock = COALESCE((
+                            SELECT SUM(remaining_quantity) FROM purchase_batches
+                            WHERE product_id = products.id
+                        ), 0)
+                        WHERE id = %s
+                    """, (product_id,))
+                    cur.execute("UPDATE sales SET profit = %s WHERE id = %s", (total_profit, new_sale_id))
+                    inserted_count += 1
+
+                if (inserted_count + updated_count) % 50 == 0:
+                    update_job_progress(job_id, processed=inserted_count + updated_count,
+                                        result={'imported': inserted_count + updated_count,
+                                                'inserted': inserted_count, 'updated': updated_count,
+                                                'matched': matched_count,
+                                                'skipped': skipped_rows,
+                                                'warnings': warning_rows,
+                                                'message': 'Processing...'})
+
                 if cancel_flags.get(job_id):
                     raise Exception("CANCELLED_BY_USER")
+            except Exception as e:
+                skipped_rows.append({
+                    'row': item['row_idx'],
+                    'data': {'name': item['name']},
+                    'reason': f'Row error: {str(e)}'
+                })
 
         conn.commit()
         cancel_flags.pop(job_id, None)
+
+        message = f'{inserted_count} sale(s) added'
+        if mode == 'merge' and updated_count:
+            message += f', {updated_count} updated'
+        if skipped_rows:
+            message += f', {len(skipped_rows)} skipped'
+        if warning_rows:
+            message += f', {len(warning_rows)} warnings'
+
         update_job_progress(job_id, status='done',
-                            result={
-                                'imported': imported_count,
-                                'skipped': skipped_rows,
-                                'message': f'Imported {imported_count} sales records, {len(skipped_rows)} rows skipped'
-                            })
+                            result={'imported': inserted_count + updated_count,
+                                    'inserted': inserted_count, 'updated': updated_count,
+                                    'matched': matched_count,
+                                    'skipped': skipped_rows, 'warnings': warning_rows,
+                                    'message': message})
 
     except Exception as e:
         if conn:
             conn.rollback()
         if str(e) == "CANCELLED_BY_USER":
             update_job_progress(job_id, status='cancelled',
-                                result={'imported': 0, 'skipped': skipped_rows,
-                                        'message': 'Import cancelled – no data was committed'})
+                                result={'imported': 0,
+                                        'inserted': inserted_count, 'updated': updated_count,
+                                        'matched': matched_count,
+                                        'skipped': skipped_rows, 'warnings': warning_rows,
+                                        'message': 'Import cancelled — no data was committed'})
         else:
             overall_errors.append(str(e))
             update_job_progress(job_id, status='error', errors=overall_errors)
@@ -4263,6 +4474,7 @@ def run_sales_import(job_id, file_stream, target_category, mode='append', user_i
         if conn:
             conn.close()
         cancel_flags.pop(job_id, None)
+
 
 # ----- INVENTORY IMPORT ENDPOINT -----
 @app.route('/api/inventory/import', methods=['POST'])
@@ -4283,7 +4495,7 @@ def api_import_inventory():
         return jsonify({'success': False, 'error': 'Invalid target category'}), 400
 
     mode = request.form.get('mode', 'append')
-    if mode not in ['append', 'replace']:
+    if mode not in ['append', 'replace', 'merge']:
         return jsonify({'success': False, 'error': 'Invalid mode'}), 400
 
     file_content = file.read()
@@ -4328,7 +4540,7 @@ def api_import_sales():
         return jsonify({'success': False, 'error': 'Invalid target category'}), 400
 
     mode = request.form.get('mode', 'append')
-    if mode not in ['append', 'replace']:
+    if mode not in ['append', 'replace', 'merge']:
         return jsonify({'success': False, 'error': 'Invalid mode'}), 400
 
     file_content = file.read()
@@ -4376,15 +4588,26 @@ def api_import_progress(job_id):
     if result_data and isinstance(result_data, str):
         try:
             result_data = json.loads(result_data)
-        except:
-            pass
+        except Exception:
+            result_data = {}
+    if not isinstance(result_data, dict):
+        result_data = {}
+
+    errors_data = row[3]
+    if errors_data and isinstance(errors_data, str):
+        try:
+            errors_data = json.loads(errors_data)
+        except Exception:
+            errors_data = []
+    if not isinstance(errors_data, list):
+        errors_data = []
 
     return jsonify({
         'success': True,
         'status': row[0],
         'total': row[1],
         'processed': row[2],
-        'errors': row[3],
+        'errors': errors_data,
         'result': result_data,
         'updated_at': row[5].isoformat() if row[5] else None
     })
@@ -4468,6 +4691,121 @@ def api_import_failed_report(job_id):
     return send_file(buffer, as_attachment=True,
                      download_name=f"failed_import_{job_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                      mimetype='application/pdf')
+
+# ===================== IMPORT REPORT PDF =====================
+@app.route('/api/import/report/<job_id>', methods=['GET'])
+@login_required
+def api_import_report_pdf(job_id):
+    """Generate a PDF report from an import job."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT status, total, processed, errors, result, updated_at FROM import_jobs WHERE job_id = %s",
+        (job_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return jsonify({'success': False, 'error': 'Job not found'}), 404
+
+    status, total, processed, errors_raw, result_raw, updated_at = row
+    result = result_raw
+    if isinstance(result, str):
+        try: result = json.loads(result)
+        except Exception: result = {}
+    if not isinstance(result, dict):
+        result = {}
+    errors = errors_raw
+    if isinstance(errors, str):
+        try: errors = json.loads(errors)
+        except Exception: errors = []
+    if not isinstance(errors, list):
+        errors = []
+
+    inserted = int(result.get('inserted', 0) or 0)
+    updated  = int(result.get('updated', 0) or 0)
+    matched  = int(result.get('matched', updated) or 0)
+    skipped  = result.get('skipped') or []
+    warnings = result.get('warnings') or []
+    if not isinstance(skipped, list):   skipped  = []
+    if not isinstance(warnings, list):  warnings = []
+    message  = result.get('message', '')
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=30, leftMargin=30,
+                            topMargin=30, bottomMargin=30)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph("📥 Import Report", styles["Title"]))
+    elements.append(Spacer(1, 6))
+    elements.append(Paragraph(f"Job ID: {job_id}", styles["Normal"]))
+    if updated_at:
+        elements.append(Paragraph(f"Completed: {updated_at}", styles["Normal"]))
+    elements.append(Paragraph(f"Status: {status}", styles["Normal"]))
+    elements.append(Spacer(1, 12))
+
+    summary = [
+        ["Metric", "Count"],
+        ["Total Processed", str(processed or total or 0)],
+        ["✅ Inserted (new)", str(inserted)],
+        ["🔄 Updated (matched existing)", str(updated)],
+        ["⚠️ Skipped", str(len(skipped))],
+        ["ℹ️ Warnings", str(len(warnings) + len(errors))],
+    ]
+    t = Table(summary, colWidths=[8*cm, 4*cm], hAlign='CENTER')
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1E3A5F")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('ALIGN', (1,1), (1,-1), 'CENTER'),
+        ('BACKGROUND', (1,1), (1,-1), colors.lightgrey),
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 12))
+
+    if message:
+        elements.append(Paragraph(f"Summary: {message}", styles["Normal"]))
+        elements.append(Spacer(1, 12))
+
+    if skipped:
+        elements.append(Paragraph(f"⚠️ Skipped Rows ({len(skipped)})", styles["Heading2"]))
+        skip_data = [["Row", "Name", "Reason"]]
+        for s in skipped[:100]:
+            skip_data.append([
+                str(s.get('row', '')),
+                str((s.get('data') or {}).get('name') or '-')[:40],
+                str(s.get('reason', ''))[:80],
+            ])
+        t2 = Table(skip_data, repeatRows=1, colWidths=[1.5*cm, 5*cm, 10*cm])
+        t2.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#7F1D1D")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('FONTSIZE', (0,0), (-1,-1), 8),
+            ('GRID', (0,0), (-1,-1), 0.3, colors.black),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ]))
+        elements.append(t2)
+        elements.append(Spacer(1, 12))
+
+    all_warnings = warnings + errors
+    if all_warnings:
+        elements.append(Paragraph(f"ℹ️ Warnings ({len(all_warnings)})", styles["Heading2"]))
+        for w in all_warnings[:80]:
+            elements.append(Paragraph(f"• {str(w)[:200]}", styles["Normal"]))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"import_report_{job_id[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+        mimetype='application/pdf',
+    )
+
 
 # ===================== IMPORT VERIFICATION =====================
 def verify_import(job_id, file_stream, target_category):
@@ -4748,12 +5086,301 @@ def init_claims_table():
 # ===================== CALL THE FUNCTION =====================
 init_claims_table()
 
+# ===================== NOTIFICATIONS TABLE + API =====================
+def init_notifications_table():
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                kind TEXT NOT NULL,
+                title TEXT NOT NULL,
+                message TEXT,
+                meta TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                dismissed_at TIMESTAMP
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_notifications_dismissed ON notifications(dismissed_at)")
+        conn.commit()
+        print("✅ notifications table ensured.")
+    except Exception as e:
+        print(f"❌ init_notifications_table: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
+
+def add_notification(kind, title, message='', meta=None, user_id=None):
+    """Insert a notification. Never raises — safe to call from any route."""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO notifications (user_id, kind, title, message, meta)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (user_id, kind, title, message, json.dumps(meta) if meta else None))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"[notify] insert failed: {e}")
+        return False
+
+
+init_notifications_table()
+
+
+@app.route('/api/notifications', methods=['GET'])
+@login_required
+def api_list_notifications():
+    uid = session.get('user_id')
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT id, kind, title, message, meta, created_at
+            FROM notifications
+            WHERE dismissed_at IS NULL
+              AND (user_id = %s OR user_id IS NULL)
+            ORDER BY created_at DESC
+            LIMIT 100
+        """, (uid,))
+        rows = cur.fetchall()
+        items = []
+        for r in rows:
+            meta = {}
+            if r[4]:
+                try: meta = json.loads(r[4])
+                except Exception: meta = {}
+            items.append({
+                'id': r[0], 'kind': r[1], 'title': r[2],
+                'message': r[3] or '', 'meta': meta,
+                'created_at': r[5].isoformat() if hasattr(r[5], 'isoformat') else str(r[5]),
+            })
+        return jsonify({'success': True, 'items': items})
+    finally:
+        conn.close()
+
+
+@app.route('/api/notifications/<int:nid>/dismiss', methods=['POST'])
+@login_required
+def api_dismiss_notification(nid):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            UPDATE notifications SET dismissed_at = CURRENT_TIMESTAMP
+            WHERE id = %s AND (user_id = %s OR user_id IS NULL)
+        """, (nid, session.get('user_id')))
+        conn.commit()
+        return jsonify({'success': True})
+    finally:
+        conn.close()
+
+
+@app.route('/api/notifications/clear', methods=['POST'])
+@login_required
+def api_clear_notifications():
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            UPDATE notifications SET dismissed_at = CURRENT_TIMESTAMP
+            WHERE dismissed_at IS NULL AND (user_id = %s OR user_id IS NULL)
+        """, (session.get('user_id'),))
+        conn.commit()
+        return jsonify({'success': True})
+    finally:
+        conn.close()
+
+
 # ===================== PING =====================
 @app.route('/api/ping', methods=['GET'])
 def ping():
     return jsonify({"status": "ok", "message": "Deployed version is current"})
 
 
+# ============================================================
+#  PREVIEW & EDIT DATA (Excel-like)
+# ============================================================
+from services.preview_service import (
+    get_purchase_rows, get_sales_rows,
+    save_purchases, save_sales,
+    rows_to_csv,
+    get_product_suggestions,
+    PURCHASE_COLUMNS, SALES_COLUMNS,
+)
+
+@app.route('/preview-data')
+@login_required
+def preview_data_page():
+    return render_template('preview_data.html')
+
+
+@app.route('/api/preview/<kind>/<category>', methods=['GET'])
+@login_required
+def api_preview_rows(kind, category):
+    if kind not in ('purchases', 'sales'):
+        return jsonify({'success': False, 'error': 'Invalid kind'}), 400
+    if category not in ('Accessory', 'Screen'):
+        return jsonify({'success': False, 'error': 'Invalid category'}), 400
+    try:
+        rows = get_purchase_rows(category) if kind == 'purchases' else get_sales_rows(category)
+        cols = PURCHASE_COLUMNS if kind == 'purchases' else SALES_COLUMNS
+        return jsonify({
+            'success': True,
+            'kind': kind,
+            'category': category,
+            'columns': [{'key': c[0], 'header': c[1], 'type': c[2], 'editable': c[3]} for c in cols],
+            'rows': rows,
+            'count': len(rows),
+        })
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/preview/<kind>/<category>', methods=['POST'])
+@login_required
+def api_preview_save(kind, category):
+    if kind not in ('purchases', 'sales'):
+        return jsonify({'success': False, 'error': 'Invalid kind'}), 400
+    if category not in ('Accessory', 'Screen'):
+        return jsonify({'success': False, 'error': 'Invalid category'}), 400
+
+    # Only admins can modify data
+    is_admin = (session.get('role') == 'admin'
+                or str(session.get('username') or '').lower() == 'oxbee')
+    if not is_admin:
+        return jsonify({'success': False, 'error': 'Admin access required'}), 403
+
+    data = request.json or {}
+    rows = data.get('rows', [])
+    deleted_ids = data.get('deleted_ids', []) or []
+    mode = (data.get('mode') or 'merge').lower()
+    if mode not in ('replace', 'append', 'merge'):
+        return jsonify({'success': False, 'error': 'Invalid mode'}), 400
+
+    try:
+        if kind == 'purchases':
+            stats = save_purchases(rows, category, mode, deleted_ids=deleted_ids)
+        else:
+            stats = save_sales(rows, category, mode, deleted_ids=deleted_ids)
+        try:
+            ins = stats.get('inserted', 0); upd = stats.get('updated', 0); dlt = stats.get('deleted', 0)
+            bits = []
+            if ins: bits.append(f'{ins} added')
+            if upd: bits.append(f'{upd} updated')
+            if dlt: bits.append(f'{dlt} deleted')
+            if bits:
+                add_notification(
+                    'preview_save',
+                    f'📊 {kind.title()} saved ({category})',
+                    ', '.join(bits),
+                    {'kind': kind, 'category': category, 'mode': mode,
+                     'inserted': ins, 'updated': upd, 'deleted': dlt},
+                    user_id=session.get('user_id'),
+                )
+        except Exception as _ne:
+            print(f"[notify] preview hook: {_ne}")
+        return jsonify({'success': True, 'mode': mode, 'stats': stats})
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/preview/suggestions/<category>', methods=['GET'])
+@login_required
+def api_preview_suggestions(category):
+    if category not in ('Accessory', 'Screen'):
+        return jsonify({'success': False, 'error': 'Invalid category'}), 400
+    try:
+        data = get_product_suggestions(category)
+        return jsonify({'success': True, **data})
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/preview/<kind>/<category>/export.csv', methods=['GET'])
+@login_required
+def api_preview_export_csv(kind, category):
+    if kind not in ('purchases', 'sales'):
+        return jsonify({'success': False, 'error': 'Invalid kind'}), 400
+    if category not in ('Accessory', 'Screen'):
+        return jsonify({'success': False, 'error': 'Invalid category'}), 400
+    rows = get_purchase_rows(category) if kind == 'purchases' else get_sales_rows(category)
+    csv_data = rows_to_csv(rows, kind)
+    from flask import Response
+    fname = f"{kind}_{category}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return Response(
+        csv_data,
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="{fname}"'},
+    )
+
+
 # ---------------------- RUN THE APP ----------------------
+# ───── non-admin sensitive-field strip (phase 11a) ─────
+_PATH_KEY_MAP = {
+    '/api/dashboard/summary':       {'profit'},
+    '/api/today_sales':             {'profit', 'cost_price', 'net_profit'},
+    '/api/sales/products':          {'cost_price'},
+    '/api/purchases':               {'cost_price', 'total_cost', 'discount', 'sold_quantity'},
+    '/api/analytics/summary':       {'profit'},
+    '/api/analytics/top_products':  {'profit'},
+}
+_HISTORY_KEYS = {'original_cost_price', 'current_cost_price', 'profit', 'cost_price'}
+
+
+def _is_admin_session():
+    """Admin = role 'admin' OR username 'oxbee' (case-insensitive)."""
+    try:
+        role = (session.get('role') or '').strip().lower()
+        user = (session.get('username') or '').strip().lower()
+        return role == 'admin' or user == 'oxbee'
+    except Exception:
+        return False
+
+
+def _strip_sensitive(obj, keys):
+    """Recursively drop `keys` from dicts (and dicts inside lists)."""
+    if isinstance(obj, dict):
+        return {k: _strip_sensitive(v, keys) for k, v in obj.items() if k not in keys}
+    if isinstance(obj, list):
+        return [_strip_sensitive(v, keys) for v in obj]
+    return obj
+
+
+@app.after_request
+def _strip_sensitive_for_non_admin(response):
+    try:
+        if _is_admin_session():
+            return response
+        path = (request.path or '').rstrip('/')
+        if path.startswith('/api/purchases/') and path.endswith('/history'):
+            keys = _HISTORY_KEYS
+        else:
+            keys = _PATH_KEY_MAP.get(path)
+        if not keys:
+            return response
+        if response.mimetype != 'application/json':
+            return response
+        data = response.get_json(silent=True)
+        if data is None:
+            return response
+        cleaned = _strip_sensitive(data, keys)
+        response.set_data(json.dumps(cleaned))
+        response.content_length = len(response.get_data())
+    except Exception:
+        # never 500 on a strip failure
+        pass
+    return response
+# ───── end non-admin sensitive-field strip ─────
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

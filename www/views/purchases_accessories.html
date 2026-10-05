@@ -9,7 +9,7 @@
             class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
         ← Back
     </button>
-    <h2 class="text-xl md:text-2xl font-bold text-indigo-600">🛒 Purchases</h2>
+    <h2 class="text-xl md:text-2xl font-bold text-indigo-600" data-i18n="purchases.title">🛒 Purchases</h2>
     <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">Accessories</span>
     <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">APK · Dexie</span>
 </div>
@@ -20,10 +20,10 @@
         <div><span class="text-sm text-gray-500">💡 Having issues loading data?</span></div>
         <div class="flex gap-2 flex-wrap">
             <button onclick="forceRefresh()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm">
-                🔄 Force Refresh
+                <span data-i18n="purchases.force_refresh">🔄 Force Refresh</span>
             </button>
             <button onclick="clearAllLocalData()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
-                🗑️ Clear All Data
+                <span data-i18n="purchases.clear_data">🗑️ Clear All Data</span>
             </button>
         </div>
     </div>
@@ -37,12 +37,12 @@
     </div>
     <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-8 gap-3">
         <div>
-            <label class="block text-sm font-medium text-gray-700">Product Name</label>
+            <label class="block text-sm font-medium text-gray-700" data-i18n="purchases.form.name">Product Name</label>
             <input type="text" id="name" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800" autocomplete="off">
             <div id="nameSuggestions" class="absolute z-10 bg-white border rounded-lg shadow-lg hidden max-h-60 overflow-y-auto w-full"></div>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Brand</label>
+            <label class="block text-sm font-medium text-gray-700" data-i18n="purchases.form.brand">Brand</label>
             <input type="text" id="brand" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800" autocomplete="off">
             <div id="brandSuggestions" class="absolute z-10 bg-white border rounded-lg shadow-lg hidden max-h-60 overflow-y-auto w-full"></div>
         </div>
@@ -52,23 +52,23 @@
             <div id="categorySuggestions" class="absolute z-10 bg-white border rounded-lg shadow-lg hidden max-h-60 overflow-y-auto w-full"></div>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Quantity</label>
+            <label class="block text-sm font-medium text-gray-700" data-i18n="purchases.form.qty">Quantity</label>
             <input type="number" id="quantity" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Cost Price (₵)</label>
+            <label class="block text-sm font-medium text-gray-700" data-i18n="purchases.form.cost">Cost Price</label>
             <input type="number" step="0.01" id="cost_price" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Discount (₵)</label>
+            <label class="block text-sm font-medium text-gray-700" data-i18n="purchases.form.discount">Discount</label>
             <input type="number" step="0.01" id="discount" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Selling Price (₵)</label>
+            <label class="block text-sm font-medium text-gray-700" data-i18n="purchases.form.selling">Selling Price</label>
             <input type="number" step="0.01" id="selling_price" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Source</label>
+            <label class="block text-sm font-medium text-gray-700" data-i18n="purchases.form.source">Source</label>
             <input type="text" id="source" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800" placeholder="e.g. Supplier" autocomplete="off">
             <div id="sourceSuggestions" class="absolute z-10 bg-white border rounded-lg shadow-lg hidden"></div>
         </div>
@@ -110,9 +110,9 @@
         <input type="checkbox" id="showUpdatedOnly" class="h-4 w-4 text-blue-600 rounded">
         <label for="showUpdatedOnly" class="text-sm text-gray-700 whitespace-nowrap">Show only updated</label>
     </div>
-    <button id="filterBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg">🔍 Filter</button>
-    <button id="clearFilterBtn" class="bg-gray-400 hover:bg-gray-500 text-white px-5 py-2 rounded-lg">✕ Clear</button>
-    <button id="pdfBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded-lg">🧾 PDF Report</button>
+    <button id="filterBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg" data-i18n="purchases.filter.apply">🔍 Filter</button>
+    <button id="clearFilterBtn" class="bg-gray-400 hover:bg-gray-500 text-white px-5 py-2 rounded-lg" data-i18n="purchases.filter.clear">✕ Clear</button>
+    <button id="pdfBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded-lg" data-i18n="purchases.filter.pdf">🧾 PDF Report</button>
     <button id="viewPendingBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg flex items-center gap-2">
         <span>⏳ Pending</span>
         <span id="pendingCount" class="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 hidden">0</span>
@@ -336,7 +336,30 @@
 (function() {
 'use strict';
 
-const RENDER = 'https://ox-smart-pos-release-version.onrender.com';
+// Fill any <span class="ox-cur"> with the user's currency symbol
+function fillOxCur() {
+    var sym = (window.OX_SETTINGS && window.OX_SETTINGS.currency_symbol) || '₵';
+    document.querySelectorAll('.ox-cur').forEach(function(el) { el.textContent = sym; });
+}
+window.fillOxCur = fillOxCur;
+
+const RENDER = (function () {
+    const origin = window.location.origin;
+    const APK_ORIGINS = ['https://localhost', 'capacitor://localhost'];
+    if (APK_ORIGINS.indexOf(origin) !== -1) return 'https://ox-smart-pos-release-version.onrender.com';
+    return origin;
+})();
+
+// i18n shim — reads from the shell's window.OX_I18N if present.
+function $t(key, fallback) {
+    try {
+        if (typeof window.t === 'function') {
+            const v = window.t(key);
+            if (v && v !== key) return v;
+        }
+    } catch (e) {}
+    return fallback || key;
+}
 
 function safeToFixed(val, decimals = 2) {
     const num = parseFloat(val);
@@ -428,7 +451,8 @@ function formatDate(dateStr) {
     return new Date(dateStr).toLocaleString();
 }
 function formatMoney(amount) {
-    return '₵' + safeToFixed(amount);
+    const sym = (window.OX_SETTINGS && window.OX_SETTINGS.currency_symbol) || '₵';
+    return sym + safeToFixed(amount);
 }
 
 function showLoadingState() {
@@ -610,8 +634,8 @@ async function viewPendingPurchases() {
                         </div>
                         <h3 class="font-bold text-lg mt-1">${escapeHtml(p.data.name)} (${escapeHtml(p.data.brand)})</h3>
                         <p class="text-sm text-gray-600">
-                            Qty: ${p.data.quantity} | Cost: ₵${safeToFixed(p.data.cost_price)} | Selling: ₵${safeToFixed(p.data.selling_price)}
-                            ${p.data.discount ? `| Discount: ₵${safeToFixed(p.data.discount)}` : ''}
+                            Qty: ${p.data.quantity} | Cost: ${formatMoney(p.data.cost_price)} | Selling: ${formatMoney(p.data.selling_price)}
+                            ${p.data.discount ? `| Discount: ${formatMoney(p.data.discount)}` : ''}
                         </p>
                         <p class="text-sm text-gray-500">Category: ${p.data.category || 'Accessory'}</p>
                         <p class="text-sm text-gray-500">Source: ${p.data.source || 'Unknown'}</p>
@@ -901,12 +925,12 @@ function renderHistoryModal(data, batchId, isOffline) {
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
                 <div><span class="text-gray-500">Date:</span> <strong>${formatDate(purchase.original_date)}</strong></div>
                 <div><span class="text-gray-500">Quantity:</span> <strong>${purchase.original_quantity}</strong></div>
-                <div><span class="text-gray-500">Cost:</span> <strong>₵${safeToFixed(purchase.original_cost_price)}</strong></div>
-                <div><span class="text-gray-500">Selling:</span> <strong>₵${safeToFixed(purchase.original_selling_price)}</strong></div>
+                <div><span class="text-gray-500">Cost:</span> <strong>${formatMoney(purchase.original_cost_price)}</strong></div>
+                <div><span class="text-gray-500">Selling:</span> <strong>${formatMoney(purchase.original_selling_price)}</strong></div>
             </div>
             ${purchase.current_quantity !== purchase.original_quantity ? `
                 <div class="mt-2 text-xs text-blue-600">
-                    📝 Updated: Qty ${purchase.current_quantity} | Cost ₵${safeToFixed(purchase.current_cost_price)} | Selling ₵${safeToFixed(purchase.current_selling_price)}
+                    📝 Updated: Qty ${purchase.current_quantity} | Cost ${formatMoney(purchase.current_cost_price)} | Selling ${formatMoney(purchase.current_selling_price)}
                 </div>` : ''}
             <div class="mt-2 text-xs text-gray-500">Source: ${escapeHtml(purchase.source)} | Category: ${escapeHtml(purchase.category)}</div>
             <div class="mt-1 text-xs text-gray-400">Batch #${purchase.batch_id} | ${escapeHtml(purchase.name)} (${escapeHtml(purchase.brand)})</div>
@@ -926,8 +950,8 @@ function renderHistoryModal(data, batchId, isOffline) {
                         <div class="bg-white rounded-lg p-3 border border-gray-200 flex flex-wrap justify-between items-center">
                             <div>
                                 <span class="font-medium">${item.quantity} units</span>
-                                <span class="text-sm text-gray-500 ml-2">@ ₵${safeToFixed(item.selling_price)}</span>
-                                <span class="text-xs text-gray-400 block">Profit: ₵${safeToFixed(item.profit)}</span>
+                                <span class="text-sm text-gray-500 ml-2">@ ${formatMoney(item.selling_price)}</span>
+                                <span class="text-xs text-gray-400 block">Profit: ${formatMoney(item.profit)}</span>
                             </div>
                             <div class="text-right text-xs">
                                 <div class="text-gray-600">${formatDate(item.sale_date)}</div>
@@ -1201,8 +1225,26 @@ function renderList(purchases) {
         const soldQty = getRealSold(p);
         const claimedCost = claimedQty * (p.cost_price || 0);
         const soldBadge = soldQty > 0 ? `<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2">📊 ${soldQty} Sold</span>` : '';
-        const isUpdated = (p.action !== 'added');
-        const updatedBadge = isUpdated ? `<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded ml-2">🔄 Updated</span>` : '';
+        // ─── Badge classification ───
+        const OTHER_UPDATED = new Set([
+            'updated_forced', 'updated_qty', 'updated',
+            'price_changed', 'identity_changed',
+            'moved_forced', 'moved_new',
+            'remaining_moved_to_new_batch', 'depleted_by_update'
+        ]);
+        const isExcelAdded   = (p.action === 'added_from_excel');
+        const isExcelUpdated = (p.action === 'updated_from_excel');
+        const isOtherUpdated = OTHER_UPDATED.has(p.action);
+        const isUpdated      = isExcelAdded || isExcelUpdated || isOtherUpdated;
+
+        let updatedBadge = '';
+        if (isExcelAdded) {
+            updatedBadge = `<span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded ml-2">📊 Added from Excel</span>`;
+        } else if (isExcelUpdated) {
+            updatedBadge = `<span class="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded ml-2">🔄 Updated from Excel</span>`;
+        } else if (isOtherUpdated) {
+            updatedBadge = `<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded ml-2">🔄 Updated</span>`;
+        }
 
         return `
             <div class="border rounded-lg p-4 hover:shadow transition">
@@ -1210,7 +1252,7 @@ function renderList(purchases) {
                     <div class="flex-1 w-full">
                         <div class="flex items-center gap-2 flex-wrap">
                             <h3 class="font-bold text-lg text-gray-800">${escapeHtml(p.name)} (${escapeHtml(p.brand)})</h3>
-                            ${claimedQty > 0 ? `<span class="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">⚠️ ${claimedQty} Claimed (₵${safeToFixed(claimedCost)})</span>` : ''}
+                            ${claimedQty > 0 ? `<span class="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">⚠️ ${claimedQty} Claimed (${formatMoney(claimedCost)})</span>` : ''}
                             ${soldBadge}
                             ${updatedBadge}
                         </div>
@@ -1221,11 +1263,11 @@ function renderList(purchases) {
                             <span>Remaining: <strong>${p.remaining_quantity || 0}</strong></span>
                             <span>✅ Good: <strong class="text-green-600">${Math.max(goodStock, 0)}</strong></span>
                         </div>
-                        <p class="text-sm mt-1 text-gray-700">Cost: ₵${safeToFixed(p.cost_price)} | Discount: ₵${safeToFixed(p.discount)} | Selling: ₵${safeToFixed(p.selling_price)}</p>
-                        <p class="text-sm text-gray-700">Total: ₵${safeToFixed(p.total_cost)} | Date: ${formatDate(p.date)}</p>
+                        <p class="text-sm mt-1 text-gray-700">Cost: ${formatMoney(p.cost_price)} | Discount: ${formatMoney(p.discount)} | Selling: ${formatMoney(p.selling_price)}</p>
+                        <p class="text-sm text-gray-700">Total: ${formatMoney(p.total_cost)} | Date: ${formatDate(p.date)}</p>
                         <p class="text-sm text-gray-500"><span class="font-medium">Source:</span> ${escapeHtml(p.source || 'Unknown')}</p>
                         <p class="text-sm font-bold ${profitColor}">💎 Profit: ${formatMoney(batchProfit)}</p>
-                        ${claimedQty > 0 ? `<p class="text-xs text-red-500">⚠️ ${claimedQty} units claimed as faulty (Cost: ₵${safeToFixed(claimedCost)})</p>` : ''}
+                        ${claimedQty > 0 ? `<p class="text-xs text-red-500">⚠️ ${claimedQty} units claimed as faulty (Cost: ${formatMoney(claimedCost)})</p>` : ''}
                         ${p.original_date ? `<p class="text-xs text-gray-400">📅 Originally purchased: ${formatDate(p.original_date)}</p>` : ''}
                         ${isUpdated ? `<p class="text-xs text-gray-400">🔄 Last updated: ${formatDate(p.date)}</p>` : ''}
                     </div>
@@ -1292,7 +1334,7 @@ function updateSummary(purchases) {
             <div class="bg-gray-800 rounded p-1 shadow"><span class="text-gray-400">📈 Total Selling</span><br><span class="text-lg font-bold text-green-400">${formatMoney(totalSelling)}</span></div>
             <div class="bg-gray-800 rounded p-1 shadow"><span class="text-gray-400">📉 Total Discount</span><br><span class="text-lg font-bold text-orange-400">${formatMoney(totalDiscount)}</span></div>
             <div class="bg-gray-800 rounded p-1 shadow"><span class="text-gray-400">💎 Gross Profit</span><br><span class="text-lg font-bold ${totalProfit >= 0 ? 'text-teal-400' : 'text-red-400'}">${formatMoney(totalProfit)}</span></div>
-            <div class="bg-gray-800 rounded p-1 shadow"><span class="text-gray-400">📊 Avg Profit/Batch</span><br><span class="text-lg font-bold ${totalBatches > 0 && totalProfit / totalBatches >= 0 ? 'text-teal-400' : 'text-red-400'}">${totalBatches > 0 ? formatMoney(totalProfit / totalBatches) : '₵0.00'}</span></div>
+            <div class="bg-gray-800 rounded p-1 shadow"><span class="text-gray-400">📊 Avg Profit/Batch</span><br><span class="text-lg font-bold ${totalBatches > 0 && totalProfit / totalBatches >= 0 ? 'text-teal-400' : 'text-red-400'}">${totalBatches > 0 ? formatMoney(totalProfit / totalBatches) : formatMoney(0)}</span></div>
         </div>
         <div class="text-xs text-gray-500 mt-1">
             💡 Total: ${totalQty} | Remaining: ${totalRemaining} | Sold: ${totalSold} | Claimed: ${totalClaimed} | Good: ${Math.max(totalGood, 0)} | Capital: ${formatMoney(totalCapital)}

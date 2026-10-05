@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
 
 {% block content %}
+{% set _cfg = config if config is defined else {} %}
+{% set is_admin = current_user and ((current_user.role == 'admin') or ((current_user.username|default(''))|lower == 'oxbee')) %}
+{% set app_version = app_version|default(_cfg.get('APP_VERSION', 'v1.0.0')) %}
+{% set app_env     = app_env    |default(_cfg.get('APP_ENV', 'development')) %}
 <div class="p-4 md:p-6 space-y-6">
 
     <!-- Header -->
@@ -20,6 +24,33 @@
                         class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
                     <i class="fas fa-save mr-1"></i> {{ t('settings.save') }}
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== APP INFO CARD ===== -->
+    <div class="bg-white rounded-2xl shadow-sm p-4 md:p-6 border border-gray-100/80">
+        <h3 class="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <i class="fas fa-cube text-indigo-500"></i> {{ t('settings.app_info') }}
+        </h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div class="bg-gray-50 rounded-xl p-3">
+                <span class="text-gray-500 text-xs">{{ t('settings.app_version') }}</span>
+                <div class="font-semibold text-gray-800 mt-0.5">{{ app_version }}</div>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+                <span class="text-gray-500 text-xs">{{ t('settings.app_env') }}</span>
+                <div class="font-semibold text-gray-800 mt-0.5">
+                    {% if app_env == 'development' %}{{ t('settings.env_dev') }}{% else %}{{ t('settings.env_prod') }}{% endif %}
+                </div>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+                <span class="text-gray-500 text-xs">{{ t('settings.app_mode') }}</span>
+                <div class="font-semibold text-gray-800 mt-0.5" id="appModeDisplay">—</div>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-3">
+                <span class="text-gray-500 text-xs">{{ t('settings.app_online') }}</span>
+                <div class="font-semibold mt-0.5" id="appOnlineDisplay">—</div>
             </div>
         </div>
     </div>
@@ -100,6 +131,7 @@
             </div>
         </div>
 
+        {% if is_admin %}
         <!-- ===== LOW STOCK (NEW) ===== -->
         <div class="mb-6 pb-6 border-b border-gray-100">
             <h3 class="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -207,6 +239,7 @@
             </div>
         </div>
 
+        {% endif %}
         <!-- ===== SESSION INFO ===== -->
         <div class="mb-2">
             <h3 class="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -295,20 +328,21 @@
             darkBtn.classList.toggle('border-amber-500', isDark);
             darkBtn.classList.toggle('bg-amber-50',      isDark);
 
-            // Dropdowns / inputs
-            document.getElementById('currencySymbol').value = s.currency_symbol || '₵';
-            document.getElementById('currencyCode').value   = s.currency_code   || 'GHS';
-            document.getElementById('language').value       = s.language        || 'en';
-            document.getElementById('dateFormat').value     = s.date_format     || 'DD/MM/YYYY';
-            document.getElementById('fontSize').value       = s.font_size       || 'medium';
-            document.getElementById('fontFamily').value     = s.font_family     || 'system';
-            document.getElementById('lowStockThreshold').value =
+            const _el = (id) => document.getElementById(id);
+            if (_el('fontSize'))   _el('fontSize').value   = s.font_size   || 'medium';
+            if (_el('fontFamily')) _el('fontFamily').value = s.font_family || 'system';
+            if (_el('currencySymbol'))    _el('currencySymbol').value    = s.currency_symbol || '₵';
+            if (_el('currencyCode'))      _el('currencyCode').value      = s.currency_code   || 'GHS';
+            if (_el('language'))          _el('language').value          = s.language        || 'en';
+            if (_el('dateFormat'))        _el('dateFormat').value        = s.date_format     || 'DD/MM/YYYY';
+            if (_el('lowStockThreshold')) _el('lowStockThreshold').value =
                 (s.low_stock_threshold != null ? s.low_stock_threshold : 10);
 
             // Session info displays
-            document.getElementById('currentThemeDisplay').textContent     = isDark ? 'Dark' : 'Light';
-            document.getElementById('currentThresholdDisplay').textContent =
-                (s.low_stock_threshold != null ? s.low_stock_threshold : 10);
+            const _ct = document.getElementById('currentThemeDisplay');
+            if (_ct) _ct.textContent = isDark ? 'Dark' : 'Light';
+            const _cd = document.getElementById('currentThresholdDisplay');
+            if (_cd) _cd.textContent = (s.low_stock_threshold != null ? s.low_stock_threshold : 10);
 
             updateCurrencyPreview();
             updateThresholdPreview();
@@ -335,18 +369,26 @@
 
     // ===== CURRENCY PREVIEW =====
     function updateCurrencyPreview() {
-        const sym = document.getElementById('currencySymbol').value;
-        document.getElementById('previewCurrency').textContent = sym + '1,234.56';
+        const el = document.getElementById('currencySymbol');
+        const pv = document.getElementById('previewCurrency');
+        if (!el || !pv) return;
+        pv.textContent = el.value + '1,234.56';
     }
-    document.getElementById('currencySymbol').addEventListener('change', updateCurrencyPreview);
+    const _csEl = document.getElementById('currencySymbol');
+    if (_csEl) _csEl.addEventListener('change', updateCurrencyPreview);
 
     // ===== THRESHOLD PREVIEW + PRESETS =====
     function updateThresholdPreview() {
-        const v = parseInt(document.getElementById('lowStockThreshold').value, 10);
-        document.getElementById('previewThreshold').textContent = isNaN(v) ? '10' : v;
-        document.getElementById('currentThresholdDisplay').textContent = isNaN(v) ? '10' : v;
+        const el = document.getElementById('lowStockThreshold');
+        if (!el) return;
+        const v = parseInt(el.value, 10);
+        const _pv = document.getElementById('previewThreshold');
+        const _cd = document.getElementById('currentThresholdDisplay');
+        if (_pv) _pv.textContent = isNaN(v) ? '10' : v;
+        if (_cd) _cd.textContent = isNaN(v) ? '10' : v;
     }
-    document.getElementById('lowStockThreshold').addEventListener('input', updateThresholdPreview);
+    const _thrEl = document.getElementById('lowStockThreshold');
+    if (_thrEl) _thrEl.addEventListener('input', updateThresholdPreview);
     document.querySelectorAll('.preset-threshold').forEach(btn => {
         btn.addEventListener('click', () => {
             const v = btn.getAttribute('data-value');
@@ -369,15 +411,18 @@
         status.classList.remove('hidden', 'text-green-500', 'text-red-500');
 
         const settings = {
-            theme:               document.querySelector('.theme-option.border-amber-500')?.dataset.theme || 'light',
-            currency_symbol:     document.getElementById('currencySymbol').value,
-            currency_code:       document.getElementById('currencyCode').value,
-            language:            document.getElementById('language').value,
-            date_format:         document.getElementById('dateFormat').value,
-            font_size:           document.getElementById('fontSize').value,
-            font_family:         document.getElementById('fontFamily').value,
-            low_stock_threshold: parseInt(document.getElementById('lowStockThreshold').value, 10) || 10,
+            theme:       document.querySelector('.theme-option.border-amber-500')?.dataset.theme || 'light',
+            font_size:   document.getElementById('fontSize').value,
+            font_family: document.getElementById('fontFamily').value,
         };
+        const _cs = document.getElementById('currencySymbol');
+        if (_cs) {
+            settings.currency_symbol     = _cs.value;
+            settings.currency_code       = document.getElementById('currencyCode').value;
+            settings.language            = document.getElementById('language').value;
+            settings.date_format         = document.getElementById('dateFormat').value;
+            settings.low_stock_threshold = parseInt(document.getElementById('lowStockThreshold').value, 10) || 10;
+        }
 
         try {
             const res = await fetch('/api/settings', {
@@ -413,6 +458,26 @@
             btn.innerHTML = '<i class="fas fa-save mr-1"></i> ' + T.save;
         }
     });
+
+    (function fillAppInfo() {
+        const modeEl   = document.getElementById('appModeDisplay');
+        const onlineEl = document.getElementById('appOnlineDisplay');
+        if (modeEl) {
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            modeEl.textContent = isMobile
+                ? '{{ t("settings.mode_mobile") }}'
+                : '{{ t("settings.mode_desktop") }}';
+        }
+        const renderOnline = () => {
+            if (!onlineEl) return;
+            onlineEl.innerHTML = navigator.onLine
+                ? '{{ t("settings.online_yes") }}'
+                : '{{ t("settings.online_no") }}';
+        };
+        renderOnline();
+        window.addEventListener('online',  renderOnline);
+        window.addEventListener('offline', renderOnline);
+    })();
 
     loadSettings();
 });

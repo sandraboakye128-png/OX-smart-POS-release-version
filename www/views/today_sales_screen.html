@@ -7,10 +7,10 @@
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <button onclick="backToDashboard()"
             class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
-        ← Back
+        <span data-i18n="today_sales.back">← Back</span>
     </button>
-    <h2 class="text-xl md:text-2xl font-bold text-indigo-600">📊 Sales Overview</h2>
-    <span class="bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded">Screens Only</span>
+    <h2 class="text-xl md:text-2xl font-bold text-indigo-600" data-i18n="today_sales.title">📊 Sales Overview</h2>
+    <span class="bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded" data-i18n="today_sales.badge.scr">Screens Only</span>
     <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-100 text-purple-700">APK · Dexie</span>
 </div>
 
@@ -19,17 +19,17 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2 text-sm">
             <span>🎯</span>
-            <span>Showing screen sales for <strong id="tsBatchFilterLabel">Batch #--</strong></span>
+            <span><span data-i18n="today_sales.showing_batch_scr">Showing screen sales for</span> <strong id="tsBatchFilterLabel">Batch #--</strong></span>
         </div>
         <button id="tsClearBatchFilterBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs md:text-sm">
-            ✕ Clear Batch Filter
+            <span data-i18n="today_sales.clear_batch">✕ Clear Batch Filter</span>
         </button>
     </div>
 </div>
 
 <!-- Refresh button -->
 <div class="flex justify-end mb-3">
-    <button id="tsRefreshBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-sm md:text-base">🔄 Refresh</button>
+    <button id="tsRefreshBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-sm md:text-base"><span data-i18n="today_sales.refresh">🔄 Refresh</span></button>
 </div>
 
 <!-- Search Bar -->
@@ -41,16 +41,16 @@
         </div>
         <div class="flex flex-wrap gap-2 items-center">
             <button id="tsAdvancedToggle" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm">
-                ⚙️ Advanced
+                <span data-i18n="today_sales.advanced">⚙️ Advanced</span>
             </button>
-            <button id="tsClearSearchBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm">✕ Clear</button>
+            <button id="tsClearSearchBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm"><span data-i18n="today_sales.clear">✕ Clear</span></button>
         </div>
     </div>
 
     <div id="tsAdvancedSearch" class="hidden mt-3 pt-3 border-t border-gray-200">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
-                <label class="block text-xs font-medium text-gray-700">Search Mode</label>
+                <label class="block text-xs font-medium text-gray-700" data-i18n="today_sales.search_mode">Search Mode</label>
                 <select id="tsSearchMode" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white text-gray-800">
                     <option value="contains">Contains (Partial Match)</option>
                     <option value="exact">Exact Match</option>
@@ -60,7 +60,7 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-700">Search In</label>
+                <label class="block text-xs font-medium text-gray-700" data-i18n="today_sales.search_in">Search In</label>
                 <select id="tsSearchField" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white text-gray-800">
                     <option value="all">All Fields</option>
                     <option value="name">Product Name</option>
@@ -70,7 +70,7 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-700">Case Sensitive</label>
+                <label class="block text-xs font-medium text-gray-700" data-i18n="today_sales.case_sensitive">Case Sensitive</label>
                 <select id="tsCaseSensitive" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white text-gray-800">
                     <option value="false">No</option>
                     <option value="true">Yes</option>
@@ -78,7 +78,7 @@
             </div>
             <div class="flex items-end">
                 <button id="tsApplyAdvancedSearch" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm w-full">
-                    🔍 Apply
+                    <span data-i18n="today_sales.apply">🔍 Apply</span>
                 </button>
             </div>
         </div>
@@ -92,35 +92,35 @@
 
 <!-- Period Filter Buttons -->
 <div class="flex flex-wrap gap-1.5 md:gap-2 mb-4">
-    <button data-period="daily"   class="ts-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">Today</button>
-    <button data-period="weekly"  class="ts-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">This Week</button>
-    <button data-period="monthly" class="ts-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">This Month</button>
-    <button data-period="yearly"  class="ts-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">This Year</button>
-    <button data-period="all"     class="ts-period-btn bg-purple-500 hover:bg-purple-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm">All Time</button>
+    <button data-period="daily"   class="ts-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm"><span data-i18n="today_sales.today">Today</span></button>
+    <button data-period="weekly"  class="ts-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm"><span data-i18n="today_sales.week">This Week</span></button>
+    <button data-period="monthly" class="ts-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm"><span data-i18n="today_sales.month">This Month</span></button>
+    <button data-period="yearly"  class="ts-period-btn bg-teal-500 hover:bg-teal-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm"><span data-i18n="today_sales.year">This Year</span></button>
+    <button data-period="all"     class="ts-period-btn bg-purple-500 hover:bg-purple-600 text-white px-2.5 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm"><span data-i18n="today_sales.all_time">All Time</span></button>
 </div>
 
 <!-- Date Range Filter -->
 <div class="bg-white rounded-xl shadow-md p-3 md:p-4 mb-6">
     <div class="flex flex-wrap items-end gap-2 md:gap-4">
         <div>
-            <label class="block text-xs md:text-sm font-medium text-gray-700">From Date</label>
+            <label class="block text-xs md:text-sm font-medium text-gray-700" data-i18n="today_sales.from_date">From Date</label>
             <input type="date" id="tsStartDate" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-sm bg-white text-gray-800">
         </div>
         <div>
-            <label class="block text-xs md:text-sm font-medium text-gray-700">To Date</label>
+            <label class="block text-xs md:text-sm font-medium text-gray-700" data-i18n="today_sales.to_date">To Date</label>
             <input type="date" id="tsEndDate" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-sm bg-white text-gray-800">
         </div>
-        <button id="tsApplyDateBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 md:px-5 md:py-2 rounded-lg text-xs md:text-sm">Apply Custom Range</button>
-        <button id="tsPdfBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 md:px-5 md:py-2 rounded-lg text-xs md:text-sm ml-auto">🖨️ PDF</button>
+        <button id="tsApplyDateBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 md:px-5 md:py-2 rounded-lg text-xs md:text-sm"><span data-i18n="today_sales.apply_range">Apply Custom Range</span></button>
+        <button id="tsPdfBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 md:px-5 md:py-2 rounded-lg text-xs md:text-sm ml-auto"><span data-i18n="today_sales.pdf">🖨️ PDF</span></button>
     </div>
     <div id="tsFilterInfo" class="text-xs text-gray-500 mt-2 hidden">
-        📋 Currently filtered by: <span id="tsFilterDescription"></span>
+        <span data-i18n="today_sales.filter_by">📋 Currently filtered by:</span> <span id="tsFilterDescription"></span>
     </div>
 </div>
 
 <!-- Sales List -->
 <div id="tsSalesList" class="ts-scrollable space-y-3 md:space-y-4">
-    <div class="text-center text-gray-400 py-8">Loading screen sales data…</div>
+    <div class="text-center text-gray-400 py-8" data-i18n="today_sales.loading_scr">Loading screen sales data…</div>
 </div>
 
 <!-- Summary Bar -->
@@ -133,18 +133,18 @@
 <div id="tsReverseModal" class="ts-modal hidden">
     <div class="ts-modal-box">
         <div class="ts-modal-header">
-            <h3 class="ts-modal-title" id="tsReverseModalTitle">Select Items to Reverse</h3>
+            <h3 class="ts-modal-title" id="tsReverseModalTitle" data-i18n="today_sales.select_reverse">Select Items to Reverse</h3>
             <button onclick="tsCloseReverseModal()" class="ts-modal-x">&times;</button>
         </div>
         <div id="tsReverseItemList" class="ts-modal-body"></div>
         <div class="ts-modal-footer ts-modal-footer-split">
             <div class="flex gap-2">
-                <button onclick="tsSelectAllReverse()"   class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 md:px-3 md:py-1 rounded text-xs md:text-sm">Select All</button>
-                <button onclick="tsDeselectAllReverse()" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 md:px-3 md:py-1 rounded text-xs md:text-sm">Deselect All</button>
+                <button onclick="tsSelectAllReverse()"   class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 md:px-3 md:py-1 rounded text-xs md:text-sm"><span data-i18n="today_sales.select_all">Select All</span></button>
+                <button onclick="tsDeselectAllReverse()" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 md:px-3 md:py-1 rounded text-xs md:text-sm"><span data-i18n="today_sales.deselect_all">Deselect All</span></button>
             </div>
             <div class="flex gap-2">
-                <button id="tsConfirmReverseBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">Reverse Selected</button>
-                <button onclick="tsCloseReverseModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">Cancel</button>
+                <button id="tsConfirmReverseBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm"><span data-i18n="today_sales.reverse_selected">Reverse Selected</span></button>
+                <button onclick="tsCloseReverseModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm" data-i18n="today_sales.cancel">Cancel</button>
             </div>
         </div>
     </div>
@@ -156,12 +156,12 @@
 <div id="tsViewDetailsModal" class="ts-modal hidden">
     <div class="ts-modal-box">
         <div class="ts-modal-header">
-            <h3 class="ts-modal-title" id="tsViewDetailsTitle">Select Item to View Details</h3>
+            <h3 class="ts-modal-title" id="tsViewDetailsTitle" data-i18n="today_sales.select_view">Select Item to View Details</h3>
             <button onclick="tsCloseViewDetailsModal()" class="ts-modal-x">&times;</button>
         </div>
         <div id="tsViewDetailsItemList" class="ts-modal-body"></div>
         <div class="ts-modal-footer ts-modal-footer-right">
-            <button onclick="tsCloseViewDetailsModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">Close</button>
+            <button onclick="tsCloseViewDetailsModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm" data-i18n="today_sales.close">Close</button>
         </div>
     </div>
 </div>
@@ -172,12 +172,12 @@
 <div id="tsBatchDetailsModal" class="ts-modal hidden">
     <div class="ts-modal-box">
         <div class="ts-modal-header">
-            <h3 class="ts-modal-title" id="tsBatchDetailsTitle">Batch Details</h3>
+            <h3 class="ts-modal-title" id="tsBatchDetailsTitle" data-i18n="today_sales.batch_details">Batch Details</h3>
             <button onclick="tsCloseBatchDetailsModal()" class="ts-modal-x">&times;</button>
         </div>
         <div id="tsBatchDetailsContent" class="ts-modal-body"></div>
         <div class="ts-modal-footer ts-modal-footer-right">
-            <button onclick="tsCloseBatchDetailsModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm">Close</button>
+            <button onclick="tsCloseBatchDetailsModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 md:px-4 md:py-2 rounded text-xs md:text-sm" data-i18n="today_sales.close">Close</button>
         </div>
     </div>
 </div>
@@ -322,7 +322,28 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const RENDER = 'https://ox-smart-pos-release-version.onrender.com';
+const RENDER = (function () {
+    const origin = window.location.origin;
+    const APK_ORIGINS = ['https://localhost', 'capacitor://localhost'];
+    if (APK_ORIGINS.indexOf(origin) !== -1) return 'https://ox-smart-pos-release-version.onrender.com';
+    return origin;
+})();
+
+function $t(key, fallback) {
+    try {
+        if (typeof window.t === 'function') {
+            const v = window.t(key);
+            if (v && v !== key) return v;
+        }
+    } catch (e) {}
+    return fallback || key;
+}
+
+function fillOxCur() {
+    var sym = (window.OX_SETTINGS && window.OX_SETTINGS.currency_symbol) || '₵';
+    document.querySelectorAll('.ox-cur').forEach(function(el) { el.textContent = sym; });
+}
+window.fillOxCur = fillOxCur;
 
 // ---------- State ----------
 let tsAllSales = [];
@@ -339,7 +360,22 @@ let tsReverseSaleId = null;
 let tsReverseItems = [];
 let tsViewSaleId = null;
 let tsViewItems = [];
-let tsIsAdmin = true;
+function _isCurrentUserAdmin() {
+    try {
+        let user = null;
+        const raw = localStorage.getItem('ox_shell_user');
+        if (raw) {
+            try { user = JSON.parse(raw); } catch (e) { user = { username: raw }; }
+        }
+        if (!user && typeof window.oxCurrentUser === 'object') user = window.oxCurrentUser;
+        if (!user && typeof window.currentUser  === 'object') user = window.currentUser;
+        if (!user) return false;
+        const role     = String(user.role || user.user_role || '').toLowerCase();
+        const username = String(user.username || user.user_name || '').toLowerCase();
+        return role === 'admin' || username === 'oxbee';
+    } catch (e) { return false; }
+}
+let tsIsAdmin = _isCurrentUserAdmin();
 let tsReversing = false;
 
 // ---------- Utilities ----------
@@ -347,7 +383,10 @@ function safeToFixed(v, d = 2) {
     const n = parseFloat(v);
     return isNaN(n) ? '0.00' : n.toFixed(d);
 }
-function formatMoney(amount) { return '₵' + safeToFixed(amount); }
+function formatMoney(amount) {
+    var sym = (window.OX_SETTINGS && window.OX_SETTINGS.currency_symbol) || '₵';
+    return sym + safeToFixed(amount);
+}
 function escapeHtml(s) {
     if (!s && s !== 0) return '';
     return String(s).replace(/[&<>"']/g, m => ({
@@ -539,15 +578,15 @@ function tsApplySearchAndRender() {
 // ============================================================
 function getPaymentBadge(method, cheque) {
     if (method === 'cash' || !method) {
-        return '<span class="inline-flex items-center bg-green-100 text-green-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">💵 Cash</span>';
+        return '<span class="inline-flex items-center bg-green-100 text-green-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">${$t('ts.badge_cash','💵 Cash')}</span>';
     }
     if (method === 'momo') {
-        return '<span class="inline-flex items-center bg-blue-100 text-blue-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">📱 MoMo</span>';
+        return '<span class="inline-flex items-center bg-blue-100 text-blue-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">${$t('ts.badge_momo','📱 MoMo')}</span>';
     }
     if (method === 'cheque') {
-        return `<span class="inline-flex items-center bg-purple-100 text-purple-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">📝 Cheque ${cheque ? '#' + escapeHtml(cheque) : ''}</span>`;
+        return `<span class="inline-flex items-center bg-purple-100 text-purple-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">${$t('ts.badge_cheque','📝 Cheque')} ${cheque ? '#' + escapeHtml(cheque) : ''}</span>`;
     }
-    return '<span class="inline-flex items-center bg-gray-100 text-gray-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">❓ Unknown</span>';
+    return '<span class="inline-flex items-center bg-gray-100 text-gray-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">${$t('ts.badge_unknown','❓ Unknown')}</span>';
 }
 
 function tsRenderSales(items, searchTerm) {
@@ -597,19 +636,19 @@ function tsRenderSales(items, searchTerm) {
             }
 
             const adminDetails = tsIsAdmin ? `
-                <div>Cost: ${formatMoney(item.cost_price)}</div>
-                <div>Profit: ${formatMoney(item.profit)}</div>
+                <div>${$t('ts.cost','Cost:')} ${formatMoney(item.cost_price)}</div>
+                <div>${$t('ts.profit','Profit:')} ${formatMoney(item.profit)}</div>
             ` : '';
 
             return `
                 <div class="border-b pb-1 md:pb-2 mb-1 md:mb-2 last:border-0">
                     <div class="font-semibold text-indigo-700 text-sm md:text-base">${dName} (${dBrand}) ${status}</div>
                     <div class="text-xs md:text-sm grid grid-cols-2 gap-0.5 md:gap-1 text-gray-700">
-                        <div>Qty: ${item.quantity}</div>
-                        <div>Selling: ${formatMoney(item.selling_price)}</div>
-                        <div>Batch: ${item.batch_id === -1 ? 'DELETED' : '#' + item.batch_id}</div>
+                        <div>${$t('ts.qty','Qty:')} ${item.quantity}</div>
+                        <div>${$t('ts.selling','Selling:')} ${formatMoney(item.selling_price)}</div>
+                        <div>${$t('ts.batch','Batch:')} ${item.batch_id === -1 ? $t('ts.batch_deleted','DELETED') : '#' + item.batch_id}</div>
                         ${adminDetails}
-                        <div>Subtotal: ${formatMoney(item.subtotal)}</div>
+                        <div>${$t('ts.subtotal','Subtotal:')} ${formatMoney(item.subtotal)}</div>
                     </div>
                 </div>
             `;
@@ -618,21 +657,21 @@ function tsRenderSales(items, searchTerm) {
         html += `
             <div class="bg-white rounded-xl shadow-md p-3 md:p-4 border" data-sale-id="${saleId}">
                 <div class="flex flex-wrap justify-between items-start mb-1 md:mb-2 gap-1">
-                    <div class="text-xs md:text-sm text-gray-500">Sale #${saleId} | ${g.date}</div>
+                    <div class="text-xs md:text-sm text-gray-500">${$t('ts.sale_hash','Sale #')}${saleId} | ${g.date}</div>
                     <div>${paymentBadge}</div>
                 </div>
-                <div class="text-xs text-gray-600 mb-1">👤 User: ${escapeHtml(g.username)}</div>
+                <div class="text-xs text-gray-600 mb-1">${$t('ts.user','👤 User:')} ${escapeHtml(g.username)}</div>
                 ${itemsHtml}
                 <div class="mt-1 md:mt-2 pt-1 md:pt-2 border-t flex flex-wrap justify-between items-center gap-2">
                     <div class="flex gap-1">
                         <button class="ts-reverse-btn bg-red-500 hover:bg-red-600 text-white px-2 py-0.5 md:px-3 md:py-1 rounded text-xs md:text-sm"
-                                data-sale-id="${saleId}">↺ Reverse</button>
+                                data-sale-id="${saleId}">${$t('ts.reverse_btn','↺ Reverse')}</button>
                         <button class="ts-batch-details-btn bg-blue-500 hover:bg-blue-600 text-white px-2 py-0.5 md:px-3 md:py-1 rounded text-xs md:text-sm"
-                                data-sale-id="${saleId}">📋 Batch Details</button>
+                                data-sale-id="${saleId}">${$t('ts.details_btn','📋 Details')}</button>
                     </div>
                     <div class="flex flex-wrap items-center gap-1 md:gap-2">
-                        <span class="text-xs md:text-sm text-gray-700">Discount: ${formatMoney(g.discount)}</span>
-                        <span class="text-base md:text-lg font-bold text-gray-800">Total: ${formatMoney(g.total)}</span>
+                        <span class="text-xs md:text-sm text-gray-700">${$t('ts.discount','Discount:')} ${formatMoney(g.discount)}</span>
+                        <span class="text-base md:text-lg font-bold text-gray-800">${$t('ts.total','Total:')} ${formatMoney(g.total)}</span>
                     </div>
                 </div>
             </div>
@@ -688,7 +727,7 @@ function tsUpdateSummary(items) {
     if (tsStartDate && tsEndDate) {
         periodText = `📅 ${tsStartDate} to ${tsEndDate}`;
     } else {
-        const names = { daily: 'Today', weekly: 'This Week', monthly: 'This Month', yearly: 'This Year', all: 'All Time' };
+        const names = { daily: $t('ts.per_today','Today'), weekly: $t('ts.per_week','This Week'), monthly: $t('ts.per_month','This Month'), yearly: $t('ts.per_year','This Year'), all: $t('ts.per_all','All Time') };
         periodText = `📅 ${names[tsPeriod] || tsPeriod}`;
     }
     const filterSummary =
@@ -697,29 +736,29 @@ function tsUpdateSummary(items) {
 
     const profitHtml = tsIsAdmin
         ? `<span class="text-gray-500">|</span>
-           <span>📈 Profit: <strong class="${totalProfit >= 0 ? 'text-teal-400' : 'text-red-400'}">${formatMoney(totalProfit)}</strong></span>`
+           <span>${$t('ts.sum_profit','📈 Profit:')} <strong class="${totalProfit >= 0 ? 'text-teal-400' : 'text-red-400'}">${formatMoney(totalProfit)}</strong></span>`
         : '';
 
     $('tsSummaryBar').innerHTML = `
         <div class="flex flex-wrap justify-center items-center gap-1 md:gap-2 text-[10px] md:text-xs">
             <span class="text-teal-300">${periodText}</span>
             <span class="text-gray-500">|</span>
-            <span>🧾 Screen Sales: <strong>${seen.size}</strong></span>
+            <span>${$t('ts.sum_screen_sales','🧾 Screen Sales:')} <strong>${seen.size}</strong></span>
             <span class="text-gray-500">|</span>
-            <span>📦 Items: <strong>${totalItems}</strong></span>
+            <span>${$t('ts.sum_items','📦 Items:')} <strong>${totalItems}</strong></span>
             <span class="text-gray-500">|</span>
-            <span>💰 Sales: <strong class="text-green-400">${formatMoney(totalSales)}</strong></span>
+            <span>${$t('ts.sum_revenue','💰 Sales:')} <strong class="text-green-400">${formatMoney(totalSales)}</strong></span>
             <span class="text-gray-500">|</span>
-            <span>📉 Disc: <strong class="text-red-400">${formatMoney(totalDiscount)}</strong></span>
+            <span>${$t('ts.sum_disc','📉 Disc:')} <strong class="text-red-400">${formatMoney(totalDiscount)}</strong></span>
             ${profitHtml}
             ${filterSummary}
         </div>
         <div class="flex flex-wrap justify-center items-center gap-1 md:gap-2 text-[9px] md:text-xs mt-0.5">
-            <span class="text-green-400">💵 Cash: ${formatMoney(cash)}</span>
+            <span class="text-green-400">${$t('ts.pay_cash','💵 Cash:')} ${formatMoney(cash)}</span>
             <span class="text-gray-600">|</span>
-            <span class="text-blue-400">📱 MoMo: ${formatMoney(momo)}</span>
+            <span class="text-blue-400">${$t('ts.pay_momo','📱 MoMo:')} ${formatMoney(momo)}</span>
             <span class="text-gray-600">|</span>
-            <span class="text-purple-400">📝 Cheque: ${formatMoney(cheque)}</span>
+            <span class="text-purple-400">${$t('ts.pay_cheque','📝 Cheque:')} ${formatMoney(cheque)}</span>
         </div>
     `;
 }
@@ -741,7 +780,7 @@ function updateTsFilterInfo() {
     if (tsStartDate && tsEndDate) parts.push(`Date: ${tsStartDate} to ${tsEndDate}`);
     else {
         const names = { daily:'Today', weekly:'This Week', monthly:'This Month', yearly:'This Year', all:'All Time' };
-        parts.push(`Period: ${names[tsPeriod] || tsPeriod}`);
+        parts.push(`${$t('ts.period','Period:')} ${names[tsPeriod] || tsPeriod}`);
     }
 
     if (parts.length) {
@@ -757,7 +796,28 @@ function updateTsFilterInfo() {
 // ============================================================
 function tsReadBatchIdFromURL() {
     const params = new URLSearchParams(window.location.search);
-    const bid = params.get('batch_id');
+    let bid = params.get('batch_id');
+    if (!bid && window.location.hash && window.location.hash.indexOf('?') !== -1) {
+        const hp = new URLSearchParams(window.location.hash.split('?')[1]);
+        bid = hp.get('batch_id');
+    }
+    if (!bid) {
+        try {
+            const raw = sessionStorage.getItem('oxPendingBatchFilter');
+            if (raw) {
+                const pending = JSON.parse(raw);
+                if (pending && pending.batch_id &&
+                    pending.at && (Date.now() - pending.at) < 60000) {
+                    const cat = (pending.category || '').toLowerCase();
+                    if (cat && cat !== 'screen') return false;
+                    bid = String(pending.batch_id);
+                    sessionStorage.removeItem('oxPendingBatchFilter');
+                } else {
+                    sessionStorage.removeItem('oxPendingBatchFilter');
+                }
+            }
+        } catch (e) {}
+    }
     if (bid && !isNaN(parseInt(bid))) {
         tsBatchId = parseInt(bid);
         $('tsBatchFilterLabel').textContent = `Batch #${tsBatchId}`;
@@ -766,6 +826,17 @@ function tsReadBatchIdFromURL() {
     }
     return false;
 }
+
+window.addEventListener('ox:batchFilter', function (ev) {
+    const detail = ev.detail || {};
+    if (!detail.batch_id) return;
+    const cat = (detail.category || '').toLowerCase();
+    if (cat && cat !== 'screen') return;
+    tsBatchId = parseInt(detail.batch_id);
+    $('tsBatchFilterLabel').textContent = `Batch #${tsBatchId}`;
+    $('tsBatchFilterBanner').classList.remove('hidden');
+    tsLoadSales();
+});
 function tsClearBatchFilter() {
     tsBatchId = null;
     $('tsBatchFilterBanner').classList.add('hidden');
@@ -857,6 +928,7 @@ async function tsConfirmReverse() {
 
     const itemsToReverse = selected.map(i => JSON.parse(i.checkbox.dataset.item));
     const payload = { sale_id: tsReverseSaleId, items: itemsToReverse };
+    const saleIdForMsg = tsReverseSaleId;
 
     try {
         // ── 1. If online, try direct API first ──
@@ -1095,7 +1167,7 @@ async function tsShowBatchDetails(batchId, productName, productBrand, quantitySo
                 <div class="bg-green-50 p-2 rounded col-span-2">✅ Good Stock: <strong>${good}</strong></div>
             </div>
             <div class="grid grid-cols-2 gap-2 mt-3 text-sm border-t pt-3 text-gray-800">
-                <div class="bg-gray-50 p-2 rounded">Cost: <strong>${formatMoney(batch.cost_price)}</strong></div>
+                ${tsIsAdmin ? `<div class="bg-gray-50 p-2 rounded">Cost: <strong>${formatMoney(batch.cost_price)}</strong></div>` : ''}
                 <div class="bg-gray-50 p-2 rounded">Selling: <strong>${formatMoney(batch.selling_price)}</strong></div>
                 ${batch.discount > 0 ? `<div class="bg-gray-50 p-2 rounded col-span-2">Discount: <strong>${formatMoney(batch.discount)}</strong></div>` : ''}
             </div>

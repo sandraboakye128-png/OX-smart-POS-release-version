@@ -3,50 +3,50 @@
 {% block content %}
 <!-- Offline banner -->
 <div id="offlineBanner" class="fixed top-0 left-0 w-full bg-red-500 text-white text-center py-2 z-50 hidden">
-    ⚠️ You are offline – cannot sign up. Please connect to the internet.
+    {{ t("auth.signup_offline_banner") }}
 </div>
 
 <div class="min-h-[80vh] flex items-center justify-center">
     <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
         <div class="text-center mb-6">
-            <h2 class="text-3xl font-bold text-indigo-600">📝 Create Account</h2>
-            <p class="text-gray-500 mt-1">Sign up to continue</p>
+            <h2 class="text-3xl font-bold text-indigo-600">{{ t("auth.signup_title") }}</h2>
+            <p class="text-gray-500 mt-1">{{ t("auth.signup_subtitle") }}</p>
         </div>
         
         <form id="signupForm">
             <div class="mb-4">
-                <label class="block text-gray-700 text-sm font-bold mb-2">👤 Username</label>
+                <label class="block text-gray-700 text-sm font-bold mb-2">{{ t("auth.signup_username") }}</label>
                 <input type="text" id="username" name="username" required autocomplete="off"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div class="mb-4">
-                <label class="block text-gray-700 text-sm font-bold mb-2">🔒 Password</label>
+                <label class="block text-gray-700 text-sm font-bold mb-2">{{ t("auth.signup_password") }}</label>
                 <input type="password" id="password" name="password" required autocomplete="new-password"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <p class="text-xs text-gray-500 mt-1">Password must be at least 4 characters</p>
+                <p class="text-xs text-gray-500 mt-1">{{ t("auth.signup_pwd_hint") }}</p>
             </div>
             <div class="mb-4">
                 <label class="flex items-center">
                     <input type="checkbox" id="showPassword" class="mr-2">
-                    <span class="text-sm text-gray-600">👁 Show Password</span>
+                    <span class="text-sm text-gray-600">{{ t("auth.show_password") }}</span>
                 </label>
             </div>
             <div id="roleContainer" class="mb-6">
-                <label class="block text-gray-700 text-sm font-bold mb-2">🛡 Role</label>
+                <label class="block text-gray-700 text-sm font-bold mb-2">{{ t("auth.signup_role") }}</label>
                 <select id="role" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
+                    <option value="user">{{ t("auth.role_user") }}</option>
+                    <option value="admin">{{ t("auth.role_admin") }}</option>
                 </select>
                 <p id="roleNote" class="text-xs text-gray-500 mt-1"></p>
             </div>
             <button type="submit" id="signupBtn" class="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-4 rounded-lg transition">
-                ✅ Register
+                {{ t("auth.register") }}
             </button>
         </form>
         
         <div class="mt-6 text-center">
-            <p class="text-gray-600">Already have an account? 
-                <a href="/login" class="text-indigo-600 hover:underline">Login</a>
+            <p class="text-gray-600">{{ t("auth.signup_already") }} 
+                <a href="/login" class="text-indigo-600 hover:underline">{{ t("auth.login_link") }}</a>
             </p>
         </div>
     </div>
@@ -61,12 +61,12 @@
             banner.classList.remove('hidden');
             signupBtn.disabled = true;
             signupBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            signupBtn.textContent = '🚫 Offline – Cannot Sign Up';
+            signupBtn.textContent = '{{ t("auth.register_offline") }}';
         } else {
             banner.classList.add('hidden');
             signupBtn.disabled = false;
             signupBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            signupBtn.textContent = '✅ Register';
+            signupBtn.textContent = '{{ t("auth.register") }}';
         }
     }
     window.addEventListener('online', updateOfflineBanner);
@@ -124,13 +124,13 @@
             if (adminCount >= 2) {
                 roleContainer.style.display = 'none';
                 document.getElementById('role').value = 'user';
-                roleNote.textContent = 'Maximum 2 admins reached. New accounts will be regular users.';
+                roleNote.textContent = '{{ t("auth.signup_note_max") }}';
             } else {
                 roleContainer.style.display = 'block';
                 if (adminCount === 0) {
-                    roleNote.textContent = 'First user can create an Admin account.';
+                    roleNote.textContent = '{{ t("auth.signup_note_first") }}';
                 } else if (adminCount === 1) {
-                    roleNote.textContent = 'You can create one more Admin account (2 admins max).';
+                    roleNote.textContent = '{{ t("auth.signup_note_one") }}';
                 } else {
                     roleNote.textContent = '';
                 }
@@ -148,7 +148,7 @@
         
         // Check offline
         if (!navigator.onLine) {
-            alert('You are offline. Please connect to the internet and try again.');
+            alert('{{ t("auth.offline_msg") }}');
             return;
         }
         
@@ -156,11 +156,11 @@
         const password = document.getElementById('password').value;
         
         if (!username) {
-            alert('Please enter a username');
+            alert('{{ t("auth.err_username_req") }}');
             return;
         }
         if (password.length < 4) {
-            alert('Password must be at least 4 characters long');
+            alert('{{ t("auth.err_pwd_len") }}');
             return;
         }
         
@@ -180,18 +180,35 @@
             const data = await response.json();
             
             if (data.success) {
-                if (role === 'admin') {
-                    alert('Admin account created successfully! Please login with your credentials.');
-                } else {
-                    alert('Account created successfully! Please login.');
+                // Remember the username so subsequent visits pre-fill it
+                try { localStorage.setItem('ox_last_signup_username', username); } catch (e) {}
+
+                // Try to auto-login so the user lands on the dashboard directly
+                try {
+                    const loginRes = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const loginData = await loginRes.json();
+                    if (loginData.success) {
+                        alert('{{ t("auth.signup_success_login") }}');
+                        window.location.href = '/';
+                        return;
+                    }
+                } catch (loginErr) {
+                    console.warn('Auto-login failed:', loginErr);
                 }
-                window.location.href = '/login';
+
+                // Auto-login failed — send to login page with username pre-fill
+                alert('{{ t("auth.signup_success") }}');
+                window.location.href = '/login?username=' + encodeURIComponent(username);
             } else {
-                alert('Signup failed: ' + (data.error || 'Username may already exist'));
+                alert('{{ t("auth.signup_already_exists") }}' + (data.error || 'Username may already exist'));
             }
         } catch (error) {
             console.error('Signup error:', error);
-            alert('Network error. Please try again.');
+            alert('{{ t("auth.err_network") }}');
         }
     });
 </script>

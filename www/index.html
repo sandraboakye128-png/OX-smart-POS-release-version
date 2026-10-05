@@ -1211,7 +1211,7 @@
                     <div class="kpi-value" id="kpiSales">—</div>
                     <div class="kpi-sub" id="kpiSalesSub"></div>
                 </div>
-                <div class="kpi green">
+                <div class="kpi green" id="kpiProfitCard">
                     <div class="kpi-label" data-i18n="shell.dash.kpi.profit">📈 Profit</div>
                     <div class="kpi-value" id="kpiProfit">—</div>
                     <div class="kpi-sub" id="kpiProfitSub"></div>
@@ -1572,6 +1572,7 @@ const VIEWS = {
     'purchases-screen': { titleKey: 'nav.purchases_scr', title: 'Purchases (Screens)', icon: '📥', path: 'views/purchases_screen.html' },
     analytics: { titleKey: 'nav.analytics',    title: 'Analytics',          icon: '📈', path: 'views/analytics.html' },
     'edit-user': { title: 'Edit User',         icon: '✏️', path: 'views/edit_user.html' },
+    'preview-data': { title: '📊 Excel Preview',  icon: '📊', path: 'views/preview_data.html' },
     users:     { titleKey: 'nav.users',        title: 'User Management',    icon: '👥', path: 'views/admin_users.html' },
     logs:      { titleKey: 'nav.logs',         title: 'User Logs',          icon: '📋', path: 'views/logs.html' },
     archive:   { titleKey: 'nav.archive',      title: 'Archive',            icon: '🗄️', path: 'views/archive.html' },
@@ -2336,16 +2337,24 @@ function renderUserChip() {
 // ============================================================
 function openMyProfile() {
     const u = getStoredUser();
-    if (!u || !u.id) {
+    console.log('[openMyProfile] stored user =', u);
+    if (!u || (!u.username && !u.id)) {
         showToast('Not signed in', { error: true });
         return;
     }
     const isAdmin = (u.role === 'admin') || (String(u.username || '').toLowerCase() === 'oxbee');
     if (isAdmin) {
-        try { sessionStorage.setItem('oxEditUserId', String(u.id)); } catch (e) {}
-        switchView('edit-user');
+        // Prefer numeric id, fall back to user_id, else open list view
+        const targetId = u.id || u.user_id || u.userId || null;
+        if (targetId) {
+            try { sessionStorage.setItem('oxEditUserId', String(targetId)); } catch (e) {}
+            console.log('[openMyProfile] -> edit-user id =', targetId);
+            switchView('edit-user');
+        } else {
+            console.log('[openMyProfile] no id — opening users list');
+            switchView('users');
+        }
     } else {
-        // Settings are managed on the web app; this device just consumes them.
         Notifications.info(
             'Account',
             'Signed in as ' + u.username + ' (' + (u.role || 'user') +
@@ -2658,6 +2667,10 @@ function _calRender() {
 // ============================================================
 async function renderDashboard() {
     _dashInit();
+    const isAdmin = (typeof _isAdminUser === 'function') ? _isAdminUser() : false;
+    // Non-admins never see cost or profit anywhere on the dashboard.
+    const profitCard = document.getElementById('kpiProfitCard');
+    if (profitCard) profitCard.style.display = isAdmin ? '' : 'none';
     try {
         const [products, batches, allSales] = await Promise.all([
             db.products.toArray().catch(() => []),
@@ -2683,7 +2696,10 @@ async function renderDashboard() {
 
         const isEmpty = products.length === 0 && batches.length === 0 && allSales.length === 0;
         if (isEmpty) {
-            ['kpiSales','kpiProfit','kpiProducts','kpiBatches','kpiLowStock'].forEach(id => {
+            const _kpiIds = isAdmin
+                ? ['kpiSales','kpiProfit','kpiProducts','kpiBatches','kpiLowStock']
+                : ['kpiSales','kpiProducts','kpiBatches','kpiLowStock'];
+            _kpiIds.forEach(id => {
                 const el = $(id); if (el) el.textContent = '—';
             });
             $('kpiSalesSub').textContent = '';
@@ -2734,10 +2750,15 @@ async function renderDashboard() {
         $('kpiSalesSub').textContent = filteredSales.length + ' sale' +
             (filteredSales.length === 1 ? '' : 's') + ' · ' + rangeLabel;
 
-        $('kpiProfit').textContent = (typeof window.formatMoney === 'function' ? window.formatMoney(totalProfit) : '₵' + totalProfit.toFixed(2));
-        $('kpiProfitSub').textContent = totalSales > 0
-            ? (totalProfit / totalSales * 100).toFixed(1) + '% margin'
-            : '';
+        if (isAdmin) {
+            $('kpiProfit').textContent = (typeof window.formatMoney === 'function' ? window.formatMoney(totalProfit) : '₵' + totalProfit.toFixed(2));
+            $('kpiProfitSub').textContent = totalSales > 0
+                ? (totalProfit / totalSales * 100).toFixed(1) + '% margin'
+                : '';
+        } else {
+            $('kpiProfit').textContent = '—';
+            $('kpiProfitSub').textContent = '';
+        }
 
         $('kpiProducts').textContent = products.length;
         let inStock = 0, outOfStock = 0;
@@ -3144,6 +3165,14 @@ async function switchView(name) {
 
         // Translate any [data-i18n] in the freshly-injected view
         if (typeof _applyStaticI18n === 'function') _applyStaticI18n(wrap);
+        // Fill any .ox-cur spans with the user's currency symbol
+        if (typeof fillOxCur === 'function') {
+            try { fillOxCur(); } catch (e) {}
+        }
+        // Fill any .ox-cur spans with the user's currency symbol
+        if (typeof fillOxCur === 'function') {
+            try { fillOxCur(); } catch (e) {}
+        }
 
         currentView = name;
         renderMenu();
@@ -3268,5 +3297,277 @@ document.addEventListener('keydown', e => {
     };
 })();
 </script>
+<!-- notif-server-bridge (phase 10b) -->
+<script>
+(function () {
+  'use strict';
+  function _ready(fn) {
+    if (document.readyState === 'loading')
+      document.addEventListener('DOMContentLoaded', fn);
+    else fn();
+  }
+
+  _ready(function () {
+    var N = window.Notifications;
+    if (!N) return;
+    if (N.__srvInstalled) return;
+    N.__srvInstalled = true;
+
+    var PREFIX = 'srv_';
+
+    function _tok() {
+      try { return localStorage.getItem('ox_api_token'); } catch (e) { return null; }
+    }
+    function _base() {
+      try { return (typeof RENDER_URL === 'string' && RENDER_URL) ? RENDER_URL : ''; }
+      catch (e) { return ''; }
+    }
+    function _hdr() {
+      return { 'Authorization': 'Bearer ' + (_tok() || ''), 'Content-Type': 'application/json' };
+    }
+
+    N.refreshFromServer = function () {
+      var token = _tok();
+      if (!token) return Promise.resolve();
+      return fetch(_base() + '/api/notifications', {
+        headers: _hdr(), credentials: 'include'
+      })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          var items = (j && j.items) || [];
+          var onServer = {};
+          items.forEach(function (it) { onServer[PREFIX + it.id] = true; });
+
+          items.forEach(function (it) {
+            var typeMap = {
+              purchase_added: 'success',
+              sale_reversed:  'warning',
+              preview_save:   'info'
+            };
+            try {
+              N.add({
+                id: PREFIX + it.id,
+                type: typeMap[it.kind] || 'info',
+                title: it.title,
+                message: it.message,
+                persistent: true
+              });
+            } catch (e) {}
+          });
+
+          // Reconcile: drop local srv_ items that no longer exist server-side
+          try {
+            N.items.slice().forEach(function (local) {
+              if (typeof local.id === 'string' && local.id.indexOf(PREFIX) === 0) {
+                if (!onServer[local.id]) {
+                  // remove locally without hitting the server again
+                  var idx = N.items.indexOf(local);
+                  if (idx >= 0) N.items.splice(idx, 1);
+                }
+              }
+            });
+            // force a re-render (badge + list)
+            var badge = document.getElementById('notifBadge');
+            var count = document.getElementById('notifCount');
+            if (badge) {
+              var n = N.items.length;
+              if (n > 0) { badge.textContent = n > 99 ? '99+' : n; badge.style.display = 'flex'; }
+              else { badge.style.display = 'none'; }
+            }
+            if (count) count.textContent = N.items.length;
+          } catch (e) {}
+        })
+        .catch(function () {});
+    };
+
+    // Wrap remove: dismiss server-side if id is srv_*
+    var origRemove = N.remove;
+    N.remove = function (id) {
+      try {
+        if (typeof id === 'string' && id.indexOf(PREFIX) === 0) {
+          var sid = id.slice(PREFIX.length);
+          if (_tok()) {
+            fetch(_base() + '/api/notifications/' + encodeURIComponent(sid) + '/dismiss', {
+              method: 'POST', headers: _hdr(), credentials: 'include'
+            }).catch(function () {});
+          }
+        }
+      } catch (e) {}
+      return origRemove.apply(this, arguments);
+    };
+
+    // Wrap clearAll: clear server-side too
+    var origClearAll = N.clearAll;
+    N.clearAll = function () {
+      try {
+        if (_tok()) {
+          fetch(_base() + '/api/notifications/clear', {
+            method: 'POST', headers: _hdr(), credentials: 'include'
+          }).catch(function () {});
+        }
+      } catch (e) {}
+      return origClearAll.apply(this, arguments);
+    };
+
+    // Fire on app-visible (covers enterApp + re-login)
+    var appView = document.getElementById('appView');
+    if (appView && typeof MutationObserver !== 'undefined') {
+      var lastVisible = !appView.classList.contains('hidden');
+      var obs = new MutationObserver(function () {
+        var nowVisible = !appView.classList.contains('hidden');
+        if (nowVisible && !lastVisible) {
+          setTimeout(function () { try { N.refreshFromServer(); } catch (e) {} }, 100);
+        }
+        lastVisible = nowVisible;
+      });
+      obs.observe(appView, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    // On boot (if already inside the app), and on reconnect
+    if (appView && !appView.classList.contains('hidden')) {
+      setTimeout(function () { try { N.refreshFromServer(); } catch (e) {} }, 200);
+    }
+    window.addEventListener('online', function () {
+      try { N.refreshFromServer(); } catch (e) {}
+    });
+  });
+})();
+</script>
+<!-- /notif-server-bridge -->
+<!-- android-backbutton-bridge -->
+<script>
+(function () {
+  'use strict';
+
+  function _closePending() {
+    var pm = document.getElementById('pendingOpsModal');
+    if (pm && !pm.classList.contains('hidden')) {
+      try { if (typeof closePendingOpsModal === 'function') closePendingOpsModal(); }
+      catch (e) { pm.classList.add('hidden'); }
+      return true;
+    }
+    return false;
+  }
+  function _closeNotifDropdown() {
+    var dd = document.getElementById('notifDropdown');
+    if (dd && dd.classList.contains('open')) {
+      dd.classList.remove('open');
+      var bell = document.getElementById('notifBell');
+      if (bell) bell.classList.remove('active');
+      return true;
+    }
+    return false;
+  }
+  function _closeMenuDrawer() {
+    var dr = document.getElementById('menuDrawer');
+    var ov = document.getElementById('menuOverlay');
+    if ((dr && dr.classList.contains('open')) || (ov && ov.classList.contains('open'))) {
+      try { if (typeof closeMenu === 'function') closeMenu(); }
+      catch (e) {
+        if (dr) dr.classList.remove('open');
+        if (ov) ov.classList.remove('open');
+      }
+      return true;
+    }
+    return false;
+  }
+  function _backToDashboard() {
+    var appView = document.getElementById('appView');
+    if (!appView || appView.classList.contains('hidden')) return false;
+    // currentView is a top-level `let` in the shell script — bare ref works
+    try {
+      if (typeof currentView !== 'undefined' && currentView &&
+          currentView !== 'dashboard' && currentView !== 'signup') {
+        if (typeof switchView === 'function') { switchView('dashboard'); return true; }
+      }
+    } catch (e) {}
+    return false;
+  }
+  function _loginToLanding() {
+    var lv = document.getElementById('loginView');
+    if (lv && !lv.classList.contains('hidden')) {
+      try { if (typeof backToLanding === 'function') { backToLanding(); return true; } }
+      catch (e) {}
+    }
+    return false;
+  }
+
+  function handleBack() {
+    if (_closePending())       return true;
+    if (_closeNotifDropdown()) return true;
+    if (_closeMenuDrawer())    return true;
+    if (_backToDashboard())    return true;
+    if (_loginToLanding())     return true;
+    return false; // caller decides whether to exit
+  }
+
+  function _exitApp() {
+    try {
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App &&
+          typeof window.Capacitor.Plugins.App.exitApp === 'function') {
+        window.Capacitor.Plugins.App.exitApp();
+        return true;
+      }
+    } catch (e) {}
+    try {
+      if (window.navigator && window.navigator.app &&
+          typeof window.navigator.app.exitApp === 'function') {
+        window.navigator.app.exitApp();
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  var installed = false;
+
+  // ── Path 1: Capacitor native plugin ──
+  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App &&
+      typeof window.Capacitor.Plugins.App.addListener === 'function') {
+    try {
+      window.Capacitor.Plugins.App.addListener('backbutton', function () {
+        var handled = handleBack();
+        if (!handled) _exitApp();
+      });
+      installed = true;
+      console.log('[backbutton] native Capacitor handler installed');
+    } catch (e) {
+      console.warn('[backbutton] native install failed:', e);
+    }
+  }
+
+  // ── Path 2: history-based fallback ──
+  // Push a sentinel; each popstate runs handleBack() and re-arms.
+  // If handleBack() returns false, we try exitApp(); otherwise we
+  // push a fresh sentinel so the next press hits popstate again.
+  if (!installed) {
+    try {
+      if (window.history && window.history.pushState) {
+        history.pushState({ oxRoot: true }, '');
+        window.addEventListener('popstate', function () {
+          var handled = handleBack();
+          if (handled) {
+            // re-arm for the next back press
+            history.pushState({ oxRoot: true }, '');
+          } else {
+            // let native exit take over, if available
+            if (!_exitApp()) {
+              // last-resort: re-arm so the SPA stays intact
+              history.pushState({ oxRoot: true }, '');
+            }
+          }
+        });
+        installed = true;
+        console.log('[backbutton] history fallback installed');
+      }
+    } catch (e) {
+      console.warn('[backbutton] history install failed:', e);
+    }
+  }
+
+  window.OXBackHandler = { handle: handleBack, exit: _exitApp, installed: installed };
+})();
+</script>
+<!-- /android-backbutton-bridge -->
 </body>
 </html>

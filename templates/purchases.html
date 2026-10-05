@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% set CURRENCY = settings.currency_symbol if settings else '₵' %}
 <!-- Offline banner -->
 <div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
-    ⚠️ You are offline – showing cached accessory purchases. New purchases will be saved and synced when you reconnect.
+    {{ t("purchases.offline.banner_acc") }}
 </div>
 
 <!-- Force Refresh / Clear Cache Banner -->
@@ -14,10 +15,10 @@
         </div>
         <div class="flex gap-2 flex-wrap">
             <button onclick="forceRefresh()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm">
-                🔄 Force Refresh
+                🔄 {{ t("purchases.force_refresh") }}
             </button>
             <button onclick="clearAllLocalData()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm">
-                🗑️ Clear All Data
+                🗑️ {{ t("purchases.clear_data") }}
             </button>
         </div>
     </div>
@@ -26,17 +27,17 @@
 <!-- ADD / EDIT FORM -->
 <div class="bg-white rounded-xl shadow-md p-6 mb-6">
     <div class="flex items-center gap-2 mb-4">
-        <h2 class="text-xl font-bold" id="formTitle">➕ Add Accessory Purchase</h2>
+        <h2 class="text-xl font-bold" id="formTitle">{{ t("purchases.form.add_acc") }}</h2>
         <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">Accessories</span>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-8 gap-3">
         <div>
-            <label class="block text-sm font-medium text-gray-700">Product Name</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("purchases.form.name") }}</label>
             <input type="text" id="name" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2" autocomplete="off">
             <div id="nameSuggestions" class="absolute z-10 bg-white border rounded-lg shadow-lg hidden max-h-60 overflow-y-auto w-full"></div>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Brand</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("purchases.form.brand") }}</label>
             <input type="text" id="brand" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2" autocomplete="off">
             <div id="brandSuggestions" class="absolute z-10 bg-white border rounded-lg shadow-lg hidden max-h-60 overflow-y-auto w-full"></div>
         </div>
@@ -46,30 +47,30 @@
             <div id="categorySuggestions" class="absolute z-10 bg-white border rounded-lg shadow-lg hidden max-h-60 overflow-y-auto w-full"></div>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Quantity</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("purchases.form.qty") }}</label>
             <input type="number" id="quantity" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Cost Price (₵)</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("purchases.form.cost") }} ({{ CURRENCY }})</label>
             <input type="number" step="0.01" id="cost_price" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Discount (₵)</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("purchases.form.discount") }} ({{ CURRENCY }})</label>
             <input type="number" step="0.01" id="discount" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Selling Price (₵)</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("purchases.form.selling") }} ({{ CURRENCY }})</label>
             <input type="number" step="0.01" id="selling_price" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Source</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("purchases.form.source") }}</label>
             <input type="text" id="source" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="e.g. Supplier, Wholesaler" autocomplete="off">
             <div id="sourceSuggestions" class="absolute z-10 bg-white border rounded-lg shadow-lg hidden"></div>
         </div>
     </div>
     <div class="mt-4 flex gap-3">
-        <button id="submitBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-6 py-2 rounded-lg">➕ Add Accessory Purchase</button>
-        <button id="cancelBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg hidden">Cancel Edit</button>
+        <button id="submitBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-6 py-2 rounded-lg">{{ t("purchases.form.add_acc") }}</button>
+        <button id="cancelBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg hidden">{{ t("purchases.form.cancel") }}</button>
     </div>
 </div>
 
@@ -101,9 +102,9 @@
         <input type="checkbox" id="showUpdatedOnly" class="h-4 w-4 text-blue-600 rounded">
         <label for="showUpdatedOnly" class="text-sm text-gray-700 whitespace-nowrap">Show only updated</label>
     </div>
-    <button id="filterBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg">🔍 Filter</button>
-    <button id="clearFilterBtn" class="bg-gray-400 hover:bg-gray-500 text-white px-5 py-2 rounded-lg">✕ Clear</button>
-    <button id="pdfBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded-lg">🧾 PDF Report</button>
+    <button id="filterBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg">{{ t("purchases.filter.apply") }}</button>
+    <button id="clearFilterBtn" class="bg-gray-400 hover:bg-gray-500 text-white px-5 py-2 rounded-lg">{{ t("purchases.filter.clear") }}</button>
+    <button id="pdfBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded-lg">{{ t("purchases.filter.pdf") }}</button>
     <button id="viewPendingBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg flex items-center gap-2">
         <span>⏳ Pending</span>
         <span id="pendingCount" class="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 hidden">0</span>
@@ -154,7 +155,7 @@
 <!-- Advanced Search Toggle -->
 <div class="mb-4">
     <button id="advancedToggle" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">
-        ⚙️ Advanced Search
+        {{ t("purchases.adv.toggle") }}
     </button>
     <button id="clearSearchBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm ml-2 hidden">
         ✕ Clear Search
@@ -206,7 +207,7 @@
 <div id="pendingModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
         <div class="flex-shrink-0 p-4 border-b flex justify-between items-center bg-white rounded-t-xl">
-            <h3 class="text-xl font-bold">⏳ Pending Purchases</h3>
+            <h3 class="text-xl font-bold">{{ t("purchases.section.pending") }}</h3>
             <button onclick="closePendingModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
         </div>
         <div id="pendingList" class="flex-1 overflow-y-auto p-4 space-y-3"><!-- dynamically loaded --></div>
@@ -226,7 +227,7 @@
 <div id="historyModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         <div class="flex-shrink-0 p-4 border-b flex justify-between items-center bg-white">
-            <h3 class="text-xl font-bold" id="historyModalTitle">📋 Batch History</h3>
+            <h3 class="text-xl font-bold" id="historyModalTitle">{{ t("purchases.section.history") }}</h3>
             <button onclick="closeHistoryModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
         </div>
         <div id="historyContent" class="flex-1 overflow-y-auto overflow-x-auto p-4 space-y-4 min-h-0">
@@ -396,6 +397,22 @@
         return isNaN(num) ? '0.00' : num.toFixed(decimals);
     }
 
+    // i18n — server-rendered strings for JS-rendered content
+    const T = {
+        form_name:      '{{ t("purchases.form.name")|e }}',
+        form_brand:     '{{ t("purchases.form.brand")|e }}',
+        form_category:  '{{ t("purchases.form.category")|e }}',
+        form_cost:      '{{ t("purchases.form.cost")|e }}',
+        form_discount:  '{{ t("purchases.form.discount")|e }}',
+        form_selling:   '{{ t("purchases.form.selling")|e }}',
+        form_source:    '{{ t("purchases.form.source")|e }}',
+    };
+    function tt(k, fb) {
+        const v = T[k];
+        if (v && v.length && v !== k) return v;
+        return fb || k;
+    }
+
     // ---------- Real-sold helper ----------
     // Uses the API-provided `sold_quantity` (from sales_items) when present.
     // Falls back to `quantity - remaining` only when the field is missing
@@ -521,7 +538,7 @@
     }
 
     function formatMoney(amount) {
-        return '₵' + safeToFixed(amount);
+        return "{{ CURRENCY }}" + safeToFixed(amount);
     }
 
     // ---------- Loading state helpers ----------
@@ -710,8 +727,8 @@
                             </div>
                             <h3 class="font-bold text-lg mt-1">${escapeHtml(p.data.name)} (${escapeHtml(p.data.brand)})</h3>
                             <p class="text-sm text-gray-600">
-                                Qty: ${p.data.quantity} | Cost: ₵${safeToFixed(p.data.cost_price)} | Selling: ₵${safeToFixed(p.data.selling_price)}
-                                ${p.data.discount ? `| Discount: ₵${safeToFixed(p.data.discount)}` : ''}
+                                Qty: ${p.data.quantity} | Cost: ${formatMoney(p.data.cost_price)} | Selling: ${formatMoney(p.data.selling_price)}
+                                ${p.data.discount ? `| Discount: ${formatMoney(p.data.discount)}` : ''}
                             </p>
                             <p class="text-sm text-gray-500">Category: ${p.data.category || 'Accessory'}</p>
                             <p class="text-sm text-gray-500">Source: ${p.data.source || 'Unknown'}</p>
@@ -921,12 +938,12 @@
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
                             <div><span class="text-gray-500">Date:</span> <strong>${formatDate(purchase.original_date)}</strong></div>
                             <div><span class="text-gray-500">Quantity:</span> <strong>${purchase.original_quantity}</strong></div>
-                            <div><span class="text-gray-500">Cost:</span> <strong>₵${safeToFixed(purchase.original_cost_price)}</strong></div>
-                            <div><span class="text-gray-500">Selling:</span> <strong>₵${safeToFixed(purchase.original_selling_price)}</strong></div>
+                            <div><span class="text-gray-500">Cost:</span> <strong>${formatMoney(purchase.original_cost_price)}</strong></div>
+                            <div><span class="text-gray-500">Selling:</span> <strong>${formatMoney(purchase.original_selling_price)}</strong></div>
                         </div>
                         ${purchase.current_quantity !== purchase.original_quantity ? `
                             <div class="mt-2 text-xs text-blue-600">
-                                📝 Updated: Qty ${purchase.current_quantity} | Cost ₵${safeToFixed(purchase.current_cost_price)} | Selling ₵${safeToFixed(purchase.current_selling_price)}
+                                📝 Updated: Qty ${purchase.current_quantity} | Cost ${formatMoney(purchase.current_cost_price)} | Selling ${formatMoney(purchase.current_selling_price)}
                             </div>
                         ` : ''}
                         <div class="mt-2 text-xs text-gray-500">Source: ${escapeHtml(purchase.source)} | Category: ${escapeHtml(purchase.category)}</div>
@@ -947,8 +964,8 @@
                                     <div class="bg-white rounded-lg p-3 border border-gray-200 flex flex-wrap justify-between items-center">
                                         <div>
                                             <span class="font-medium">${item.quantity} units</span>
-                                            <span class="text-sm text-gray-500 ml-2">@ ₵${safeToFixed(item.selling_price)}</span>
-                                            <span class="text-xs text-gray-400 block">Profit: ₵${safeToFixed(item.profit)}</span>
+                                            <span class="text-sm text-gray-500 ml-2">@ ${formatMoney(item.selling_price)}</span>
+                                            <span class="text-xs text-gray-400 block">Profit: ${formatMoney(item.profit)}</span>
                                         </div>
                                         <div class="text-right text-xs">
                                             <div class="text-gray-600">${formatDate(item.sale_date)}</div>
@@ -1208,8 +1225,26 @@
             const soldQty = getRealSold(p);
             const claimedCost = claimedQty * (p.cost_price || 0);
             const soldBadge = soldQty > 0 ? `<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2">📊 ${soldQty} Sold</span>` : '';
-            const isUpdated = (p.action !== 'added');
-            const updatedBadge = isUpdated ? `<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded ml-2">🔄 Updated</span>` : '';
+        // ─── Badge classification ───
+        const OTHER_UPDATED = new Set([
+            'updated_forced', 'updated_qty', 'updated',
+            'price_changed', 'identity_changed',
+            'moved_forced', 'moved_new',
+            'remaining_moved_to_new_batch', 'depleted_by_update'
+        ]);
+        const isExcelAdded   = (p.action === 'added_from_excel');
+        const isExcelUpdated = (p.action === 'updated_from_excel');
+        const isOtherUpdated = OTHER_UPDATED.has(p.action);
+        const isUpdated      = isExcelAdded || isExcelUpdated || isOtherUpdated;
+
+        let updatedBadge = '';
+        if (isExcelAdded) {
+            updatedBadge = `<span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded ml-2">📊 Added from Excel</span>`;
+        } else if (isExcelUpdated) {
+            updatedBadge = `<span class="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded ml-2">🔄 Updated from Excel</span>`;
+        } else if (isOtherUpdated) {
+            updatedBadge = `<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded ml-2">🔄 Updated</span>`;
+        }
 
             return `
                 <div class="border rounded-lg p-4 hover:shadow transition">
@@ -1217,7 +1252,7 @@
                         <div class="flex-1 w-full">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <h3 class="font-bold text-lg">${escapeHtml(p.name)} (${escapeHtml(p.brand)})</h3>
-                                ${claimedQty > 0 ? `<span class="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">⚠️ ${claimedQty} Claimed (₵${safeToFixed(claimedCost)})</span>` : ''}
+                                ${claimedQty > 0 ? `<span class="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">⚠️ ${claimedQty} Claimed (${formatMoney(claimedCost)})</span>` : ''}
                                 ${soldBadge}
                                 ${updatedBadge}
                             </div>
@@ -1228,11 +1263,11 @@
                                 <span>Remaining: <strong>${p.remaining_quantity || 0}</strong></span>
                                 <span>✅ Good: <strong class="text-green-600">${Math.max(goodStock, 0)}</strong></span>
                             </div>
-                            <p class="text-sm mt-1">Cost: ₵${safeToFixed(p.cost_price)} | Discount: ₵${safeToFixed(p.discount)} | Selling: ₵${safeToFixed(p.selling_price)}</p>
-                            <p class="text-sm">Total: ₵${safeToFixed(p.total_cost)} | Date: ${formatDate(p.date)}</p>
+                            <p class="text-sm mt-1">Cost: ${formatMoney(p.cost_price)} | Discount: ${formatMoney(p.discount)} | Selling: ${formatMoney(p.selling_price)}</p>
+                            <p class="text-sm">Total: ${formatMoney(p.total_cost)} | Date: ${formatDate(p.date)}</p>
                             <p class="text-sm text-gray-500"><span class="font-medium">Source:</span> ${escapeHtml(p.source || 'Unknown')}</p>
                             <p class="text-sm font-bold ${profitColor}">💎 Profit: ${formatMoney(batchProfit)}</p>
-                            ${claimedQty > 0 ? `<p class="text-xs text-red-500">⚠️ ${claimedQty} units claimed as faulty (Cost: ₵${safeToFixed(claimedCost)})</p>` : ''}
+                            ${claimedQty > 0 ? `<p class="text-xs text-red-500">⚠️ ${claimedQty} units claimed as faulty (Cost: ${formatMoney(claimedCost)})</p>` : ''}
                             ${p.original_date ? `<p class="text-xs text-gray-400">📅 Originally purchased: ${formatDate(p.original_date)}</p>` : ''}
                             ${isUpdated ? `<p class="text-xs text-gray-400">🔄 Last updated: ${formatDate(p.date)}</p>` : ''}
                         </div>
@@ -1307,7 +1342,7 @@
                     <div class="bg-gray-800 rounded p-1 shadow"><span class="text-gray-400">📈 Total Selling</span><br><span class="text-lg font-bold text-green-400">${formatMoney(totalSelling)}</span></div>
                     <div class="bg-gray-800 rounded p-1 shadow"><span class="text-gray-400">📉 Total Discount</span><br><span class="text-lg font-bold text-orange-400">${formatMoney(totalDiscount)}</span></div>
                     <div class="bg-gray-800 rounded p-1 shadow"><span class="text-gray-400">💎 Gross Profit</span><br><span class="text-lg font-bold ${totalProfit >= 0 ? 'text-teal-400' : 'text-red-400'}">${formatMoney(totalProfit)}</span></div>
-                    <div class="bg-gray-800 rounded p-1 shadow"><span class="text-gray-400">📊 Avg Profit/Batch</span><br><span class="text-lg font-bold ${totalBatches > 0 && totalProfit / totalBatches >= 0 ? 'text-teal-400' : 'text-red-400'}">${totalBatches > 0 ? formatMoney(totalProfit / totalBatches) : '₵0.00'}</span></div>
+                    <div class="bg-gray-800 rounded p-1 shadow"><span class="text-gray-400">📊 Avg Profit/Batch</span><br><span class="text-lg font-bold ${totalBatches > 0 && totalProfit / totalBatches >= 0 ? 'text-teal-400' : 'text-red-400'}">${totalBatches > 0 ? formatMoney(totalProfit / totalBatches) : formatMoney(0)}</span></div>
                 </div>
                 <div class="text-xs text-gray-500 mt-1">
                     💡 Total: ${totalQty} | Remaining: ${totalRemaining} | Sold: ${totalSold} | Claimed: ${totalClaimed} | Good: ${Math.max(totalGood, 0)} | Capital: ${formatMoney(totalCapital)}

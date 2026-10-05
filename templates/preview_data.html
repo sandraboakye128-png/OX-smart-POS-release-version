@@ -1,0 +1,652 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="p-4 md:p-6 space-y-4">
+
+    <!-- ============ HEADER ============ -->
+    <div class="bg-white rounded-2xl shadow-sm p-4 border border-gray-100">
+        <div class="flex flex-wrap justify-between items-center gap-2">
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-table text-emerald-500"></i> {{ t('preview.title') }}
+                </h1>
+                <p class="text-gray-500 text-xs md:text-sm mt-0.5">
+                    {{ t('preview.subtitle') }}
+                </p>
+            </div>
+            <button onclick="previewBackToMenu()" id="pvBackBtn"
+                    class="hidden bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm">
+                ← {{ t('preview.back_to_menu') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- ============ STEP 1: KIND ============ -->
+    <div id="pvStep1" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button onclick="previewPickKind('purchases')"
+                class="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:border-emerald-400 transition text-left">
+            <div class="text-4xl mb-2">📦</div>
+            <div class="text-lg font-bold text-gray-800">{{ t('preview.purchases') }}</div>
+            <div class="text-sm text-gray-500 mt-1">{{ t('preview.purchases_desc') }}</div>
+        </button>
+        <button onclick="previewPickKind('sales')"
+                class="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:border-emerald-400 transition text-left">
+            <div class="text-4xl mb-2">💰</div>
+            <div class="text-lg font-bold text-gray-800">{{ t('preview.sales') }}</div>
+            <div class="text-sm text-gray-500 mt-1">{{ t('preview.sales_desc') }}</div>
+        </button>
+    </div>
+
+    <!-- ============ STEP 2: CATEGORY ============ -->
+    <div id="pvStep2" class="hidden bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+        <h3 class="text-base font-semibold text-gray-700 mb-4">{{ t('preview.which_category') }}</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button onclick="previewPickCategory('Accessory')"
+                    class="bg-teal-500 hover:bg-teal-600 text-white py-4 rounded-xl font-semibold text-base">
+                {{ t('preview.accessories') }}
+            </button>
+            <button onclick="previewPickCategory('Screen')"
+                    class="bg-purple-500 hover:bg-purple-600 text-white py-4 rounded-xl font-semibold text-base">
+                {{ t('preview.screens') }}
+            </button>
+        </div>
+    </div>
+
+    <!-- ============ STEP 3: EDITOR ============ -->
+    <div id="pvStep3" class="hidden space-y-3">
+        <!-- Toolbar -->
+        <div class="bg-white rounded-2xl shadow-sm p-3 border border-gray-100 flex flex-wrap items-center gap-2">
+            <span id="pvTitle" class="font-semibold text-gray-800 mr-2"></span>
+            <span id="pvCount" class="text-xs text-gray-500 mr-2"></span>
+            <div class="flex-1"></div>
+
+            <button onclick="previewAddRow()"
+                    class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm">
+                ➕ {{ t('preview.add_row') }}
+            </button>
+            <button onclick="previewExportCSV()"
+                    class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm">
+                📄 {{ t('preview.export_csv') }}
+            </button>
+            <button onclick="previewOpenInExcel()"
+                    class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm">
+                🖥 {{ t('preview.open_excel') }}
+            </button>
+            {% if current_user and (current_user.role == 'admin' or current_user.username|lower == 'oxbee') %}
+            <button onclick="previewSavePrompt()"
+                    class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold">
+                💾 {{ t('preview.save') }}
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Sheet -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="overflow-auto" style="max-height: 65vh;">
+                <table id="pvTable" class="min-w-full text-xs md:text-sm" style="border-collapse: collapse;">
+                    <thead class="bg-gray-100 sticky top-0 z-10">
+                        <tr id="pvHead"></tr>
+                    </thead>
+                    <tbody id="pvBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="pvRecentBar" class="hidden bg-amber-50 border border-amber-300 rounded-xl p-3 flex flex-wrap items-center gap-3">
+            <span class="text-sm font-semibold text-amber-800">🆕 <span id="pvRecentCount">0</span> new row(s) this session</span>
+            <button onclick="pvShowRecentModal()"
+                    class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
+                View All with highlights
+            </button>
+            <div class="flex flex-wrap items-center gap-3 text-[11px] text-gray-600 ml-2">
+                <span class="flex items-center gap-1">
+                    <span style="display:inline-block;width:14px;height:14px;background:#fef9c3;border:1px solid #ca8a04;border-radius:3px;"></span>
+                    Added this session
+                </span>
+                <span class="flex items-center gap-1">
+                    <span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border:1px solid #16a34a;border-radius:3px;"></span>
+                    Added via import
+                </span>
+                <span class="flex items-center gap-1">
+                    <span style="display:inline-block;width:14px;height:14px;background:#e9d5ff;border:1px solid #9333ea;border-radius:3px;"></span>
+                    Updated via import
+                </span>
+                <span class="flex items-center gap-1">
+                    <span style="display:inline-block;width:14px;height:14px;background:#fee2e2;border:1px solid #ef4444;border-radius:3px;"></span>
+                    Not in DB anymore
+                </span>
+            </div>
+        </div>
+        <div id="pvStatus" class="text-sm text-gray-500 px-2"></div>
+    </div>
+</div>
+
+<!-- ============ AUTO-SUGGEST DROPDOWN ============ -->
+<div id="pvSuggestBox"
+     class="hidden bg-white border border-gray-300 rounded-lg shadow-2xl max-h-64 overflow-y-auto"
+     style="position:fixed; z-index:2147483645; min-width:220px; font-size:13px;"></div>
+
+<!-- ============ RECENTLY ADDED MODAL ============ -->
+<div id="pvRecentModal" class="hidden flex items-center justify-center p-4"
+     style="position:fixed !important; inset:0 !important; z-index:2147483646 !important; background:rgba(0,0,0,0.7) !important; isolation:isolate;">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between p-4 border-b">
+            <h3 class="text-lg font-bold text-gray-800">🆕 Recently Added from Excel</h3>
+            <button onclick="pvCloseRecentModal()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+        </div>
+        <div id="pvRecentBody" class="flex-1 overflow-auto p-4"></div>
+        <div class="p-3 border-t flex justify-end">
+            <button onclick="pvCloseRecentModal()"
+                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ SAVE MODE MODAL ============ -->
+<div id="pvSaveModal" class="hidden flex items-center justify-center p-4" style="position:fixed !important; inset:0 !important; z-index:2147483646 !important; background:rgba(0,0,0,0.7) !important; isolation:isolate;">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5">
+        <h3 class="text-lg font-bold text-gray-800 mb-3">💾 {{ t('preview.save_mode_title') }}</h3>
+        <p class="text-sm text-gray-500 mb-4">{{ t('preview.save_mode_hint') }}</p>
+        <div class="space-y-2">
+            <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
+                <input type="radio" name="pvSaveMode" value="replace" class="mt-1">
+                <div>
+                    <div class="font-semibold text-sm">🔄 {{ t('preview.mode_replace') }}</div>
+                    <div class="text-xs text-gray-500">{{ t('preview.mode_replace_desc') }}</div>
+                </div>
+            </label>
+            <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
+                <input type="radio" name="pvSaveMode" value="append" class="mt-1">
+                <div>
+                    <div class="font-semibold text-sm">➕ {{ t('preview.mode_append') }}</div>
+                    <div class="text-xs text-gray-500">{{ t('preview.mode_append_desc') }}</div>
+                </div>
+            </label>
+            <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
+                <input type="radio" name="pvSaveMode" value="merge" class="mt-1" checked>
+                <div>
+                    <div class="font-semibold text-sm">🔀 {{ t('preview.mode_merge') }}</div>
+                    <div class="text-xs text-gray-500">{{ t('preview.mode_merge_desc') }}</div>
+                </div>
+            </label>
+        </div>
+        <div class="flex justify-end gap-2 mt-5">
+            <button onclick="previewCloseSaveModal()"
+                    class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">
+                {{ t('preview.cancel') }}
+            </button>
+            <button onclick="previewConfirmSave()"
+                    class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+                {{ t('preview.confirm_save') }}
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+'use strict';
+
+const $ = id => document.getElementById(id);
+let PV = {
+    kind: null, category: null, columns: [], rows: [],
+    originalIds: new Set(),
+    recentIds: new Set(),          // newly added during this session
+    deletedIds: new Set(),         // rows deleted from the sheet
+    suggestions: { products: [], categories: [] },
+    suggestCell: null              // currently focused cell for the suggest box
+};
+
+// CSS for red divider
+(function injectPvStyle() {
+    if (document.getElementById('pv-divider-style')) return;
+    const s = document.createElement('style');
+    s.id = 'pv-divider-style';
+    s.textContent = `
+        .pv-new-divider td {
+            background: #fee2e2 !important;
+            color: #991b1b;
+            font-weight: 700;
+            padding: 4px 10px !important;
+            border-top: 2px solid #ef4444 !important;
+            border-bottom: 2px solid #ef4444 !important;
+            text-align: center;
+        }
+        .pv-row-new td { background: #fef9c3; }
+    .pv-row-import-added td { background: #dcfce7; border-bottom: 1px solid #86efac; }
+    .pv-row-import-updated td { background: #e9d5ff; border-bottom: 1px solid #d8b4fe; }
+    .pv-row-not-in-db td { background: #fee2e2; border-bottom: 1px solid #fca5a5; }
+    `;
+    document.head.appendChild(s);
+})();
+
+// ---- UI flow ----------------------------------------------------------
+window.previewPickKind = function(kind) {
+    PV.kind = kind;
+    $('pvStep1').classList.add('hidden');
+    $('pvStep2').classList.remove('hidden');
+    $('pvBackBtn').classList.remove('hidden');
+};
+window.previewPickCategory = function(category) {
+    PV.category = category;
+    $('pvStep2').classList.add('hidden');
+    $('pvStep3').classList.remove('hidden');
+    previewLoad();
+};
+window.previewBackToMenu = function() {
+    PV = { kind: null, category: null, columns: [], rows: [] };
+    $('pvStep1').classList.remove('hidden');
+    $('pvStep2').classList.add('hidden');
+    $('pvStep3').classList.add('hidden');
+    $('pvBackBtn').classList.add('hidden');
+    $('pvStatus').textContent = '';
+};
+
+// ---- Load rows --------------------------------------------------------
+async function previewLoad() {
+    $('pvBody').innerHTML = '<tr><td colspan="20" class="text-center py-6 text-gray-400">{{ t("preview.loading") }}</td></tr>';
+    try {
+        const res = await fetch(`/api/preview/${PV.kind}/${PV.category}`);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Load failed');
+        PV.columns = data.columns;
+        PV.rows = data.rows;
+        PV.originalIds = new Set(data.rows.map(r => String(r.batch_id || r.sale_id || '')));
+        // Seed recentIds with rows already flagged as excel-sourced
+        (data.rows || []).forEach(r => {
+            const a = (r.action || '').toString();
+            if (a === 'added_from_excel' || a === 'updated_from_excel') {
+                const id = String(r.batch_id || r.sale_id || '');
+                if (id) PV.recentIds.add(id);
+            }
+        });
+        previewRenderHead();
+        previewRenderBody();
+        $('pvTitle').textContent = (PV.kind === 'purchases' ? '📦' : '💰') + ' ' + PV.category;
+        $('pvCount').textContent = `${PV.rows.length} rows`;
+        $('pvStatus').textContent = '';
+        // Load auto-suggest data (best-effort)
+        try {
+            const sres = await fetch(`/api/preview/suggestions/${PV.category}`);
+            const sdata = await sres.json();
+            if (sdata.success) {
+                PV.suggestions = { products: sdata.products || [], categories: sdata.categories || [] };
+            }
+        } catch (e) { /* suggestions optional */ }
+        pvRenderRecentBar();
+    } catch (e) {
+        $('pvBody').innerHTML = `<tr><td colspan="20" class="text-center py-6 text-red-500">${e.message}</td></tr>`;
+    }
+}
+
+function previewRenderHead() {
+    const tr = $('pvHead');
+    tr.innerHTML = '<th class="px-2 py-2 text-left text-[10px] text-gray-400 border-b sticky left-0 bg-gray-100">#</th>'
+        + PV.columns.map(c =>
+            `<th class="px-3 py-2 text-left text-[11px] md:text-xs font-semibold text-gray-600 border-b whitespace-nowrap">${c.header}</th>`
+        ).join('')
+        + '<th class="px-2 py-2 border-b bg-gray-100"></th>';
+}
+
+function previewRenderBody() {
+    const tb = $('pvBody');
+    let dividerInserted = false;
+    tb.innerHTML = PV.rows.map((r, i) => {
+        const rid = String(r.batch_id || r.sale_id || '');
+        const isNew = rid === '' || !PV.originalIds.has(rid);
+        let divider = '';
+        if (isNew && !dividerInserted && PV.originalIds.size > 0) {
+            dividerInserted = true;
+            divider = `<tr class="pv-new-divider"><td colspan="${PV.columns.length + 2}">▲ New rows added from Excel ▲</td></tr>`;
+        }
+        const cells = PV.columns.map(c => {
+            const val = r[c.key] != null ? r[c.key] : '';
+            const isCategory = (c.key === 'category');
+            const isDate = (c.key === 'date');
+            const categoryIsEditable =
+                isCategory && PV.category === 'Accessory';
+
+            if (isDate) {
+                // Date cell: calendar input
+                const iso = String(val || '').substring(0, 19);
+                return `<td data-key="date" data-type="date" class="px-2 py-1 border-b">
+                    <input type="datetime-local" value="${iso.replace(' ', 'T').substring(0,16)}"
+                           class="pv-date-input border border-gray-200 rounded px-1 py-0.5 text-xs w-44"
+                           data-row="${i}" />
+                </td>`;
+            }
+
+            const edit = (c.editable || categoryIsEditable) ? 'contenteditable="true"' : '';
+            const cls = (c.editable || categoryIsEditable)
+                ? 'px-3 py-1.5 border-b text-gray-800'
+                : 'px-3 py-1.5 border-b text-gray-500 bg-gray-50';
+            return `<td data-key="${c.key}" data-type="${c.type}" ${edit}
+                    class="${cls} whitespace-nowrap focus:outline-none focus:bg-amber-50">${escapeHtml(String(val))}</td>`;
+        }).join('');
+        const rowCls = isNew ? 'pv-row-new' : '';
+        return `${divider}<tr data-row="${i}" class="${rowCls}">
+            <td class="px-2 py-1.5 border-b text-[10px] text-gray-400 bg-gray-50 sticky left-0">${i+1}</td>
+            ${cells}
+            <td class="px-2 py-1.5 border-b bg-gray-50 text-center">
+                <button onclick="previewDeleteRow(${i})"
+                        class="text-red-500 hover:text-red-700 text-xs" title="Delete">🗑</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+window.previewDeleteRow = function(i) {
+    if (!confirm('{{ t("preview.confirm_delete_row") }}')) return;
+    PV.rows.splice(i, 1);
+    previewRenderBody();
+    $('pvCount').textContent = `${PV.rows.length} rows`;
+};
+
+window.previewAddRow = function() {
+    const blank = {};
+    PV.columns.forEach(c => { blank[c.key] = c.type === 'int' || c.type === 'float' ? 0 : ''; });
+    blank.category = (PV.category === 'Screen') ? 'Screen' : '';
+    PV.rows.unshift(blank);
+    // Track as recent (use a negative sentinel id)
+    const sentinel = '__new_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    blank.__tempId = sentinel;
+    PV.recentIds.add(sentinel);
+    previewRenderBody();
+    $('pvCount').textContent = `${PV.rows.length} rows`;
+    pvRenderRecentBar();
+};
+
+function collectRows() {
+    const tb = $('pvBody');
+    const out = [];
+    tb.querySelectorAll('tr').forEach(tr => {
+        if (tr.classList.contains('pv-new-divider')) return;
+        const obj = {};
+        tr.querySelectorAll('td[data-key]').forEach(td => {
+            const key = td.dataset.key;
+            const type = td.dataset.type;
+            if (type === 'date') {
+                const inp = td.querySelector('input[type="datetime-local"]');
+                let v = inp ? inp.value : '';
+                if (!v) {
+                    // Empty → now()
+                    const now = new Date();
+                    v = now.toISOString().substring(0, 16);
+                }
+                obj[key] = v.replace('T', ' ') + ':00';
+                return;
+            }
+            let v = td.textContent.trim();
+            if (type === 'int') v = parseInt(v) || 0;
+            else if (type === 'float') v = parseFloat(v) || 0;
+            obj[key] = v;
+        });
+        out.push(obj);
+    });
+    return out;
+}
+
+// ---- CSV / Excel ------------------------------------------------------
+window.previewExportCSV = function() {
+    if (!PV.kind || !PV.category) return;
+    window.location.href = `/api/preview/${PV.kind}/${PV.category}/export.csv`;
+};
+
+window.previewOpenInExcel = function() {
+    // Same as CSV download — the OS will offer to open in Excel / Sheets
+    previewExportCSV();
+    $('pvStatus').textContent = '{{ t("preview.excel_hint") }}';
+};
+
+// ---- Save -------------------------------------------------------------
+window.previewSavePrompt = function() {
+    $('pvSaveModal').classList.remove('hidden');
+};
+window.previewCloseSaveModal = function() {
+    $('pvSaveModal').classList.add('hidden');
+};
+window.previewConfirmSave = async function() {
+    const mode = document.querySelector('input[name="pvSaveMode"]:checked').value;
+    const rows = collectRows();
+    $('pvStatus').textContent = '{{ t("preview.saving") }}';
+    try {
+        const res = await fetch(`/api/preview/${PV.kind}/${PV.category}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ rows, mode, deleted_ids: Array.from(PV.deletedIds) })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Save failed');
+        const s = data.stats || {};
+        $('pvStatus').innerHTML = `✅ {{ t("preview.saved") }} — ` +
+            `inserted:${s.inserted||0} updated:${s.updated||0} ` +
+            (s.errors && s.errors.length ? `— ${s.errors.length} warnings` : '');
+        previewCloseSaveModal();
+        previewLoad();
+    } catch (e) {
+        $('pvStatus').innerHTML = `<span class="text-red-600">❌ ${e.message}</span>`;
+        previewCloseSaveModal();
+    }
+};
+
+// ---- Utils ------------------------------------------------------------
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[m]));
+}
+
+// ============================================================
+//  AUTO-SUGGEST for name / brand / category cells
+// ============================================================
+function pvHideSuggest() {
+    const box = document.getElementById('pvSuggestBox');
+    if (box) box.classList.add('hidden');
+    PV.suggestCell = null;
+}
+
+function pvPositionSuggest(td) {
+    const box = document.getElementById('pvSuggestBox');
+    if (!box || !td) return;
+    const r = td.getBoundingClientRect();
+    box.style.left = Math.max(8, r.left) + 'px';
+    box.style.top = (r.bottom + 4) + 'px';
+    box.style.width = Math.max(240, Math.min(400, r.width + 120)) + 'px';
+}
+
+function pvRenderSuggest(items, onPick) {
+    const box = document.getElementById('pvSuggestBox');
+    if (!items || items.length === 0) { pvHideSuggest(); return; }
+    box.innerHTML = items.map((it, i) =>
+        `<div class="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b last:border-0"
+              data-idx="${i}"
+              onmousedown="event.preventDefault()"
+              onclick="__pvPick(${i})">
+            <div class="font-medium text-gray-800 text-sm">${escapeHtml(it.main || '')}</div>
+            ${it.sub ? `<div class="text-xs text-gray-500">${escapeHtml(it.sub)}</div>` : ''}
+        </div>`
+    ).join('');
+    box.classList.remove('hidden');
+    window.__pvPick = function(idx) {
+        const it = items[idx];
+        if (it && typeof onPick === 'function') onPick(it);
+        pvHideSuggest();
+    };
+    window.__pvSuggestItems = items;
+}
+
+// Attach input handler on contenteditable cells
+document.addEventListener('input', function(e) {
+    const td = e.target.closest && e.target.closest('td[data-key][contenteditable="true"]');
+    if (!td) return;
+    const key = td.dataset.key;
+    const typed = (td.textContent || '').trim().toLowerCase();
+    if (!['name', 'brand', 'category'].includes(key)) { pvHideSuggest(); return; }
+
+    // Find the row index from the tr
+    const tr = td.closest('tr');
+    const rowIdx = tr ? parseInt(tr.dataset.row, 10) : -1;
+    // Read sibling name/brand for context
+    let rowName = '', rowBrand = '';
+    if (tr) {
+        const nameTd = tr.querySelector('td[data-key="name"]');
+        const brandTd = tr.querySelector('td[data-key="brand"]');
+        rowName = nameTd ? (nameTd.textContent || '').trim().toLowerCase() : '';
+        rowBrand = brandTd ? (brandTd.textContent || '').trim().toLowerCase() : '';
+    }
+
+    const prods = (PV.suggestions && PV.suggestions.products) || [];
+    const cats = (PV.suggestions && PV.suggestions.categories) || [];
+
+    let items = [], onPick = null;
+
+    if (key === 'name') {
+        const matches = prods.filter(p =>
+            !typed || (p.name || '').toLowerCase().includes(typed)
+        ).slice(0, 100);
+        items = matches.map(p => ({ main: p.name, sub: `${p.brand || '—'} · ${p.category || ''}`, payload: p }));
+        onPick = (it) => {
+            td.textContent = it.payload.name;
+            if (rowIdx >= 0) {
+                PV.rows[rowIdx] = PV.rows[rowIdx] || {};
+                PV.rows[rowIdx].name = it.payload.name;
+                // Auto-fill brand + category on sibling cells
+                if (tr) {
+                    const bTd = tr.querySelector('td[data-key="brand"]');
+                    const cTd = tr.querySelector('td[data-key="category"]');
+                    if (bTd) bTd.textContent = it.payload.brand || '';
+                    if (cTd && PV.category === 'Accessory') cTd.textContent = it.payload.category || '';
+                }
+            }
+        };
+    } else if (key === 'brand') {
+        const matches = prods.filter(p =>
+            (!rowName || (p.name || '').toLowerCase() === rowName) &&
+            (!typed || (p.brand || '').toLowerCase().includes(typed))
+        ).slice(0, 100);
+        items = matches.map(p => ({ main: p.brand || '—', sub: p.name, payload: p }));
+        onPick = (it) => { td.textContent = it.payload.brand || ''; };
+    } else if (key === 'category') {
+        const matches = cats.filter(c => !typed || c.toLowerCase().includes(typed)).slice(0, 100);
+        items = matches.map(c => ({ main: c, sub: '' }));
+        onPick = (it) => { td.textContent = it.main; };
+    }
+
+    if (items.length === 0) { pvHideSuggest(); return; }
+    PV.suggestCell = td;
+    pvPositionSuggest(td);
+    pvRenderSuggest(items, onPick);
+});
+
+// Close on outside click
+document.addEventListener('mousedown', function(e) {
+    const box = document.getElementById('pvSuggestBox');
+    if (!box || box.classList.contains('hidden')) return;
+    if (box.contains(e.target)) return;
+    const td = e.target.closest && e.target.closest('td[data-key][contenteditable="true"]');
+    if (td) return;
+    pvHideSuggest();
+});
+
+// Reposition on scroll/resize
+window.addEventListener('scroll', () => { if (PV.suggestCell) pvPositionSuggest(PV.suggestCell); }, true);
+window.addEventListener('resize', () => { if (PV.suggestCell) pvPositionSuggest(PV.suggestCell); });
+
+// ============================================================
+//  RECENT BAR + MODAL
+// ============================================================
+function pvRenderRecentBar() {
+    const bar = document.getElementById('pvRecentBar');
+    const n = document.getElementById('pvRecentCount');
+    if (!bar || !n) return;
+    let count = PV.recentIds ? PV.recentIds.size : 0;
+    (PV.rows || []).forEach(r => {
+        const a = (r.action || '').toString();
+        if (a === 'added_from_excel' || a === 'updated_from_excel') count++;
+    });
+    n.textContent = String(count);
+    if (count === 0) bar.classList.add('hidden');
+    else bar.classList.remove('hidden');
+}
+
+window.pvClearRecent = function() {
+    PV.recentIds = new Set();
+    pvRenderRecentBar();
+    previewRenderBody();
+};
+
+window.pvShowRecentModal = function() {
+    const body = document.getElementById('pvRecentBody');
+    if (!body) return;
+    const cols = PV.columns;
+    const rows = PV.rows;
+    const body_html = rows.map((r, i) => {
+        const rid = String(r.batch_id || r.sale_id || '') || (r.__tempId || '');
+        const isNew = PV.recentIds.has(rid) || (r.__tempId && PV.recentIds.has(r.__tempId));
+        const cls = isNew ? 'bg-yellow-100' : '';
+        const cells = cols.map(c => {
+            const v = r[c.key];
+            return `<td class="px-2 py-1 border-b text-xs whitespace-nowrap">${escapeHtml(String(v == null ? '' : v))}</td>`;
+        }).join('');
+        return `<tr class="${cls}">${cells}</tr>`;
+    }).join('');
+    const head = cols.map(c => `<th class="px-2 py-1 border-b text-left text-[10px] font-semibold text-gray-600 whitespace-nowrap">${c.header}</th>`).join('');
+    body.innerHTML = `
+        <div class="text-xs text-gray-500 mb-2">
+            Rows highlighted in yellow were added or modified from the Excel sheet this session.
+            Total: ${rows.length} row(s).
+        </div>
+        <div class="overflow-auto border rounded-lg" style="max-height:60vh;">
+            <table class="min-w-full" style="border-collapse:collapse;">
+                <thead class="bg-gray-100 sticky top-0"><tr>${head}</tr></thead>
+                <tbody>${body_html}</tbody>
+            </table>
+        </div>`;
+    document.getElementById('pvRecentModal').classList.remove('hidden');
+};
+
+window.pvCloseRecentModal = function() {
+    document.getElementById('pvRecentModal').classList.add('hidden');
+};
+
+// ============================================================
+//  SAVE — track newly returned IDs as recent
+// ============================================================
+const _origConfirmSave = window.previewConfirmSave;
+window.previewConfirmSave = async function() {
+    // Call the original — but we re-implement here to intercept stats
+    const mode = document.querySelector('input[name="pvSaveMode"]:checked').value;
+    const rows = collectRows();
+    $('pvStatus').textContent = 'Saving…';
+    try {
+        const res = await fetch(`/api/preview/${PV.kind}/${PV.category}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ rows, mode })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Save failed');
+        const s = data.stats || {};
+
+        // Mark newly inserted/updated ids as recent so they highlight after reload
+        (s.inserted_ids || []).forEach(id => PV.recentIds.add(String(id)));
+        (s.updated_ids  || []).forEach(id => PV.recentIds.add(String(id)));
+
+        $('pvStatus').innerHTML = `✅ Saved — ` +
+            `inserted:${s.inserted||0} updated:${s.updated||0}` +
+            (s.errors && s.errors.length ? ` — ${s.errors.length} warnings` : '');
+        previewCloseSaveModal();
+        PV.deletedIds.clear();
+        await previewLoad();
+        pvRenderRecentBar();
+    } catch (e) {
+        $('pvStatus').innerHTML = `<span class="text-red-600">❌ ${e.message}</span>`;
+        previewCloseSaveModal();
+    }
+};
+
+})();
+</script>
+{% endblock %}

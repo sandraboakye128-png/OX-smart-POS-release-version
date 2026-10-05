@@ -7,13 +7,13 @@
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <button onclick="backToDashboard()"
             class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
-        ← Back
+        <span data-i18n="claims.back">← Back</span>
     </button>
-    <h2 class="text-xl md:text-2xl font-bold text-red-600">🔧 Claim Issues</h2>
+    <h2 class="text-xl md:text-2xl font-bold text-red-600" data-i18n="claims.title">🔧 Claim Issues</h2>
     <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">APK · Dexie</span>
     <button id="clNewBtn"
             class="ml-auto bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold">
-        ➕ New Claim
+        <span data-i18n="claims.new">➕ New Claim</span>
     </button>
 </div>
 
@@ -21,59 +21,59 @@
 <div class="bg-white rounded-xl shadow-md p-3 md:p-4 mb-4">
     <div class="flex flex-wrap gap-3 items-end">
         <div class="flex-1 min-w-[180px]">
-            <label class="block text-xs font-medium text-gray-700 mb-1">Search</label>
+            <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="claims.search_label">Search</label>
             <input type="text" id="clSearchInput" placeholder="🔍 Product, brand, or batch #..."
                    class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800">
         </div>
         <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Status</label>
+            <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="claims.status_label">Status</label>
             <select id="clStatusFilter"
                     class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-800">
-                <option value="all">All</option>
-                <option value="active">Active</option>
-                <option value="resolved">Resolved</option>
+                <option value="all" data-i18n="claims.opt_all">All</option>
+                <option value="active" data-i18n="claims.opt_active">Active</option>
+                <option value="resolved" data-i18n="claims.opt_resolved">Resolved</option>
             </select>
         </div>
-        <button id="clRefreshBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg text-sm">🔄 Refresh</button>
+        <button id="clRefreshBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg text-sm" data-i18n="claims.refresh">🔄 Refresh</button>
     </div>
 </div>
 
 <!-- Summary -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
     <div class="bg-white rounded-xl shadow-md p-3 text-center border border-gray-100">
-        <p class="text-xs text-gray-500">Total Claims</p>
+        <p class="text-xs text-gray-500" data-i18n="claims.stat_total">Total Claims</p>
         <p id="clTotalClaims" class="text-xl md:text-2xl font-bold text-gray-800">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-3 text-center border border-gray-100">
-        <p class="text-xs text-gray-500">Active</p>
+        <p class="text-xs text-gray-500" data-i18n="claims.stat_active">Active</p>
         <p id="clActiveClaims" class="text-xl md:text-2xl font-bold text-red-600">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-3 text-center border border-gray-100">
-        <p class="text-xs text-gray-500">Resolved</p>
+        <p class="text-xs text-gray-500" data-i18n="claims.stat_resolved">Resolved</p>
         <p id="clResolvedClaims" class="text-xl md:text-2xl font-bold text-green-600">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-3 text-center border border-gray-100">
-        <p class="text-xs text-gray-500">Items Claimed</p>
+        <p class="text-xs text-gray-500" data-i18n="claims.stat_items">Items Claimed</p>
         <p id="clItemsClaimed" class="text-xl md:text-2xl font-bold text-purple-600">0</p>
     </div>
 </div>
 
 <!-- Claims list -->
 <div id="clClaimsList" class="space-y-3">
-    <div class="text-center text-gray-400 py-8">Loading claims…</div>
+    <div class="text-center text-gray-400 py-8" data-i18n="claims.loading">Loading claims…</div>
 </div>
 
 <!-- ===================== NEW/EDIT CLAIM MODAL ===================== -->
 <div id="clClaimModal" class="cl-modal hidden">
     <div class="cl-modal-box">
         <div class="cl-modal-header">
-            <h3 class="cl-modal-title" id="clClaimModalTitle">New Claim</h3>
+            <h3 class="cl-modal-title" id="clClaimModalTitle" data-i18n="claims.modal_new">🔧 New Claim</h3>
             <button type="button" class="cl-modal-x" onclick="clCloseClaimModal()">&times;</button>
         </div>
         <div class="cl-modal-body">
             <!-- Product search -->
             <div class="mb-3 relative">
-                <label class="block text-xs font-medium text-gray-700 mb-1">Search Product</label>
+                <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="claims.search_product">Search Product</label>
                 <input type="text" id="clProductSearch"
                        placeholder="Type product name, brand, or category…"
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
@@ -95,7 +95,7 @@
 
             <!-- Batch select -->
             <div id="clBatchContainer" class="hidden mb-3">
-                <label class="block text-xs font-medium text-gray-700 mb-1">Select Batch</label>
+                <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="claims.select_batch">Select Batch</label>
                 <select id="clBatchSelect"
                         class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
                     <option value="">Select a batch…</option>
@@ -105,21 +105,21 @@
 
             <!-- Issue type -->
             <div class="mb-3">
-                <label class="block text-xs font-medium text-gray-700 mb-1">Issue Type</label>
+                <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="claims.issue_type">Issue Type</label>
                 <select id="clIssueType"
                         class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
-                    <option value="Damaged">Damaged</option>
-                    <option value="Faulty">Faulty / Defective</option>
-                    <option value="Expired">Expired</option>
-                    <option value="Wrong Item">Wrong Item Received</option>
-                    <option value="Quality Issue">Quality Issue</option>
-                    <option value="Other">Other</option>
+                    <option value="Damaged" data-i18n="claims.issue_damaged">Damaged</option>
+                    <option value="Faulty" data-i18n="claims.issue_faulty">Faulty / Defective</option>
+                    <option value="Expired" data-i18n="claims.issue_expired">Expired</option>
+                    <option value="Wrong Item" data-i18n="claims.issue_wrong">Wrong Item Received</option>
+                    <option value="Quality Issue" data-i18n="claims.issue_quality">Quality Issue</option>
+                    <option value="Other" data-i18n="claims.issue_other">Other</option>
                 </select>
             </div>
 
             <!-- Quantity -->
             <div class="mb-3">
-                <label class="block text-xs font-medium text-gray-700 mb-1">Quantity to Claim</label>
+                <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="claims.qty_label">Quantity to Claim</label>
                 <input type="number" id="clQuantity" min="1"
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800"
                        placeholder="Enter quantity">
@@ -128,7 +128,7 @@
 
             <!-- Description -->
             <div class="mb-3">
-                <label class="block text-xs font-medium text-gray-700 mb-1">Description</label>
+                <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="claims.desc_label">Description</label>
                 <textarea id="clDescription" rows="3"
                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800"
                           placeholder="Describe the issue…"></textarea>
@@ -136,18 +136,18 @@
 
             <!-- Stock impact -->
             <div id="clStockImpact" class="hidden bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                <p class="text-xs font-medium text-yellow-800">📊 Stock Impact</p>
+                <p class="text-xs font-medium text-yellow-800" data-i18n="claims.stock_impact">📊 Stock Impact</p>
                 <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
-                    <div><span class="text-gray-600 text-xs">Current Good:</span> <span id="clStockNow" class="font-bold">0</span></div>
-                    <div><span class="text-gray-600 text-xs">After Claim:</span> <span id="clStockAfter" class="font-bold text-red-600">0</span></div>
+                    <div><span class="text-gray-600 text-xs" data-i18n="claims.stock_current">Current Good:</span> <span id="clStockNow" class="font-bold">0</span></div>
+                    <div><span class="text-gray-600 text-xs" data-i18n="claims.stock_after">After Claim:</span> <span id="clStockAfter" class="font-bold text-red-600">0</span></div>
                 </div>
             </div>
         </div>
         <div class="cl-modal-footer">
             <button type="button" onclick="clCloseClaimModal()"
-                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm">Cancel</button>
+                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm" data-i18n="claims.cancel">Cancel</button>
             <button type="button" id="clSaveClaimBtn"
-                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">Save Claim</button>
+                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold" data-i18n="claims.save">Save Claim</button>
         </div>
     </div>
 </div>
@@ -156,13 +156,13 @@
 <div id="clViewModal" class="cl-modal hidden">
     <div class="cl-modal-box">
         <div class="cl-modal-header">
-            <h3 class="cl-modal-title" id="clViewTitle">Claim Details</h3>
+            <h3 class="cl-modal-title" id="clViewTitle" data-i18n="claims.modal_details">Claim Details</h3>
             <button type="button" class="cl-modal-x" onclick="clCloseViewModal()">&times;</button>
         </div>
         <div id="clViewContent" class="cl-modal-body"></div>
         <div class="cl-modal-footer">
             <button type="button" onclick="clCloseViewModal()"
-                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm">Close</button>
+                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm" data-i18n="claims.close">Close</button>
         </div>
     </div>
 </div>
@@ -252,7 +252,33 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const RENDER = 'https://ox-smart-pos-release-version.onrender.com';
+const RENDER = (function () {
+    const origin = window.location.origin;
+    const APK_ORIGINS = ['https://localhost', 'capacitor://localhost'];
+    if (APK_ORIGINS.indexOf(origin) !== -1) return 'https://ox-smart-pos-release-version.onrender.com';
+    return origin;
+})();
+
+function $t(key, fallback) {
+    try {
+        if (typeof window.t === 'function') {
+            const v = window.t(key);
+            if (v && v !== key) return v;
+        }
+    } catch (e) {}
+    return fallback || key;
+}
+
+function oxCur() {
+    return (window.OX_SETTINGS && window.OX_SETTINGS.currency_symbol) || '₵';
+}
+
+function fillOxCur() {
+    document.querySelectorAll('.ox-cur').forEach(function(el) { el.textContent = oxCur(); });
+}
+window.fillOxCur = fillOxCur;
+
+function formatMoney(v) { return oxCur() + safeToFixed(v); }
 
 // ---------- State ----------
 let currentClaims = [];
@@ -313,10 +339,10 @@ async function savePending(table, operation, recordId, payload) {
 // ============================================================
 async function clLoadClaims() {
     const container = $('clClaimsList');
-    container.innerHTML = '<div class="cl-empty">Loading claims…</div>';
+    container.innerHTML = '<div class="cl-empty">' + $t('claims.loading','Loading claims…') + '</div>';
 
     if (typeof db === 'undefined' || !db) {
-        container.innerHTML = '<div class="cl-empty" style="color:#dc2626;">Local database not available.</div>';
+        container.innerHTML = '<div class="cl-empty" style="color:#dc2626;">' + $t('claims.no_db','Local database not available.') + '</div>';
         return;
     }
 
@@ -421,8 +447,8 @@ function clApplyFilters() {
 //  RENDER
 // ============================================================
 function clStatusBadge(status) {
-    if (status === 'resolved') return '<span class="cl-badge status-resolved">✅ Resolved</span>';
-    return '<span class="cl-badge status-active">⚠️ Active</span>';
+    if (status === 'resolved') return '<span class="cl-badge status-resolved">${$t('claims.badge_resolved','✅ Resolved')}</span>';
+    return '<span class="cl-badge status-active">${$t('claims.badge_active','⚠️ Active')}</span>';
 }
 function clIssueBadge(issue) {
     const slug = String(issue || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -438,16 +464,16 @@ function clIssueBadge(issue) {
 function clRenderClaims(claims) {
     const container = $('clClaimsList');
     if (!claims || claims.length === 0) {
-        container.innerHTML = '<div class="cl-empty">No claims found.</div>';
+        container.innerHTML = '<div class="cl-empty">' + $t('claims.no_claims','No claims found.') + '</div>';
         return;
     }
 
     container.innerHTML = claims.map(claim => {
-        const original  = parseInt(claim.batch_original || (claim.batch_stock + claim.quantity)) || 0;
+        const qty       = parseInt(claim.quantity) || 0;
         const physical  = parseInt(claim.batch_stock) || 0;
+        const original  = parseInt(claim.batch_original) || (physical + qty);
         const good      = parseInt(claim.remaining_good) || 0;
         const sold      = Math.max(original - physical, 0);
-        const qty       = parseInt(claim.quantity) || 0;
         const isPending = String(claim.id || '').startsWith('temp_');
         const clsStatus = claim.status === 'resolved' ? 'resolved' : 'active';
 
@@ -459,32 +485,32 @@ function clRenderClaims(claims) {
                             <h3 class="font-bold text-base text-indigo-700 truncate">${escapeHtml(claim.product_name)}</h3>
                             ${clStatusBadge(claim.status)}
                             ${clIssueBadge(claim.issue_type)}
-                            ${isPending ? '<span class="cl-badge" style="background:#fef3c7;color:#92400e;">⏳ Pending</span>' : ''}
+                            ${isPending ? '<span class="cl-badge" style="background:#fef3c7;color:#92400e;">${$t('claims.badge_pending','⏳ Pending')}</span>' : ''}
                         </div>
                         <p class="text-xs text-gray-600 mt-1">
-                            Brand: ${escapeHtml(claim.brand || '')} · Category: ${escapeHtml(claim.category || '')}
+                            ${$t('claims.brand','Brand:')} ${escapeHtml(claim.brand || '')} · ${$t('claims.category','Category:')} ${escapeHtml(claim.category || '')}
                         </p>
                         <p class="text-xs text-gray-600">
-                            Batch #${claim.batch_id} · Claimed: <strong class="text-red-600">${qty}</strong>
+                            ${$t('claims.batch_h','Batch #')}${claim.batch_id} · ${$t('claims.claimed_h','Claimed:')} <strong class="text-red-600">${qty}</strong>
                         </p>
                         <div class="cl-stock-breakdown">
-                            <div class="cl-stock-item cl-stock-total"><span class="text-gray-500">Total</span><p class="font-bold text-gray-700">${original}</p></div>
-                            <div class="cl-stock-item cl-stock-sold"><span class="text-gray-500">Sold</span><p class="font-bold text-blue-600">${sold}</p></div>
-                            <div class="cl-stock-item cl-stock-physical"><span class="text-gray-500">Physical</span><p class="font-bold text-indigo-600">${physical}</p></div>
-                            <div class="cl-stock-item cl-stock-good"><span class="text-gray-500">✅ Good</span><p class="font-bold text-green-600">${good}</p></div>
+                            <div class="cl-stock-item cl-stock-total"><span class="text-gray-500">${$t('claims.stock_total','Total')}</span><p class="font-bold text-gray-700">${original}</p></div>
+                            <div class="cl-stock-item cl-stock-sold"><span class="text-gray-500">${$t('claims.stock_sold','Sold')}</span><p class="font-bold text-blue-600">${sold}</p></div>
+                            <div class="cl-stock-item cl-stock-physical"><span class="text-gray-500">${$t('claims.stock_physical','Physical')}</span><p class="font-bold text-indigo-600">${physical}</p></div>
+                            <div class="cl-stock-item cl-stock-good"><span class="text-gray-500">${$t('claims.stock_good','✅ Good')}</span><p class="font-bold text-green-600">${good}</p></div>
                         </div>
                         ${claim.description ? `<p class="text-xs text-gray-500 mt-1">📝 ${escapeHtml(claim.description)}</p>` : ''}
-                        <p class="text-[10px] text-gray-400 mt-1">Created: ${formatDate(claim.created_at)}</p>
+                        <p class="text-[10px] text-gray-400 mt-1">${$t('claims.created','Created:')} ${formatDate(claim.created_at)}</p>
                     </div>
                     <div class="flex flex-col gap-1 flex-shrink-0">
                         <button onclick="clViewClaim('${String(claim.id).replace(/'/g, "\\'")}')"
-                                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs">👁 View</button>
+                                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs">${$t('claims.view','👁 View')}</button>
                         ${claim.status === 'active' ? `
                             <button onclick="clResolveClaim('${String(claim.id).replace(/'/g, "\\'")}')"
-                                    class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs">✅ Resolve</button>
+                                    class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs">${$t('claims.resolve','✅ Resolve')}</button>
                         ` : ''}
                         <button onclick="clDeleteClaim('${String(claim.id).replace(/'/g, "\\'")}')"
-                                class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs">🗑 Delete</button>
+                                class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs">${$t('claims.delete','🗑 Delete')}</button>
                     </div>
                 </div>
             </div>`;
@@ -496,13 +522,13 @@ function clRenderClaims(claims) {
 // ============================================================
 function clViewClaim(claimId) {
     const claim = currentClaims.find(c => String(c.id) === String(claimId));
-    if (!claim) { toast('Claim not found', true); return; }
+    if (!claim) { toast($t('claims.claim_not_found','Claim not found'), true); return; }
 
-    const original = parseInt(claim.batch_original || (claim.batch_stock + claim.quantity)) || 0;
+    const qty      = parseInt(claim.quantity) || 0;
     const physical = parseInt(claim.batch_stock) || 0;
+    const original = parseInt(claim.batch_original) || (physical + qty);
     const good     = parseInt(claim.remaining_good) || 0;
     const sold     = Math.max(original - physical, 0);
-    const qty      = parseInt(claim.quantity) || 0;
 
     $('clViewTitle').textContent = `Claim #${claim.id} — ${claim.product_name}`;
     $('clViewContent').innerHTML = `
@@ -563,9 +589,9 @@ window.clViewClaim = clViewClaim;
 // ============================================================
 async function clResolveClaim(claimId) {
     const claim = currentClaims.find(c => String(c.id) === String(claimId));
-    if (!claim) { toast('Claim not found', true); return; }
+    if (!claim) { toast($t('claims.claim_not_found','Claim not found'), true); return; }
 
-    if (!confirm('Mark this claim as resolved? Claimed items stay deducted from stock.')) return;
+    if (!confirm($t('claims.confirm_resolve','Mark this claim as resolved? Claimed items stay deducted from stock.'))) return;
 
     const now = new Date().toISOString();
 
@@ -584,7 +610,7 @@ async function clResolveClaim(claimId) {
 
     // 2. Queue pending op
     await savePending('claims', 'resolve', claimId, { claim_id: claimId });
-    toast('✅ Claim resolved locally — will sync');
+    toast($t('claims.resolved_local','✅ Claim resolved locally — will sync'));
 
     // 3. Try direct API if online
     if (navigator.onLine) {
@@ -622,7 +648,7 @@ window.clResolveClaim = clResolveClaim;
 // ============================================================
 async function clDeleteClaim(claimId) {
     const claim = currentClaims.find(c => String(c.id) === String(claimId));
-    if (!claim) { toast('Claim not found', true); return; }
+    if (!claim) { toast($t('claims.claim_not_found','Claim not found'), true); return; }
 
     const qty = parseInt(claim.quantity) || 0;
     const msg = claim.status === 'resolved'
@@ -652,7 +678,7 @@ async function clDeleteClaim(claimId) {
 
     // 2. Queue pending op
     await savePending('claims', 'delete', claimId, { claim_id: claimId });
-    toast('🗑 Claim deleted locally — will sync');
+    toast($t('claims.deleted_local','🗑 Claim deleted locally — will sync'));
 
     // 3. Direct API if online
     if (navigator.onLine) {
@@ -693,8 +719,8 @@ function clOpenClaimModal() {
     selectedBatch = null;
     searchResultsCache = [];
 
-    $('clClaimModalTitle').textContent = '🔧 New Claim';
-    $('clSaveClaimBtn').textContent = 'Save Claim';
+    $('clClaimModalTitle').textContent = $t('claims.modal_new','🔧 New Claim');
+    $('clSaveClaimBtn').textContent = $t('claims.save','Save Claim');
     $('clIssueType').value = 'Damaged';
     $('clQuantity').value = '';
     $('clDescription').value = '';
@@ -784,7 +810,7 @@ async function clSearchProducts(keyword) {
     searchResultsCache = results;
 
     if (results.length === 0) {
-        box.innerHTML = '<div class="px-3 py-2 text-gray-500 text-sm">No products found</div>';
+        box.innerHTML = '<div class="px-3 py-2 text-gray-500 text-sm">' + $t('claims.no_prod_found','No products found') + '</div>';
         box.classList.remove('hidden');
         return;
     }
@@ -803,7 +829,7 @@ function clSelectProduct(productId) {
     if (!p) return;
     selectedProduct = p;
     $('clSelectedName').textContent = `${p.name} (${p.brand || ''})`;
-    $('clSelectedDetails').textContent = `Category: ${p.category || 'N/A'}`;
+    $('clSelectedDetails').textContent = $t('claims.category','Category:') + ' ' + (p.category || 'N/A');
     $('clSelectedStock').textContent = p.stock || 0;
     $('clSelectedProduct').classList.remove('hidden');
     $('clSearchResults').classList.add('hidden');
@@ -858,7 +884,7 @@ async function clLoadBatches(productId) {
         if (good <= 0) return;
         const opt = document.createElement('option');
         opt.value = b.id;
-        opt.textContent = `#${b.id} — ${good} good — ₵${safeToFixed(b.selling_price)}`;
+        opt.textContent = `#${b.id} — ${good} good — ${formatMoney(b.selling_price)}`;
         opt.dataset.batch = JSON.stringify({
             id: b.id,
             quantity: b.quantity || 0,
@@ -882,7 +908,7 @@ async function clLoadBatches(productId) {
         const batch = JSON.parse(this.options[this.selectedIndex].dataset.batch);
         selectedBatch = batch;
         const good = Math.max((batch.remaining_quantity || 0) - (batch.claimed_quantity || 0), 0);
-        $('clBatchInfo').innerHTML = `Batch #${batch.id} · Good: ${good} · Price ₵${safeToFixed(batch.selling_price)}`;
+        $('clBatchInfo').innerHTML = `${$t('claims.batch_h','Batch #')}${batch.id} · ${$t('claims.stock_good','✅ Good')}: ${good} · ${formatMoney(batch.selling_price)}`;
         $('clBatchInfo').classList.remove('hidden');
         $('clQuantity').max = good;
         $('clStockNow').textContent = good;
@@ -905,15 +931,15 @@ function clUpdateStockImpact() {
 //  SAVE CLAIM — offline-first
 // ============================================================
 async function clSaveClaim() {
-    if (!selectedProduct) { toast('Select a product first', true); return; }
+    if (!selectedProduct) { toast($t('claims.select_prod_err','Select a product first'), true); return; }
     const batchId = $('clBatchSelect').value;
-    if (!batchId) { toast('Select a batch', true); return; }
+    if (!batchId) { toast($t('claims.select_batch_err','Select a batch'), true); return; }
     const qty = parseInt($('clQuantity').value) || 0;
-    if (qty < 1) { toast('Enter a valid quantity', true); return; }
+    if (qty < 1) { toast($t('claims.qty_err','Enter a valid quantity'), true); return; }
 
     if (selectedBatch) {
         const good = Math.max((selectedBatch.remaining_quantity || 0) - (selectedBatch.claimed_quantity || 0), 0);
-        if (qty > good) { toast(`Only ${good} good units available`, true); return; }
+        if (qty > good) { toast($t('claims.qty_max_err','Only {n} good units available').replace('{n}', good), true); return; }
     }
 
     const issueType = $('clIssueType').value;
@@ -977,7 +1003,7 @@ async function clSaveClaim() {
 
     // 2. Queue pending op
     await savePending('claims', 'add', tempId, payload);
-    toast('✅ Claim saved locally — will sync');
+    toast($t('claims.saved_local','✅ Claim saved locally — will sync'));
 
     clCloseClaimModal();
 

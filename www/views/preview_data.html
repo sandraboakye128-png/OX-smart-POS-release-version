@@ -1,0 +1,421 @@
+<!-- ============================================================ -->
+<!-- VIEW: Preview Data — Excel-like editor (shell)                -->
+<!-- ============================================================ -->
+<div class="p-3 space-y-3">
+
+    <div class="bg-white rounded-xl shadow-sm p-3 border border-gray-100 flex items-center gap-2">
+        <h2 class="text-lg font-bold text-gray-800">📊 Excel Preview</h2>
+        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">APK · Dexie</span>
+        <div class="ml-auto flex gap-2">
+            <button onclick="backToDashboard()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">← Back</button>
+            <button onclick="pvBackToMenu()" id="pvShellBack" class="hidden bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm">← Menu</button>
+        </div>
+    </div>
+
+    <div id="pvShellStep1" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <button onclick="pvPickKind('purchases')"
+                class="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-emerald-400 transition text-left">
+            <div class="text-3xl mb-1">📦</div>
+            <div class="text-base font-bold text-gray-800">Preview Purchases</div>
+            <div class="text-xs text-gray-500 mt-0.5">Stock batches and product info</div>
+        </button>
+        <button onclick="pvPickKind('sales')"
+                class="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:border-emerald-400 transition text-left">
+            <div class="text-3xl mb-1">💰</div>
+            <div class="text-base font-bold text-gray-800">Preview Sales</div>
+            <div class="text-xs text-gray-500 mt-0.5">Sales records by category</div>
+        </button>
+    </div>
+
+    <div id="pvShellStep2" class="hidden bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">Which category?</h3>
+        <div class="grid grid-cols-2 gap-2">
+            <button onclick="pvPickCategory('Accessory')" class="bg-teal-500 hover:bg-teal-600 text-white py-3 rounded-lg font-semibold">Accessories</button>
+            <button onclick="pvPickCategory('Screen')" class="bg-purple-500 hover:bg-purple-600 text-white py-3 rounded-lg font-semibold">Screens</button>
+        </div>
+    </div>
+
+    <div id="pvShellStep3" class="hidden space-y-2">
+        <div class="bg-white rounded-xl shadow-sm p-2 border border-gray-100 flex flex-wrap items-center gap-2">
+            <span id="pvShellTitle" class="font-semibold text-sm text-gray-800 mr-1"></span>
+            <span id="pvShellCount" class="text-[11px] text-gray-500"></span>
+            <div class="flex-1"></div>
+            <button onclick="pvAddRow()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded text-xs">➕ Row</button>
+            <button onclick="pvDownloadCSV()" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs">📄 CSV</button>
+            <button onclick="pvOpenInExcel()" class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs">🖥 Excel</button>
+            <button onclick="pvSavePrompt()" class="bg-amber-500 hover:bg-amber-600 text-white px-2 py-1 rounded text-xs font-semibold">💾 Save</button>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="overflow-auto" style="max-height: 62vh;">
+                <table id="pvShellTable" class="min-w-full text-xs" style="border-collapse: collapse;">
+                    <thead class="bg-gray-100 sticky top-0 z-10"><tr id="pvShellHead"></tr></thead>
+                    <tbody id="pvShellBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div id="pvShellStatus" class="text-xs text-gray-500 px-1"></div>
+
+        <div id="pvRecentBar" class="hidden bg-amber-50 border border-amber-300 rounded-xl p-3 flex flex-wrap items-center gap-3">
+            <span class="text-sm font-semibold text-amber-800">🆕 <span id="pvRecentCount">0</span> new row(s) this session</span>
+            <button onclick="pvShowRecentModal()"
+                    class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
+                View All with highlights
+            </button>
+            <div class="flex flex-wrap items-center gap-3 text-[11px] text-gray-700 ml-2">
+                <span class="flex items-center gap-1">
+                    <span style="display:inline-block;width:14px;height:14px;background:#fef9c3;border:1px solid #ca8a04;border-radius:3px;"></span>
+                    Added this session
+                </span>
+                <span class="flex items-center gap-1">
+                    <span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border:1px solid #16a34a;border-radius:3px;"></span>
+                    Added via import
+                </span>
+                <span class="flex items-center gap-1">
+                    <span style="display:inline-block;width:14px;height:14px;background:#e9d5ff;border:1px solid #9333ea;border-radius:3px;"></span>
+                    Updated via import
+                </span>
+                <span class="flex items-center gap-1">
+                    <span style="display:inline-block;width:14px;height:14px;background:#fee2e2;border:1px solid #ef4444;border-radius:3px;"></span>
+                    Not in DB anymore
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="pvRecentModal" class="hidden flex items-center justify-center p-4"
+     style="position:fixed !important; inset:0 !important; z-index:2147483646 !important; background:rgba(0,0,0,0.7) !important; isolation:isolate;">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between p-4 border-b">
+            <h3 class="text-lg font-bold text-gray-800">🆕 Recently Added / Updated</h3>
+            <button onclick="document.getElementById('pvRecentModal').classList.add('hidden')"
+                    class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+        </div>
+        <div id="pvRecentBody" class="flex-1 overflow-auto p-4"></div>
+        <div class="p-3 border-t flex justify-end">
+            <button onclick="document.getElementById('pvRecentModal').classList.add('hidden')"
+                    class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="pvShellSaveModal" class="hidden fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-4">
+        <h3 class="text-base font-bold text-gray-800 mb-2">💾 Save Changes</h3>
+        <p class="text-xs text-gray-500 mb-3">How should we apply your edits?</p>
+        <div class="space-y-2 text-sm">
+            <label class="flex items-start gap-2 p-2 border rounded-lg"><input type="radio" name="pvShellMode" value="replace" class="mt-1"><div><b>🔄 Replace</b><div class="text-[11px] text-gray-500">Wipe category first</div></div></label>
+            <label class="flex items-start gap-2 p-2 border rounded-lg"><input type="radio" name="pvShellMode" value="append" class="mt-1"><div><b>➕ Append</b><div class="text-[11px] text-gray-500">Add all sheet rows as new</div></div></label>
+            <label class="flex items-start gap-2 p-2 border rounded-lg"><input type="radio" name="pvShellMode" value="merge" class="mt-1" checked><div><b>🔀 Smart merge</b><div class="text-[11px] text-gray-500">Update existing + insert new (no duplicates)</div></div></label>
+        </div>
+        <div class="flex justify-end gap-2 mt-4">
+            <button onclick="document.getElementById('pvShellSaveModal').classList.add('hidden')"
+                    class="bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm">Cancel</button>
+            <button onclick="pvConfirmSave()" class="bg-amber-500 text-white px-3 py-1.5 rounded text-sm font-semibold">Save</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .pv-new-divider td {
+        background: #fee2e2 !important;
+        color: #991b1b;
+        font-weight: 700;
+        padding: 4px 10px !important;
+        border-top: 2px solid #ef4444 !important;
+        border-bottom: 2px solid #ef4444 !important;
+        text-align: center;
+    }
+    .pv-row-new td { background: #fef9c3; }
+    .pv-row-import-added td { background: #dcfce7; border-bottom: 1px solid #86efac; }
+    .pv-row-import-updated td { background: #e9d5ff; border-bottom: 1px solid #d8b4fe; }
+    .pv-row-not-in-db td { background: #fee2e2; border-bottom: 1px solid #fca5a5; }
+    .pv-date-input { font-size: 11px; }
+</style>
+
+<script>
+(function() {
+'use strict';
+const $ = id => document.getElementById(id);
+
+let PV = { kind: null, category: null, columns: [], rows: [], originalIds: new Set() };
+
+function RENDER_BASE() {
+    if (typeof window.OX_RENDER === 'string') return window.OX_RENDER;
+    if (typeof window.RENDER === 'string') return window.RENDER;
+    return '';
+}
+function authHeaders() {
+    if (typeof window.getAuthHeaders === 'function') return window.getAuthHeaders();
+    try {
+        const t = localStorage.getItem('ox_api_token');
+        return t ? { 'Authorization': 'Bearer ' + t } : {};
+    } catch (e) { return {}; }
+}
+
+window.pvPickKind = function(kind) {
+    PV.kind = kind;
+    $('pvShellStep1').classList.add('hidden');
+    $('pvShellStep2').classList.remove('hidden');
+    $('pvShellBack').classList.remove('hidden');
+};
+window.pvPickCategory = function(cat) {
+    PV.category = cat;
+    $('pvShellStep2').classList.add('hidden');
+    $('pvShellStep3').classList.remove('hidden');
+    pvLoad();
+};
+window.pvBackToMenu = function() {
+    PV = { kind: null, category: null, columns: [], rows: [], originalIds: new Set() };
+    $('pvShellStep1').classList.remove('hidden');
+    $('pvShellStep2').classList.add('hidden');
+    $('pvShellStep3').classList.add('hidden');
+    $('pvShellBack').classList.add('hidden');
+    $('pvShellStatus').textContent = '';
+};
+
+async function pvLoad() {
+    $('pvShellBody').innerHTML = '<tr><td colspan="20" class="text-center py-4 text-gray-400">Loading…</td></tr>';
+    try {
+        const res = await fetch(RENDER_BASE() + `/api/preview/${PV.kind}/${PV.category}`, {
+            credentials: 'include',
+            headers: authHeaders()
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Load failed');
+        PV.columns = data.columns;
+        PV.rows = data.rows;
+        PV.originalIds = new Set(data.rows.map(r => String(r.batch_id || r.sale_id || '')));
+        pvRenderHead();
+        pvRenderBody();
+        $('pvShellTitle').textContent = (PV.kind === 'purchases' ? '📦' : '💰') + ' ' + PV.category;
+        $('pvShellCount').textContent = `${PV.rows.length} rows`;
+        // Seed recentIds from action flags so imports show up
+        (data.rows || []).forEach(r => {
+            const a = (r.action || '').toString();
+            if (a === 'added_from_excel' || a === 'updated_from_excel') {
+                const id = String(r.batch_id || r.sale_id || '');
+                if (id) PV.recentIds.add(id);
+            }
+        });
+        if (typeof pvRenderRecentBar === 'function') pvRenderRecentBar();
+    } catch (e) {
+        $('pvShellBody').innerHTML = `<tr><td colspan="20" class="text-center py-4 text-red-500">${e.message}</td></tr>`;
+    }
+}
+
+function pvRenderHead() {
+    $('pvShellHead').innerHTML = '<th class="px-1 py-1.5 text-left text-[9px] text-gray-400 border-b sticky left-0 bg-gray-100">#</th>'
+        + PV.columns.map(c => `<th class="px-2 py-1.5 text-left text-[10px] font-semibold text-gray-600 border-b whitespace-nowrap">${c.header}</th>`).join('')
+        + '<th class="px-1 py-1.5 border-b bg-gray-100"></th>';
+}
+
+function pvRenderBody() {
+    let dividerInserted = false;
+    $('pvShellBody').innerHTML = PV.rows.map((r, i) => {
+        const rid = String(r.batch_id || r.sale_id || '');
+        const isNew = rid === '' || !PV.originalIds.has(rid);
+
+        let divider = '';
+        if (isNew && !dividerInserted && PV.originalIds.size > 0) {
+            dividerInserted = true;
+            divider = `<tr class="pv-new-divider"><td colspan="${PV.columns.length + 2}">▲ New rows added from Excel ▲</td></tr>`;
+        }
+
+        const cells = PV.columns.map(c => {
+            const val = r[c.key] != null ? r[c.key] : '';
+            const isCategory = (c.key === 'category');
+            const isDate = (c.key === 'date');
+            const categoryIsEditable = isCategory && PV.category === 'Accessory';
+
+            if (isDate) {
+                const iso = String(val || '').substring(0, 19);
+                const dtval = iso.replace(' ', 'T').substring(0, 16);
+                return `<td data-key="date" data-type="date" class="px-1 py-0.5 border-b">
+                    <input type="datetime-local" value="${dtval}"
+                           class="pv-date-input border border-gray-200 rounded px-1 py-0.5 w-40"
+                           data-row="${i}" />
+                </td>`;
+            }
+
+            const editable = c.editable || categoryIsEditable;
+            const edit = editable ? 'contenteditable="true"' : '';
+            const cls = editable
+                ? 'px-2 py-1 border-b text-gray-800 focus:outline-none focus:bg-amber-50'
+                : 'px-2 py-1 border-b text-gray-500 bg-gray-50';
+            return `<td data-key="${c.key}" data-type="${c.type}" ${edit} class="${cls} whitespace-nowrap">${escHtml(String(val))}</td>`;
+        }).join('');
+
+        const rowCls = isNew ? 'pv-row-new' : '';
+        return `${divider}<tr data-row="${i}" class="${rowCls}">
+            <td class="px-1 py-1 border-b text-[9px] text-gray-400 bg-gray-50 sticky left-0">${i+1}</td>
+            ${cells}
+            <td class="px-1 py-1 border-b bg-gray-50 text-center">
+                <button onclick="pvDeleteRow(${i})" class="text-red-500 text-xs">🗑</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+window.pvDeleteRow = function(i) {
+    if (!confirm('Delete this row? It will move to Archive on save.')) return;
+    const r = PV.rows[i];
+    const id = r && (r.batch_id || r.sale_id);
+    if (id) PV.deletedIds.add(String(id));
+    PV.rows.splice(i, 1);
+    pvRenderBody();
+    $('pvShellCount').textContent = `${PV.rows.length} rows` + (PV.deletedIds.size ? ` · 🗑 ${PV.deletedIds.size} pending delete` : '');
+};
+
+window.pvAddRow = function() {
+    const b = {};
+    PV.columns.forEach(c => {
+        b[c.key] = (c.type === 'int' || c.type === 'float') ? 0 : '';
+    });
+    // Default category for new rows
+    b.category = (PV.category === 'Screen') ? 'Screen' : '';
+    PV.rows.unshift(b);
+    pvRenderBody();
+    $('pvShellCount').textContent = `${PV.rows.length} rows`;
+};
+
+function collectRows() {
+    const out = [];
+    $('pvShellBody').querySelectorAll('tr').forEach(tr => {
+        if (tr.classList.contains('pv-new-divider')) return;
+        const obj = {};
+        tr.querySelectorAll('td[data-key]').forEach(td => {
+            const k = td.dataset.key;
+            const t = td.dataset.type;
+            if (t === 'date') {
+                const inp = td.querySelector('input[type="datetime-local"]');
+                let v = inp ? inp.value : '';
+                if (!v) {
+                    const now = new Date();
+                    v = now.toISOString().substring(0, 16);
+                }
+                obj[k] = v.replace('T', ' ') + ':00';
+                return;
+            }
+            let v = td.textContent.trim();
+            if (t === 'int') v = parseInt(v) || 0;
+            else if (t === 'float') v = parseFloat(v) || 0;
+            obj[k] = v;
+        });
+        out.push(obj);
+    });
+    return out;
+}
+
+window.pvDownloadCSV = function() {
+    const cols = PV.columns;
+    const head = cols.map(c => `"${c.header}"`).join(',');
+    const lines = PV.rows.map(r => cols.map(c => {
+        const v = r[c.key] == null ? '' : String(r[c.key]);
+        return '"' + v.replace(/"/g, '""') + '"';
+    }).join(','));
+    const csv = head + '\n' + lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${PV.kind}_${PV.category}_${Date.now()}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+};
+
+window.pvOpenInExcel = function() {
+    pvDownloadCSV();
+    $('pvShellStatus').textContent = 'File downloaded — open with Excel or Sheets.';
+};
+
+window.pvSavePrompt = function() {
+    if (!navigator.onLine) {
+        alert('Saving requires internet.');
+        return;
+    }
+    $('pvShellSaveModal').classList.remove('hidden');
+};
+
+window.pvShowRecentModal = function() {
+    const body = document.getElementById('pvRecentBody');
+    if (!body) return;
+    const cols = PV.columns;
+    const rows = PV.rows;
+    const body_html = rows.map((r, i) => {
+        const rid = String(r.batch_id || r.sale_id || '') || (r.__tempId || '');
+        const action = (r.action || '').toString();
+        let cls = '';
+        if (PV.recentIds.has(rid)) cls = 'pv-row-new';
+        if (action === 'added_from_excel') cls = 'pv-row-import-added';
+        else if (action === 'updated_from_excel') cls = 'pv-row-import-updated';
+        const cells = cols.map(c => {
+            const v = r[c.key];
+            return `<td class="px-2 py-1 border-b text-xs whitespace-nowrap">${escHtml(String(v == null ? '' : v))}</td>`;
+        }).join('');
+        return `<tr class="${cls}">${cells}</tr>`;
+    }).join('');
+    const head = cols.map(c => `<th class="px-2 py-1 border-b text-left text-[10px] font-semibold text-gray-600 whitespace-nowrap">${c.header}</th>`).join('');
+    body.innerHTML = `
+        <div class="text-xs text-gray-500 mb-2">
+            Highlighted rows are new, added via import, or updated via import. Total: ${rows.length}.
+        </div>
+        <div class="overflow-auto border rounded-lg" style="max-height:60vh;">
+            <table class="min-w-full" style="border-collapse:collapse;">
+                <thead class="bg-gray-100 sticky top-0"><tr>${head}</tr></thead>
+                <tbody>${body_html}</tbody>
+            </table>
+        </div>`;
+    document.getElementById('pvRecentModal').classList.remove('hidden');
+};
+
+window.pvRenderRecentBar = function() {
+    const bar = document.getElementById('pvRecentBar');
+    const n = document.getElementById('pvRecentCount');
+    if (!bar || !n) return;
+    let count = PV.recentIds ? PV.recentIds.size : 0;
+    (PV.rows || []).forEach(r => {
+        const a = (r.action || '').toString();
+        if (a === 'added_from_excel' || a === 'updated_from_excel') count++;
+    });
+    n.textContent = String(count);
+    if (count === 0) bar.classList.add('hidden');
+    else bar.classList.remove('hidden');
+};
+
+window.pvConfirmSave = async function() {
+    const mode = document.querySelector('input[name="pvShellMode"]:checked').value;
+    const rows = collectRows();
+    $('pvShellStatus').textContent = 'Saving…';
+    try {
+        const headers = Object.assign(
+            { 'Content-Type': 'application/json' },
+            authHeaders()
+        );
+        const res = await fetch(RENDER_BASE() + `/api/preview/${PV.kind}/${PV.category}`, {
+            method: 'POST',
+            credentials: 'include',
+            headers,
+            body: JSON.stringify({ rows, mode, deleted_ids: Array.from(PV.deletedIds) })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Save failed');
+        const s = data.stats || {};
+        $('pvShellStatus').textContent =
+            `✅ Saved — inserted:${s.inserted||0} updated:${s.updated||0}` +
+            (s.errors && s.errors.length ? ` — ${s.errors.length} warnings` : '');
+        $('pvShellSaveModal').classList.add('hidden');
+        PV.deletedIds.clear();
+        pvLoad();
+    } catch (e) {
+        $('pvShellStatus').innerHTML = `<span class="text-red-600">❌ ${e.message}</span>`;
+    }
+};
+
+function escHtml(s) {
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+})();
+</script>

@@ -9,8 +9,8 @@
             class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold">
         ← Back
     </button>
-    <h2 class="text-xl md:text-2xl font-bold text-indigo-600">🛒 Sales Terminal (Screens)</h2>
-    <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">Screens</span>
+    <h2 class="text-xl md:text-2xl font-bold text-indigo-600" data-i18n="sales.title_scr">🛒 Sales Terminal (Screens)</h2>
+    <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded" data-i18n="sales.badge.scr">Screens</span>
     <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-100 text-purple-700">APK · Dexie</span>
     <span id="productCountBadge" class="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2.5 py-0.5 rounded hidden"></span>
 </div>
@@ -62,7 +62,7 @@
 
     <!-- LEFT: Products & Form -->
     <div class="bg-white rounded-xl shadow-md p-4">
-        <h3 class="text-lg font-bold text-gray-800 mb-3">📦 Select Product</h3>
+        <h3 class="text-lg font-bold text-gray-800 mb-3" data-i18n="sales.select_product">📦 Select Product</h3>
 
         <input type="text" id="saleSearchProduct" placeholder="🔍 Search screen..."
                class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm bg-white text-gray-800">
@@ -77,12 +77,12 @@
 
         <div class="grid grid-cols-2 gap-3 mb-3">
             <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Quantity</label>
+                <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="sales.qty">Quantity</label>
                 <input type="number" id="saleQuantity" min="1"
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Discount (₵)</label>
+                <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="sales.discount">Discount</label>
                 <input type="number" step="0.01" id="saleDiscount" min="0"
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
             </div>
@@ -90,12 +90,12 @@
 
         <div class="grid grid-cols-2 gap-3 mb-3">
             <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Sale Date</label>
+                <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="sales.sale_date">Sale Date</label>
                 <input type="date" id="saleDate"
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Sale Time</label>
+                <label class="block text-xs font-medium text-gray-700 mb-1" data-i18n="sales.sale_time">Sale Time</label>
                 <input type="text" id="saleTime" placeholder="e.g. 2:30 PM or 14:30"
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
             </div>
@@ -103,33 +103,33 @@
 
         <button id="saleAddToCartBtn"
                 class="w-full bg-teal-500 hover:bg-teal-600 text-white py-2.5 rounded-lg font-semibold">
-            ➕ Add to Cart
+            <span data-i18n="sales.add_to_cart">➕ Add to Cart</span>
         </button>
     </div>
 
     <!-- RIGHT: Cart & Receipt -->
     <div class="bg-white rounded-xl shadow-md p-4">
-        <h3 class="text-lg font-bold text-gray-800 mb-3">🧾 Cart</h3>
+        <h3 class="text-lg font-bold text-gray-800 mb-3" data-i18n="sales.cart">🧾 Cart</h3>
 
         <div id="saleCartItems" class="max-h-96 overflow-y-auto border rounded-lg p-2 mb-4 bg-gray-50">
             <div class="text-center py-6 text-gray-400 text-sm">Cart is empty</div>
         </div>
 
         <div class="flex justify-between items-center mb-4 p-3 bg-gray-100 rounded-lg">
-            <span class="text-base font-bold text-gray-700">Grand Total:</span>
-            <span id="saleGrandTotal" class="text-2xl font-bold text-green-600">₵0.00</span>
+            <span class="text-base font-bold text-gray-700" data-i18n="sales.grand_total">Grand Total:</span>
+            <span id="saleGrandTotal" class="text-2xl font-bold text-green-600"><span class="ox-cur">₵</span>0.00</span>
         </div>
 
         <button id="saleCompleteBtn"
                 class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-semibold mb-3 disabled:opacity-50"
                 disabled>
-            💳 Complete Sale
+            <span data-i18n="sales.complete_sale">💳 Complete Sale</span>
         </button>
 
         <button id="saleClearCartBtn"
                 class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg text-sm disabled:opacity-50"
                 disabled>
-            🗑️ Clear Cart
+            <span data-i18n="sales.clear_cart">🗑️ Clear Cart</span>
         </button>
 
         <div id="saleReceiptPreview"
@@ -142,7 +142,7 @@
     <div class="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden">
 
         <div class="flex-shrink-0 p-4 border-b flex justify-between items-center bg-white">
-            <h3 class="text-lg font-bold text-gray-800" id="saleBatchModalTitle">Select Batches</h3>
+            <h3 class="text-lg font-bold text-gray-800" id="saleBatchModalTitle" data-i18n="sales.select_batches">Select Batches</h3>
             <button onclick="closeSaleBatchModal()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
         </div>
 
@@ -152,13 +152,13 @@
 
         <div class="flex-shrink-0 p-4 border-t bg-white flex flex-wrap gap-2 justify-between items-center">
             <div class="flex gap-2">
-                <button onclick="selectAllSaleBatches()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm">Select All</button>
-                <button onclick="deselectAllSaleBatches()" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded text-sm">Deselect All</button>
+                <button onclick="selectAllSaleBatches()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm" data-i18n="sales.select_all">Select All</button>
+                <button onclick="deselectAllSaleBatches()" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded text-sm" data-i18n="sales.deselect_all">Deselect All</button>
             </div>
             <div class="flex gap-3 items-center flex-wrap">
                 <span id="saleAssignedQty" class="text-sm font-bold text-gray-700">Assigned: 0</span>
                 <span id="saleRemainingQty" class="text-sm font-bold text-gray-700">Remaining: 0</span>
-                <button onclick="confirmSaleBatchSelection()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-semibold">✓ Confirm</button>
+                <button onclick="confirmSaleBatchSelection()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-semibold" data-i18n="sales.confirm">✓ Confirm</button>
                 <button onclick="closeSaleBatchModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded text-sm">Cancel</button>
             </div>
         </div>
@@ -168,35 +168,35 @@
 <!-- ===================== PAYMENT MODAL ===================== -->
 <div id="salePaymentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-60 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">Select Payment Method</h3>
+        <h3 class="text-lg font-bold text-gray-800 mb-4" data-i18n="sales.select_payment">Select Payment Method</h3>
 
         <div class="space-y-3">
             <button onclick="selectSalePayment('cash', event)"
                     class="payment-option w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-                <div class="font-bold text-green-600">💵 Cash</div>
-                <div class="text-xs text-gray-500">Pay with cash</div>
+                <div class="font-bold text-green-600" data-i18n="sales.cash">💵 Cash</div>
+                <div class="text-xs text-gray-500" data-i18n="sales.cash_desc">Pay with cash</div>
             </button>
             <button onclick="selectSalePayment('momo', event)"
                     class="payment-option w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-                <div class="font-bold text-blue-600">📱 Mobile Money</div>
-                <div class="text-xs text-gray-500">MTN, Vodafone, AirtelTigo</div>
+                <div class="font-bold text-blue-600" data-i18n="sales.momo">📱 Mobile Money</div>
+                <div class="text-xs text-gray-500" data-i18n="sales.momo_desc">MTN, Vodafone, AirtelTigo</div>
             </button>
             <button onclick="showSaleChequeInput(event)"
                     class="payment-option w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-                <div class="font-bold text-purple-600">📝 Cheque</div>
-                <div class="text-xs text-gray-500">Pay with cheque</div>
+                <div class="font-bold text-purple-600" data-i18n="sales.cheque">📝 Cheque</div>
+                <div class="text-xs text-gray-500" data-i18n="sales.cheque_desc">Pay with cheque</div>
             </button>
         </div>
 
         <div id="saleChequeInputContainer" class="hidden mt-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Cheque Number</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="sales.cheque_number">Cheque Number</label>
             <input type="text" id="saleChequeNumber" placeholder="Enter cheque number"
                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-800">
         </div>
 
         <div class="flex justify-end gap-3 mt-6">
-            <button onclick="cancelSalePayment()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded text-sm">Cancel</button>
-            <button onclick="confirmSalePayment()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-semibold">Confirm Sale</button>
+            <button onclick="cancelSalePayment()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded text-sm" data-i18n="sales.cancel">Cancel</button>
+            <button onclick="confirmSalePayment()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-semibold" data-i18n="sales.confirm_sale">Confirm Sale</button>
         </div>
     </div>
 </div>
@@ -284,7 +284,28 @@
 (function() {
 'use strict';
 
-const RENDER = 'https://ox-smart-pos-release-version.onrender.com';
+const RENDER = (function () {
+    const origin = window.location.origin;
+    const APK_ORIGINS = ['https://localhost', 'capacitor://localhost'];
+    if (APK_ORIGINS.indexOf(origin) !== -1) return 'https://ox-smart-pos-release-version.onrender.com';
+    return origin;
+})();
+
+function $t(key, fallback) {
+    try {
+        if (typeof window.t === 'function') {
+            const v = window.t(key);
+            if (v && v !== key) return v;
+        }
+    } catch (e) {}
+    return fallback || key;
+}
+
+function fillOxCur() {
+    var sym = (window.OX_SETTINGS && window.OX_SETTINGS.currency_symbol) || '₵';
+    document.querySelectorAll('.ox-cur').forEach(function(el) { el.textContent = sym; });
+}
+window.fillOxCur = fillOxCur;
 const TOKEN_KEY = 'ox_api_token';
 
 // ---------- State ----------
@@ -314,7 +335,8 @@ function escapeHtml(s) {
     }[m]));
 }
 function formatMoney(amount) {
-    return '₵' + safeToFixed(amount);
+    const sym = (window.OX_SETTINGS && window.OX_SETTINGS.currency_symbol) || '₵';
+    return sym + safeToFixed(amount);
 }
 function getToken() {
     try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
@@ -532,7 +554,7 @@ function renderSaleProductList(prods) {
                 <span class="text-xs font-bold ${stockColor}">${goodStock}/${totalStock}</span>
             </div>
             <div class="text-[11px] text-gray-400 mt-0.5">
-                ₵${safeToFixed(p.selling_price)} · ${batchCount} batch${batchCount!==1?'es':''}
+                ${formatMoney(p.selling_price)} · ${batchCount} batch${batchCount!==1?'es':''}
                 ${hasFaulty ? ` · <span class="text-red-500">⚠️ ${faultyCount} claimed</span>` : ''}
             </div>
         `;
@@ -556,7 +578,7 @@ function selectSaleProduct(product) {
         goodStock += Math.max(remaining - claimed, 0);
     });
 
-    let html = `<strong>Selected:</strong> ${escapeHtml(product.name)} (${escapeHtml(product.brand)}) · ₵${safeToFixed(product.selling_price)} · Stock ${totalStock} (${product.batches.length} batches)`;
+    let html = `<strong>Selected:</strong> ${escapeHtml(product.name)} (${escapeHtml(product.brand)}) · ${formatMoney(product.selling_price)} · Stock ${totalStock} (${product.batches.length} batches)`;
     html += `<br><span class="text-xs text-green-600">📦 ${goodStock} good units</span>`;
     if (hasFaulty) {
         html += `<br><span class="text-xs text-red-500">⚠️ ${faultyCount} units claimed as faulty</span>`;
@@ -680,7 +702,7 @@ async function openBatchSelector(product, qty) {
         goodSpan.style.fontWeight = '700';
 
         const priceSpan = document.createElement('span');
-        priceSpan.textContent = '₵' + safeToFixed(batch.selling_price);
+        priceSpan.textContent = formatMoney(batch.selling_price);
         priceSpan.style.color = '#16a34a';
 
         const qtyInput = document.createElement('input');
@@ -876,7 +898,7 @@ function updateSaleCart() {
     const clearBtn = document.getElementById('saleClearCartBtn');
 
     if (!saleCart.length) {
-        container.innerHTML = '<div class="text-center py-6 text-gray-400 text-sm">Cart is empty</div>';
+        container.innerHTML = '<div class="text-center py-6 text-gray-400 text-sm">' + $t('sales.cart_empty', 'Cart is empty') + '</div>';
         document.getElementById('saleGrandTotal').textContent = formatMoney(0);
         completeBtn.disabled = true;
         clearBtn.disabled = true;
@@ -895,7 +917,7 @@ function updateSaleCart() {
             ? '<span class="text-red-500 text-[10px] font-bold ml-2">⚠️ FAULTY</span>' : '';
 
         const batchLines = item.selectedBatches.map(b =>
-            `Batch #${b.batch_id}: ${b.qty} × ₵${safeToFixed(b.batch.selling_price)}${b.is_faulty ? ' ⚠️' : ''}`
+            `Batch #${b.batch_id}: ${b.qty} × ${formatMoney(b.batch.selling_price)}${b.is_faulty ? ' ⚠️' : ''}`
         ).join('<br>');
 
         card.innerHTML = `
@@ -905,7 +927,7 @@ function updateSaleCart() {
                         ${escapeHtml(item.product.name)} <span class="text-gray-500">(${escapeHtml(item.product.brand)})</span>
                         ${faultyWarn}
                     </div>
-                    <div class="text-xs text-gray-600 mt-1">Qty: <strong>${item.qty}</strong> · Discount: ₵${safeToFixed(item.discount)}</div>
+                    <div class="text-xs text-gray-600 mt-1">Qty: <strong>${item.qty}</strong> · Discount: ${formatMoney(item.discount)}</div>
                     <div class="text-[10px] text-gray-500 mt-1">${batchLines}</div>
                 </div>
                 <div class="text-right flex-shrink-0">
@@ -1078,7 +1100,7 @@ window.confirmSalePayment = confirmSalePayment;
 //  COMPLETE SALE — offline-first, queue via pending_ops
 // ============================================================
 document.getElementById('saleCompleteBtn').addEventListener('click', () => {
-    if (!saleCart.length) { toast('Cart is empty', true); return; }
+    if (!saleCart.length) { toast($t('sales.cart_empty', 'Cart is empty'), true); return; }
 
     const hasFaulty = saleCart.some(it => it.hasFaulty);
     if (hasFaulty) {
@@ -1321,14 +1343,14 @@ function buildLocalReceipt(cartItems, paymentMethod, chequeNum, grand) {
     cartItems.forEach(it => {
         lines.push(it.product.name + ' (' + it.product.brand + ')');
         it.selectedBatches.forEach(b => {
-            lines.push('  Batch #' + b.batch_id + ' x ' + b.qty + ' @ ₵' + safeToFixed(b.batch.selling_price));
+            lines.push('  Batch #' + b.batch_id + ' x ' + b.qty + ' @ ' + formatMoney(b.batch.selling_price));
         });
         if (it.discount > 0) {
-            lines.push('  Discount: ₵' + safeToFixed(it.discount));
+            lines.push('  Discount: ' + formatMoney(it.discount));
         }
     });
     lines.push('--------------------------------');
-    lines.push('TOTAL: ₵' + safeToFixed(grand));
+    lines.push('TOTAL: ' + formatMoney(grand));
     lines.push('Payment: ' + (paymentMethod || 'cash').toUpperCase() +
                (chequeNum ? ' #' + chequeNum : ''));
     lines.push('================================');

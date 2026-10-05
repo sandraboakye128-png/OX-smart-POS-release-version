@@ -6,21 +6,21 @@
 
 <!-- Offline banner -->
 <div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
-    ⚠️ You are offline – showing cached logs. Data will update when you reconnect.
+    {{ t("logs.offline_banner") }}
 </div>
 
 <div class="flex justify-between items-center mb-6">
     <div>
-        <h1 class="text-3xl font-bold text-indigo-600">📋 User Activity Logs</h1>
+        <h1 class="text-3xl font-bold text-indigo-600">{{ t("logs.title") }}</h1>
         {% if is_oxbee %}
-        <p class="text-gray-500 text-sm mt-1">🔒 Full access - Viewing all user activity logs</p>
+        <p class="text-gray-500 text-sm mt-1">{{ t("logs.full_access") }}</p>
         {% else %}
-        <p class="text-gray-500 text-sm mt-1">🔒 Viewing user activity logs (oxbee logs are hidden for security)</p>
+        <p class="text-gray-500 text-sm mt-1">{{ t("logs.limited_access") }}</p>
         {% endif %}
     </div>
     <div>
         <button onclick="loadLogs()" id="refreshBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg">
-            🔄 Refresh
+            {{ t("logs.refresh") }}
         </button>
     </div>
 </div>
@@ -30,11 +30,11 @@
     <div class="flex items-center gap-3">
         <i class="fas fa-info-circle text-blue-500 text-xl"></i>
         <div>
-            <p class="text-sm text-blue-700 font-medium">🔒 Security Notice</p>
+            <p class="text-sm text-blue-700 font-medium">{{ t("logs.security_notice") }}</p>
             {% if is_oxbee %}
-            <p class="text-xs text-blue-600">You are viewing all user activity logs as the system administrator.</p>
+            <p class="text-xs text-blue-600">{{ t("logs.full_access") }}</p>
             {% else %}
-            <p class="text-xs text-blue-600">You are viewing user activity logs. System administrator (oxbee) logs are hidden for security.</p>
+            <p class="text-xs text-blue-600">{{ t("logs.limited_access") }}</p>
             {% endif %}
         </div>
     </div>
@@ -44,25 +44,25 @@
 <div class="bg-white rounded-xl shadow-md p-4 mb-6">
     <div class="flex flex-wrap gap-4 items-end">
         <div>
-            <label class="block text-sm font-medium text-gray-700">Action Filter</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("logs.action_filter") }}</label>
             <select id="actionFilter" class="border rounded-lg px-3 py-2">
-                <option value="">All Actions</option>
-                <option value="login">Login</option>
-                <option value="logout">Logout</option>
-                <option value="login_failed">Failed Login</option>
+                <option value="">{{ t("logs.action_all") }}</option>
+                <option value="login">{{ t("logs.action_login") }}</option>
+                <option value="logout">{{ t("logs.action_logout") }}</option>
+                <option value="login_failed">{{ t("logs.action_failed") }}</option>
             </select>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">User</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("logs.user_filter") }}</label>
             <select id="userFilter" class="border rounded-lg px-3 py-2">
-                <option value="">All Users</option>
+                <option value="">{{ t("logs.user_all") }}</option>
             </select>
         </div>
         <button onclick="applyFilters()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg">
-            🔍 Apply Filters
+            {{ t("logs.apply") }}
         </button>
         <button onclick="clearFilters()" class="bg-gray-400 hover:bg-gray-500 text-white px-5 py-2 rounded-lg">
-            ✕ Clear
+            {{ t("logs.clear") }}
         </button>
     </div>
 </div>
@@ -73,16 +73,16 @@
         <table class="w-full">
             <thead class="bg-gray-100 border-b">
                 <tr>
-                    <th class="text-left px-4 py-3 text-sm font-semibold text-gray-600">Time</th>
-                    <th class="text-left px-4 py-3 text-sm font-semibold text-gray-600">User</th>
-                    <th class="text-left px-4 py-3 text-sm font-semibold text-gray-600">Action</th>
-                    <th class="text-left px-4 py-3 text-sm font-semibold text-gray-600">IP Address</th>
-                    <th class="text-left px-4 py-3 text-sm font-semibold text-gray-600">Device</th>
+                    <th class="text-left px-4 py-3 text-sm font-semibold text-gray-600">{{ t("logs.th_time") }}</th>
+                    <th class="text-left px-4 py-3 text-sm font-semibold text-gray-600">{{ t("logs.th_user") }}</th>
+                    <th class="text-left px-4 py-3 text-sm font-semibold text-gray-600">{{ t("logs.th_action") }}</th>
+                    <th class="text-left px-4 py-3 text-sm font-semibold text-gray-600">{{ t("logs.th_ip") }}</th>
+                    <th class="text-left px-4 py-3 text-sm font-semibold text-gray-600">{{ t("logs.th_device") }}</th>
                 </tr>
             </thead>
             <tbody id="logsTableBody">
                 <tr>
-                    <td colspan="5" class="text-center py-8 text-gray-400">Loading logs...</td>
+                    <td colspan="5" class="text-center py-8 text-gray-400">{{ t("logs.loading") }}</td>
                 </tr>
             </tbody>
         </table>
@@ -90,9 +90,9 @@
     <div id="pagination" class="flex justify-between items-center px-4 py-3 border-t bg-gray-50">
         <span id="totalLogs" class="text-sm text-gray-500">Loading...</span>
         <div class="flex gap-2">
-            <button onclick="prevPage()" class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50" id="prevBtn">Previous</button>
+            <button onclick="prevPage()" class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50" id="prevBtn">{{ t("logs.prev") }}</button>
             <span id="pageInfo" class="px-3 py-1 text-sm text-gray-600">Page 1</span>
-            <button onclick="nextPage()" class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50" id="nextBtn">Next</button>
+            <button onclick="nextPage()" class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50" id="nextBtn">{{ t("logs.next") }}</button>
         </div>
     </div>
 </div>
@@ -190,9 +190,9 @@
 
         function getActionBadge(action) {
             const badges = {
-                'login': '<span class="inline-flex items-center bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">✅ Login</span>',
-                'logout': '<span class="inline-flex items-center bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">🚪 Logout</span>',
-                'login_failed': '<span class="inline-flex items-center bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-medium">❌ Failed Login</span>'
+                'login': '<span class="inline-flex items-center bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">{{ t("logs.badge_login") }}</span>',
+                'logout': '<span class="inline-flex items-center bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">{{ t("logs.badge_logout") }}</span>',
+                'login_failed': '<span class="inline-flex items-center bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-medium">{{ t("logs.badge_failed") }}</span>'
             };
             return badges[action] || action;
         }
@@ -253,7 +253,7 @@
             }
 
             const select = document.getElementById('userFilter');
-            select.innerHTML = '<option value="">All Users</option>';
+            select.innerHTML = '<option value="">{{ t("logs.user_all") }}</option>';
 
             const filteredUsers = isOxbee ? users : users.filter(user => user.username.toLowerCase() !== 'oxbee');
 
@@ -420,6 +420,13 @@
             loadUsers();
             loadLogs();
         });
+
+        // ✅ Expose to inline onclick handlers
+        window.loadLogs      = loadLogs;
+        window.applyFilters  = applyFilters;
+        window.clearFilters  = clearFilters;
+        window.prevPage      = prevPage;
+        window.nextPage      = nextPage;
     });
 </script>
 {% endblock %}

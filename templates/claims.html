@@ -1,19 +1,20 @@
 {% extends 'base.html' %}
 
 {% block content %}
+{% set CURRENCY = settings.currency_symbol if settings else '₵' %}
 <!-- Offline banner -->
 <div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
-    ⚠️ You are offline – showing cached claims. Changes will be saved locally and synced when you reconnect.
+    {{ t("claims.offline_banner") }}
 </div>
 
 <!-- Header -->
 <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
     <div>
-        <h1 class="text-2xl md:text-3xl font-bold text-red-600">🔧 Claim Issues</h1>
-        <p class="text-gray-500 text-sm">Manage product claims for faulty or damaged items</p>
+        <h1 class="text-2xl md:text-3xl font-bold text-red-600">{{ t("claims.title") }}</h1>
+        <p class="text-gray-500 text-sm">{{ t("claims.subtitle") }}</p>
     </div>
     <button id="newClaimBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm md:text-base">
-        <i class="fas fa-plus"></i> New Claim
+        <i class="fas fa-plus"></i> {{ t("claims.new_icon") }}
     </button>
 </div>
 
@@ -21,62 +22,62 @@
 <div class="bg-white rounded-xl shadow-md p-4 mb-6">
     <div class="flex flex-wrap gap-4 items-end">
         <div class="flex-1 min-w-[200px]">
-            <label class="block text-sm font-medium text-gray-700">Search Claims</label>
-            <input type="text" id="searchInput" placeholder="🔍 Search by product, brand, or batch..." 
+            <label class="block text-sm font-medium text-gray-700">{{ t("claims.search_label_v2") }}</label>
+            <input type="text" id="searchInput" placeholder="{{ t('claims.search_ph_v2') }}" 
                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">Status Filter</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("claims.status_filter") }}</label>
             <select id="statusFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                <option value="all">All</option>
-                <option value="active">Active</option>
-                <option value="resolved">Resolved</option>
+                <option value="all">{{ t("claims.opt_all") }}</option>
+                <option value="active">{{ t("claims.opt_active") }}</option>
+                <option value="resolved">{{ t("claims.opt_resolved") }}</option>
             </select>
         </div>
-        <button id="applyFilterBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">Apply Filter</button>
-        <button id="clearFilterBtn" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm">Clear</button>
-        <button id="refreshBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm">🔄 Refresh</button>
+        <button id="applyFilterBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">{{ t("claims.apply_filter") }}</button>
+        <button id="clearFilterBtn" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm">{{ t("claims.clear") }}</button>
+        <button id="refreshBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm">{{ t("claims.refresh") }}</button>
     </div>
 </div>
 
 <!-- Claims Summary -->
 <div id="claimsSummary" class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-md p-3 md:p-4 text-center border border-gray-100">
-        <p class="text-xs text-gray-500">Total Claims</p>
+        <p class="text-xs text-gray-500">{{ t("claims.stat_total") }}</p>
         <p id="totalClaims" class="text-xl md:text-2xl font-bold text-gray-800">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-3 md:p-4 text-center border border-gray-100">
-        <p class="text-xs text-gray-500">Active Claims</p>
+        <p class="text-xs text-gray-500">{{ t("claims.stat_active_v2") }}</p>
         <p id="activeClaims" class="text-xl md:text-2xl font-bold text-red-600">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-3 md:p-4 text-center border border-gray-100">
-        <p class="text-xs text-gray-500">Resolved</p>
+        <p class="text-xs text-gray-500">{{ t("claims.stat_resolved") }}</p>
         <p id="resolvedClaims" class="text-xl md:text-2xl font-bold text-green-600">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-3 md:p-4 text-center border border-gray-100">
-        <p class="text-xs text-gray-500">Items Claimed</p>
+        <p class="text-xs text-gray-500">{{ t("claims.stat_items") }}</p>
         <p id="totalItemsClaimed" class="text-xl md:text-2xl font-bold text-purple-600">0</p>
     </div>
 </div>
 
 <!-- Claims List -->
 <div id="claimsList" class="space-y-3 md:space-y-4">
-    <div class="text-center text-gray-400 py-8">Loading claims...</div>
+    <div class="text-center text-gray-400 py-8">{{ t("claims.loading_v2") }}</div>
 </div>
 
 <!-- ===== MODAL: NEW CLAIM ===== -->
 <div id="claimModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
-            <h3 class="text-xl font-bold" id="claimModalTitle">New Claim</h3>
+            <h3 class="text-xl font-bold" id="claimModalTitle">{{ t("claims.modal_new") }}</h3>
             <button onclick="closeClaimModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
         </div>
         <div class="p-4 space-y-4">
             <!-- Search Product -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Search Product</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("claims.search_product") }}</label>
                 <div class="relative">
-                    <input type="text" id="claimProductSearch" placeholder="Type product name, brand, or category..." 
+                    <input type="text" id="claimProductSearch" placeholder="{{ t('claims.search_product_ph_v2') }}" 
                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                     <div id="claimSearchResults" class="absolute z-10 w-full bg-white border rounded-lg shadow-lg hidden max-h-60 overflow-y-auto"></div>
                 </div>
@@ -96,56 +97,56 @@
             
             <!-- Batch Selection -->
             <div id="batchSelectionContainer" class="hidden">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Select Batch</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("claims.select_batch") }}</label>
                 <select id="claimBatchSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                    <option value="">Select a batch...</option>
+                    <option value="">{{ t("claims.select_batch_ph_v2") }}</option>
                 </select>
                 <div id="batchInfoDisplay" class="mt-2 text-sm text-gray-500 hidden"></div>
             </div>
             
             <!-- Issue Details -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Issue Type</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("claims.issue_type") }}</label>
                 <select id="claimIssueType" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                    <option value="Damaged">Damaged</option>
-                    <option value="Faulty">Faulty / Defective</option>
-                    <option value="Expired">Expired</option>
-                    <option value="Wrong Item">Wrong Item Received</option>
-                    <option value="Quality Issue">Quality Issue</option>
-                    <option value="Other">Other</option>
+                    <option value="Damaged">{{ t("claims.issue_damaged") }}</option>
+                    <option value="Faulty">{{ t("claims.issue_faulty") }}</option>
+                    <option value="Expired">{{ t("claims.issue_expired") }}</option>
+                    <option value="Wrong Item">{{ t("claims.issue_wrong") }}</option>
+                    <option value="Quality Issue">{{ t("claims.issue_quality") }}</option>
+                    <option value="Other">{{ t("claims.issue_other") }}</option>
                 </select>
             </div>
             
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Quantity to Claim</label>
-                <input type="number" id="claimQuantity" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" min="1" placeholder="Enter quantity">
-                <p class="text-xs text-gray-500 mt-1">⚠️ This will be deducted from the batch's good stock</p>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("claims.qty_label") }}</label>
+                <input type="number" id="claimQuantity" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" min="1" placeholder="{{ t('claims.qty_ph') }}">
+                <p class="text-xs text-gray-500 mt-1">{{ t("claims.qty_note_v2") }}</p>
             </div>
             
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea id="claimDescription" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" rows="3" placeholder="Describe the issue..."></textarea>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t("claims.desc_label") }}</label>
+                <textarea id="claimDescription" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" rows="3" placeholder="{{ t('claims.desc_ph_v2') }}"></textarea>
             </div>
 
             <!-- Stock Impact Preview -->
             <div id="stockImpact" class="hidden bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                <p class="text-sm font-medium text-yellow-800">📊 Stock Impact Preview</p>
+                <p class="text-sm font-medium text-yellow-800">{{ t("claims.stock_impact_v2") }}</p>
                 <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
                     <div>
-                        <span class="text-gray-600">Current Good Stock:</span>
+                        <span class="text-gray-600">{{ t("claims.stock_current_v2") }}</span>
                         <span id="currentStockDisplay" class="font-bold">0</span>
                     </div>
                     <div>
-                        <span class="text-gray-600">After Claim:</span>
+                        <span class="text-gray-600">{{ t("claims.stock_after") }}</span>
                         <span id="afterStockDisplay" class="font-bold text-red-600">0</span>
                     </div>
                 </div>
-                <p class="text-xs text-yellow-600 mt-1">💡 Claimed items are removed from good stock</p>
+                <p class="text-xs text-yellow-600 mt-1">{{ t("claims.stock_hint") }}</p>
             </div>
         </div>
         <div class="sticky bottom-0 bg-white p-4 border-t flex justify-end gap-3">
-            <button onclick="closeClaimModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg">Cancel</button>
-            <button id="saveClaimBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">Save Claim</button>
+            <button onclick="closeClaimModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg">{{ t("claims.cancel") }}</button>
+            <button id="saveClaimBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">{{ t("claims.save") }}</button>
         </div>
     </div>
 </div>
@@ -154,14 +155,14 @@
 <div id="viewClaimModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
-            <h3 class="text-xl font-bold" id="viewClaimTitle">Claim Details</h3>
+            <h3 class="text-xl font-bold" id="viewClaimTitle">{{ t("claims.modal_details") }}</h3>
             <button onclick="closeViewClaimModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
         </div>
         <div id="viewClaimContent" class="p-4 space-y-4">
             <!-- dynamically loaded -->
         </div>
         <div class="sticky bottom-0 bg-white p-4 border-t flex justify-end gap-3">
-            <button onclick="closeViewClaimModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg">Close</button>
+            <button onclick="closeViewClaimModal()" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg">{{ t("claims.close") }}</button>
         </div>
     </div>
 </div>
@@ -227,6 +228,9 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        function formatMoney(v) {
+            return "{{ CURRENCY }}" + (parseFloat(v) || 0).toFixed(2);
+        }
         console.log("DOM loaded – initializing Claims with Dexie (db.claims)");
 
         // ---------- Offline banner ----------
@@ -333,7 +337,7 @@
         async function loadClaims() {
             updateOfflineBanner();
             const container = document.getElementById('claimsList');
-            container.innerHTML = '<div class="text-center text-gray-400 py-8">Loading claims...</div>';
+            container.innerHTML = '<div class="text-center text-gray-400 py-8">{{ t("claims.loading_v2") }}</div>';
 
             let claims = [];
 
@@ -380,8 +384,10 @@
                         }
                         console.log(`✅ ${freshClaims.length} claims stored in Dexie`);
                     }
-                    // Update currentClaims and re-render
-                    currentClaims = freshClaims;
+                    // Merge: keep local-only claims (don't wipe Dexie entries)
+                    const freshIds = new Set(freshClaims.map(c => String(c.id)));
+                    const localOnly = currentClaims.filter(c => !freshIds.has(String(c.id)));
+                    currentClaims = [...freshClaims, ...localOnly];
                     applyFilters();
                     updateSummary();
                 }
@@ -438,10 +444,11 @@
             }
 
             container.innerHTML = claims.map(claim => {
-                const originalStock = claim.batch_original || (claim.batch_stock + claim.quantity);
-                const physicalStock = claim.batch_stock || 0;
-                const goodStock = claim.remaining_good || 0;
-                const sold = originalStock - physicalStock;
+                const qty0          = parseInt(claim.quantity) || 0;
+                const physicalStock = parseInt(claim.batch_stock) || 0;
+                const originalStock = parseInt(claim.batch_original) || (physicalStock + qty0);
+                const goodStock     = parseInt(claim.remaining_good) || 0;
+                const sold          = Math.max(originalStock - physicalStock, 0);
 
                 return `
                 <div class="claim-card bg-white rounded-xl shadow-md border p-3 md:p-4 ${claim.status === 'resolved' ? 'border-green-200' : 'border-red-200'}">
@@ -520,9 +527,9 @@
 
         function getStatusBadge(status) {
             if (status === 'resolved') {
-                return '<span class="inline-flex items-center bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-medium">✅ Resolved</span>';
+                return '<span class="inline-flex items-center bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-medium">{{ t("claims.badge_resolved") }}</span>';
             }
-            return '<span class="inline-flex items-center bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs font-medium">⚠️ Active</span>';
+            return '<span class="inline-flex items-center bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs font-medium">{{ t("claims.badge_active") }}</span>';
         }
 
         function getIssueBadge(issueType) {
@@ -555,10 +562,11 @@
                 return;
             }
 
-            const originalStock = claim.batch_original || (claim.batch_stock + claim.quantity);
-            const physicalStock = claim.batch_stock || 0;
-            const goodStock = claim.remaining_good || 0;
-            const sold = originalStock - physicalStock;
+            const qty0          = parseInt(claim.quantity) || 0;
+            const physicalStock = parseInt(claim.batch_stock) || 0;
+            const originalStock = parseInt(claim.batch_original) || (physicalStock + qty0);
+            const goodStock     = parseInt(claim.remaining_good) || 0;
+            const sold          = Math.max(originalStock - physicalStock, 0);
 
             document.getElementById('viewClaimTitle').textContent = `Claim #${claim.id} - ${claim.product_name}`;
             document.getElementById('viewClaimContent').innerHTML = `
@@ -772,7 +780,7 @@
             document.getElementById('selectedProductDisplay').classList.add('hidden');
             document.getElementById('batchSelectionContainer').classList.add('hidden');
             document.getElementById('claimSearchResults').classList.add('hidden');
-            document.getElementById('claimBatchSelect').innerHTML = '<option value="">Select a batch...</option>';
+            document.getElementById('claimBatchSelect').innerHTML = '<option value="">{{ t("claims.select_batch_ph_v2") }}</option>';
             document.getElementById('batchInfoDisplay').classList.add('hidden');
             document.getElementById('stockImpact').classList.add('hidden');
             selectedProduct = null;
@@ -805,7 +813,7 @@
             document.getElementById('batchSelectionContainer').classList.add('hidden');
             document.getElementById('claimProductSearch').value = '';
             document.getElementById('claimSearchResults').classList.add('hidden');
-            document.getElementById('claimBatchSelect').innerHTML = '<option value="">Select a batch...</option>';
+            document.getElementById('claimBatchSelect').innerHTML = '<option value="">{{ t("claims.select_batch_ph_v2") }}</option>';
             document.getElementById('batchInfoDisplay').classList.add('hidden');
             document.getElementById('stockImpact').classList.add('hidden');
             searchResultsCache = [];
@@ -864,12 +872,12 @@
                 const data = await res.json();
                 if (data.success && data.batches.length > 0) {
                     const select = document.getElementById('claimBatchSelect');
-                    select.innerHTML = '<option value="">Select a batch...</option>';
+                    select.innerHTML = '<option value="">{{ t("claims.select_batch_ph_v2") }}</option>';
                     data.batches.forEach(batch => {
                         const option = document.createElement('option');
                         option.value = batch.batch_id;
                         const goodStock = batch.remaining_quantity - (batch.claimed_quantity || 0);
-                        const label = `#${batch.batch_id} - ${goodStock} good - ₵${batch.selling_price.toFixed(2)}`;
+                        const label = `#${batch.batch_id} - ${goodStock} good - ${formatMoney(batch.selling_price)}`;
                         option.textContent = label;
                         if (selectedBatchId && batch.batch_id === selectedBatchId) {
                             option.selected = true;
@@ -918,7 +926,7 @@
                 <span class="font-medium">Batch #${batch.batch_id}</span>
                 | Total: ${batch.quantity || batch.remaining_quantity + (batch.claimed_quantity || 0)}
                 | ✅ Good: ${goodStock}
-                | 💰 Price: ₵${batch.selling_price.toFixed(2)}
+                | 💰 Price: ${formatMoney(batch.selling_price)}
                 ${batch.claimed_quantity > 0 ? `<span class="text-orange-500 ml-2">📌 Claimed: ${batch.claimed_quantity}</span>` : ''}
             `;
             display.classList.remove('hidden');

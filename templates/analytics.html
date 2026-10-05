@@ -1,20 +1,21 @@
-{% extends 'base.html' %}
+ {% extends 'base.html' %}
 
 {% block content %}
+{% set CURRENCY = settings.currency_symbol if settings else '₵' %}
 <!-- Offline banner -->
 <div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
-    ⚠️ You are offline – showing cached analytics data. Data will refresh when you reconnect.
+    {{ t("analytics.offline_banner") }}
 </div>
 
 <!-- Header & Period Filter -->
 <div class="flex justify-between items-center mb-6">
-    <h1 class="text-3xl font-bold text-indigo-600">📊 Analytics Dashboard</h1>
+    <h1 class="text-3xl font-bold text-indigo-600">{{ t("analytics.title") }}</h1>
     <div class="flex gap-2 flex-wrap">
-        <button data-period="daily" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg">Today</button>
-        <button data-period="weekly" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg">This Week</button>
-        <button data-period="monthly" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg">This Month</button>
-        <button data-period="yearly" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg">This Year</button>
-        <button data-period="all" class="period-btn bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg">All Time</button>
+        <button data-period="daily" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg">{{ t("analytics.period_today") }}</button>
+        <button data-period="weekly" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg">{{ t("analytics.period_week") }}</button>
+        <button data-period="monthly" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg">{{ t("analytics.period_month") }}</button>
+        <button data-period="yearly" class="period-btn bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg">{{ t("analytics.period_year") }}</button>
+        <button data-period="all" class="period-btn bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg">{{ t("analytics.period_all") }}</button>
     </div>
 </div>
 
@@ -22,47 +23,47 @@
 <div class="bg-white rounded-xl shadow-md p-4 mb-6">
     <div class="flex flex-wrap items-end gap-4">
         <div>
-            <label class="block text-sm font-medium text-gray-700">From Date</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("analytics.from_date") }}</label>
             <input type="date" id="startDate" class="border rounded-lg px-3 py-2">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700">To Date</label>
+            <label class="block text-sm font-medium text-gray-700">{{ t("analytics.to_date") }}</label>
             <input type="date" id="endDate" class="border rounded-lg px-3 py-2">
         </div>
-        <button id="applyCustomRange" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg">Apply Range</button>
+        <button id="applyCustomRange" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg">{{ t("analytics.apply_range") }}</button>
     </div>
 </div>
 
 <!-- Summary Cards -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     <div class="bg-white rounded-xl shadow-md p-4">
-        <p class="text-gray-500 text-sm">📦 Items Sold</p>
+        <p class="text-gray-500 text-sm">{{ t("analytics.items_sold") }}</p>
         <p id="itemsSold" class="text-2xl font-bold text-indigo-600">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-4">
-        <p class="text-gray-500 text-sm">💰 Revenue</p>
-        <p id="revenue" class="text-2xl font-bold text-green-600">₵0</p>
+        <p class="text-gray-500 text-sm">{{ t("analytics.revenue") }}</p>
+        <p id="revenue" class="text-2xl font-bold text-green-600">{{ CURRENCY }}0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-4">
-        <p class="text-gray-500 text-sm">📈 Profit</p>
-        <p id="profit" class="text-2xl font-bold text-blue-600">₵0</p>
+        <p class="text-gray-500 text-sm">{{ t("analytics.profit") }}</p>
+        <p id="profit" class="text-2xl font-bold text-blue-600">{{ CURRENCY }}0</p>
     </div>
     <div class="bg-white rounded-xl shadow-md p-4">
-        <p class="text-gray-500 text-sm">🏷 Discount</p>
-        <p id="discount" class="text-2xl font-bold text-red-600">₵0</p>
+        <p class="text-gray-500 text-sm">{{ t("analytics.discount") }}</p>
+        <p id="discount" class="text-2xl font-bold text-red-600">{{ CURRENCY }}0</p>
     </div>
 </div>
 
 <!-- Trend Chart -->
 <div class="bg-white rounded-xl shadow-md p-4 mb-8">
-    <h2 class="text-xl font-semibold mb-4">📈 Sales & Profit Trend</h2>
+    <h2 class="text-xl font-semibold mb-4">{{ t("analytics.trend_title") }}</h2>
     <canvas id="trendChart" height="100"></canvas>
     <div id="trendOfflineMsg" class="text-gray-500 text-center mt-2 hidden">Trend data unavailable offline</div>
 </div>
 
 <!-- Top Products -->
 <div class="bg-white rounded-xl shadow-md p-4">
-    <h2 class="text-xl font-semibold mb-4">🏆 Top Products</h2>
+    <h2 class="text-xl font-semibold mb-4">{{ t("analytics.top_products") }}</h2>
     <div id="topProductsList" class="space-y-2 max-h-80 overflow-y-auto">
         <!-- dynamic list -->
     </div>
@@ -215,7 +216,7 @@
         let trendChart = null;
 
         function formatMoney(amount) {
-            return '₵' + (parseFloat(amount) || 0).toFixed(2);
+            return "{{ CURRENCY }}" + (parseFloat(amount) || 0).toFixed(2);
         }
 
         // ---------- Compute summary from filtered sales ----------
@@ -273,7 +274,7 @@
                     labels: labels,
                     datasets: [
                         {
-                            label: 'Sales (₵)',
+                            label: '{{ t("analytics.sales_chart") }} ({{ CURRENCY }})',
                             data: sales,
                             borderColor: 'rgb(59, 130, 246)',
                             backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -281,7 +282,7 @@
                             fill: true
                         },
                         {
-                            label: 'Profit (₵)',
+                            label: '{{ t("analytics.profit_chart") }} ({{ CURRENCY }})',
                             data: profits,
                             borderColor: 'rgb(34, 197, 94)',
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
@@ -297,7 +298,7 @@
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    return `${context.dataset.label}: ₵${context.raw.toFixed(2)}`;
+                                    return `${context.dataset.label}: {{ CURRENCY }}${context.raw.toFixed(2)}`;
                                 }
                             }
                         }

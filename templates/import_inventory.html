@@ -3,69 +3,73 @@
 {% block content %}
 <!-- Offline banner -->
 <div id="offlineBanner" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden">
-    ⚠️ You are offline – cannot upload or import. Please connect to the internet to perform imports.
+    {{ t("import.offline_banner") }}
 </div>
 
-<h1 class="text-3xl font-bold text-gray-800 mb-6">📥 Import Data</h1>
+<h1 class="text-3xl font-bold text-gray-800 mb-6">{{ t("import.title") }}</h1>
 
 <!-- ========== PURCHASE IMPORT CARD ========== -->
 <div class="bg-white rounded-lg shadow p-6 mb-8">
-    <h2 class="text-2xl font-semibold text-gray-700 mb-4">📦 Import Purchases (Inventory)</h2>
+    <h2 class="text-2xl font-semibold text-gray-700 mb-4">{{ t("import.purchases_title") }}</h2>
     <p class="text-gray-600 mb-4">
-        Upload an Excel file (.xlsx or .xls) with the following columns:<br>
+        {{ t("import.purchases_sub") }}<br>
         <span class="font-mono text-sm bg-gray-100 px-2 py-1 inline-block mt-1">
-            Name, Brand, Category, Quantity, Cost Price, Selling Price, Discount
+            {{ t("import.cols_purchases") }}
         </span>
         <br>
-        <span class="text-xs text-gray-500">Discount is optional (default 0).</span>
+        <span class="text-xs text-gray-500">{{ t("import.discount_opt") }}</span>
         <br>
-        <span class="text-xs text-gray-500">The "Category" column in the file will be overwritten by your selection below.</span>
+        <span class="text-xs text-gray-500">{{ t("import.category_override") }}</span>
     </p>
 
-    <form id="importPurchaseForm" enctype="multipart/form-data">
+    <form id="importPurchaseForm" method="POST" enctype="multipart/form-data">
         <!-- Target Category -->
         <div class="flex flex-wrap items-center gap-4 mb-3">
-            <label class="font-medium text-gray-700">Import to:</label>
+            <label class="font-medium text-gray-700">{{ t("import.import_to") }}</label>
             <div class="flex items-center gap-4">
                 <label class="inline-flex items-center">
                     <input type="radio" name="purchase_target" value="Accessory" checked class="form-radio text-teal-500">
-                    <span class="ml-2">Accessories</span>
+                    <span class="ml-2">{{ t("import.accessories") }}</span>
                 </label>
                 <label class="inline-flex items-center">
                     <input type="radio" name="purchase_target" value="Screen" class="form-radio text-teal-500">
-                    <span class="ml-2">Screens</span>
+                    <span class="ml-2">{{ t("import.screens") }}</span>
                 </label>
             </div>
         </div>
 
         <!-- Import Mode -->
         <div class="flex flex-wrap items-center gap-4 mb-3">
-            <label class="font-medium text-gray-700">Import mode:</label>
+            <label class="font-medium text-gray-700">{{ t("import.import_mode") }}</label>
             <div class="flex items-center gap-4">
                 <label class="inline-flex items-center">
                     <input type="radio" name="purchase_mode" value="append" checked class="form-radio text-teal-500">
-                    <span class="ml-2">Append (keep old data)</span>
+                    <span class="ml-2">{{ t("import.mode_append") }}</span>
+                </label>
+                <label class="inline-flex items-center">
+                    <input type="radio" name="purchase_mode" value="merge" class="form-radio text-amber-500">
+                    <span class="ml-2">🔀 Smart merge (match by name+brand+date)</span>
                 </label>
                 <label class="inline-flex items-center">
                     <input type="radio" name="purchase_mode" value="replace" class="form-radio text-red-500">
-                    <span class="ml-2">Replace (delete old data first)</span>
+                    <span class="ml-2">{{ t("import.mode_replace") }}</span>
                 </label>
             </div>
-            <span class="text-xs text-gray-500 italic">⚠️ Replace will delete all existing purchases and batches for this category before importing.</span>
+            <span class="text-xs text-gray-500 italic">{{ t("import.replace_warn_purchases") }}</span>
         </div>
 
         <div class="flex items-center gap-4">
             <input type="file" id="purchaseFileInput" name="file" accept=".xlsx,.xls" required
                    class="border border-gray-300 rounded-md px-3 py-2 focus:ring focus:ring-indigo-200">
             <button type="submit" id="purchaseSubmitBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-md">
-                Upload & Import
+                {{ t("import.upload_import") }}
             </button>
         </div>
         <div id="purchaseProgress" class="mt-4 hidden">
             <div class="flex items-center justify-between">
-                <div class="text-sm text-gray-600" id="purchaseStatusText">Processing...</div>
+                <div class="text-sm text-gray-600" id="purchaseStatusText">{{ t("import.processing") }}</div>
                 <button id="purchaseCancelBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm hidden">
-                    Cancel
+                    {{ t("import.cancel") }}
                 </button>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2.5 mt-1">
@@ -79,62 +83,66 @@
 
 <!-- ========== SALES IMPORT CARD ========== -->
 <div class="bg-white rounded-lg shadow p-6">
-    <h2 class="text-2xl font-semibold text-gray-700 mb-4">💰 Import Sales (Historical)</h2>
+    <h2 class="text-2xl font-semibold text-gray-700 mb-4">{{ t("import.sales_title") }}</h2>
     <p class="text-gray-600 mb-4">
-        Upload an Excel file (.xlsx or .xls) with the following columns:<br>
+        {{ t("import.purchases_sub") }}<br>
         <span class="font-mono text-sm bg-gray-100 px-2 py-1 inline-block mt-1">
-            DATE, DETAILS, CATEGORY, ITEM, QTY, RATE, DISCOUNT
+            {{ t("import.cols_sales") }}
         </span>
         <br>
-        <span class="text-xs text-gray-500">(Columns AMOUNT and TOTAL are ignored.)</span>
+        <span class="text-xs text-gray-500">{{ t("import.sales_ignored") }}</span>
         <br>
-        <span class="text-xs text-gray-500">Products must already exist in the system and match the chosen category.</span>
+        <span class="text-xs text-gray-500">{{ t("import.sales_must_exist") }}</span>
     </p>
 
-    <form id="importSalesForm" enctype="multipart/form-data">
+    <form id="importSalesForm" method="POST" enctype="multipart/form-data">
         <!-- Target Category -->
         <div class="flex flex-wrap items-center gap-4 mb-3">
-            <label class="font-medium text-gray-700">Import to:</label>
+            <label class="font-medium text-gray-700">{{ t("import.import_to") }}</label>
             <div class="flex items-center gap-4">
                 <label class="inline-flex items-center">
                     <input type="radio" name="sales_target" value="Accessory" checked class="form-radio text-purple-500">
-                    <span class="ml-2">Accessories</span>
+                    <span class="ml-2">{{ t("import.accessories") }}</span>
                 </label>
                 <label class="inline-flex items-center">
                     <input type="radio" name="sales_target" value="Screen" class="form-radio text-purple-500">
-                    <span class="ml-2">Screens</span>
+                    <span class="ml-2">{{ t("import.screens") }}</span>
                 </label>
             </div>
         </div>
 
         <!-- Import Mode -->
         <div class="flex flex-wrap items-center gap-4 mb-3">
-            <label class="font-medium text-gray-700">Import mode:</label>
+            <label class="font-medium text-gray-700">{{ t("import.import_mode") }}</label>
             <div class="flex items-center gap-4">
                 <label class="inline-flex items-center">
                     <input type="radio" name="sales_mode" value="append" checked class="form-radio text-purple-500">
-                    <span class="ml-2">Append (keep old data)</span>
+                    <span class="ml-2">{{ t("import.mode_append") }}</span>
+                </label>
+                <label class="inline-flex items-center">
+                    <input type="radio" name="sales_mode" value="merge" class="form-radio text-amber-500">
+                    <span class="ml-2">🔀 Smart merge (match by name+date+qty)</span>
                 </label>
                 <label class="inline-flex items-center">
                     <input type="radio" name="sales_mode" value="replace" class="form-radio text-red-500">
-                    <span class="ml-2">Replace (delete old data first)</span>
+                    <span class="ml-2">{{ t("import.mode_replace") }}</span>
                 </label>
             </div>
-            <span class="text-xs text-gray-500 italic">⚠️ Replace will delete all existing sales for this category before importing.</span>
+            <span class="text-xs text-gray-500 italic">{{ t("import.replace_warn_sales") }}</span>
         </div>
 
         <div class="flex items-center gap-4">
             <input type="file" id="salesFileInput" name="file" accept=".xlsx,.xls" required
                    class="border border-gray-300 rounded-md px-3 py-2 focus:ring focus:ring-indigo-200">
             <button type="submit" id="salesSubmitBtn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-md">
-                Upload & Import
+                {{ t("import.upload_import") }}
             </button>
         </div>
         <div id="salesProgress" class="mt-4 hidden">
             <div class="flex items-center justify-between">
-                <div class="text-sm text-gray-600" id="salesStatusText">Processing...</div>
+                <div class="text-sm text-gray-600" id="salesStatusText">{{ t("import.processing") }}</div>
                 <button id="salesCancelBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm hidden">
-                    Cancel
+                    {{ t("import.cancel") }}
                 </button>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2.5 mt-1">
@@ -274,7 +282,7 @@
 
         const poll = async () => {
             if (!navigator.onLine) {
-                statusText.textContent = '⏳ Offline – waiting for connection...';
+                statusText.textContent = '{{ t("import.offline_waiting") }}';
                 return;
             }
             try {
@@ -287,10 +295,10 @@
                 const status = data.status;
                 const total = data.total || 0;
                 const processed = data.processed || 0;
-                const errors = data.errors || [];
+                const errors = Array.isArray(data.errors) ? data.errors : [];
                 const result = data.result || {};
                 const imported = result.imported || 0;
-                const skipped = result.skipped || [];
+                const skipped = Array.isArray(result.skipped) ? result.skipped : [];
                 const message = result.message || '';
 
                 const percent = total > 0 ? Math.min((processed / total) * 100, 100) : 0;
@@ -312,13 +320,13 @@
 
                     let statusTextStr = '', colorClass = '';
                     if (status === 'done') {
-                        statusTextStr = '✅ Import complete!';
+                        statusTextStr = '{{ t("import.complete") }}';
                         colorClass = 'bg-green-500';
                     } else if (status === 'cancelled') {
-                        statusTextStr = '⛔ Import cancelled';
+                        statusTextStr = '{{ t("import.cancelled_status") }}';
                         colorClass = 'bg-gray-500';
                     } else {
-                        statusTextStr = '❌ Import failed!';
+                        statusTextStr = '{{ t("import.failed_status") }}';
                         colorClass = 'bg-red-500';
                     }
                     statusText.textContent = statusTextStr;
@@ -327,9 +335,36 @@
 
                     let html = '';
                     if (status === 'done') {
+                        const ins = result.inserted != null ? result.inserted : imported;
+                        const upd = result.updated  != null ? result.updated  : 0;
+                        const msg = result.message || message || '';
                         html += `<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
                             <strong>✅ Import successful!</strong><br>
-                            ${message || `Imported ${imported} records.`}
+                            ${msg || `Imported ${imported} records.`}
+                            <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+                                <div class="bg-white rounded-lg p-2 border border-green-200">
+                                    <div class="text-xs text-gray-500">✅ Added</div>
+                                    <div class="text-xl font-bold text-green-700">${ins}</div>
+                                </div>
+                                <div class="bg-white rounded-lg p-2 border border-green-200">
+                                    <div class="text-xs text-gray-500">🔄 Updated</div>
+                                    <div class="text-xl font-bold text-purple-700">${upd}</div>
+                                </div>
+                                <div class="bg-white rounded-lg p-2 border border-green-200">
+                                    <div class="text-xs text-gray-500">⚠️ Skipped</div>
+                                    <div class="text-xl font-bold text-yellow-700">${(skipped || []).length}</div>
+                                </div>
+                                <div class="bg-white rounded-lg p-2 border border-green-200">
+                                    <div class="text-xs text-gray-500">ℹ️ Warnings</div>
+                                    <div class="text-xl font-bold text-blue-700">${(errors || []).length}</div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <a href="/api/import/report/${jobId}" target="_blank"
+                                   class="inline-block bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md text-sm font-semibold">
+                                    📄 Download Report (PDF)
+                                </a>
+                            </div>
                         </div>`;
                         // verification report...
                         const verification = result.verification;
@@ -366,7 +401,7 @@
                     } else if (status === 'cancelled') {
                         html += `<div class="bg-gray-100 border border-gray-400 text-gray-700 px-4 py-3 rounded">
                             <strong>⛔ Import cancelled by user.</strong><br>
-                            ${message || 'No data was committed.'}
+                            ${message || '{{ t("import.no_data_committed") }}'}
                         </div>`;
                     } else {
                         html += `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -439,7 +474,7 @@
                 }
             } catch (err) {
                 if (err.message.includes('fetch') || err.message.includes('NetworkError')) {
-                    statusText.textContent = '⏳ Waiting for connection...';
+                    statusText.textContent = '{{ t("import.waiting_conn") }}';
                 } else {
                     clearInterval(window[`${type}PollInterval`]);
                     window[`${type}PollInterval`] = null;
@@ -461,7 +496,7 @@
     async function verifyImport(jobId, fileInputId, targetRadioName, button) {
         const fileInput = document.getElementById(fileInputId);
         if (!fileInput.files.length) {
-            alert('Please select the same Excel file that was imported.');
+            alert('{{ t("import.select_same_file") }}');
             return;
         }
         const file = fileInput.files[0];
@@ -473,7 +508,7 @@
 
         const verifyStatus = document.getElementById(`verifyStatus_${button.id.split('_')[1]}`);
         if (!verifyStatus) return;
-        verifyStatus.innerText = 'Verifying...';
+        verifyStatus.innerText = '{{ t("import.verifying") }}';
         const verifyResultDiv = document.getElementById(`verifyResult_${button.id.split('_')[1]}`);
         if (!verifyResultDiv) return;
         verifyResultDiv.classList.add('hidden');
@@ -491,7 +526,7 @@
                 throw new Error(data.error || 'Verification failed');
             }
             const result = data.result;
-            verifyStatus.innerText = '✅ Verification complete.';
+            verifyStatus.innerText = '{{ t("import.verify_complete") }}';
             let html = `<div class="mt-4 p-4 border rounded-lg bg-gray-50">`;
             html += `<h4 class="font-bold">Verification Report</h4>`;
             html += `<p class="text-sm">${result.message}</p>`;
@@ -543,7 +578,7 @@
             if (storedJobId) {
                 progress.classList.remove('hidden');
                 resultDiv.innerHTML = '';
-                statusText.textContent = 'Reconnecting to running import...';
+                statusText.textContent = '{{ t("import.reconnecting") }}';
                 cancelBtn.classList.remove('hidden');
                 startPolling(storedJobId, type, statusTextId, progressBarId, counterId, resultId, cancelBtnId, progressId);
             }
@@ -558,7 +593,7 @@
 
             const file = fileInput.files[0];
             if (!file) {
-                alert('Please select a file.');
+                alert('{{ t("import.select_file") }}');
                 return;
             }
 
@@ -575,7 +610,7 @@
             progress.classList.remove('hidden');
             progressBar.style.width = '0%';
             resultDiv.innerHTML = '';
-            statusText.textContent = 'Starting import...';
+            statusText.textContent = '{{ t("import.starting_import") }}';
             counterDiv.textContent = '';
             cancelBtn.classList.remove('hidden');
             isCancelling = false;
@@ -612,28 +647,28 @@
         cancelBtn.addEventListener('click', async () => {
             const jobId = await getJobId(type);
             if (!jobId || isCancelling) return;
-            if (!confirm('Are you sure you want to cancel this import? The data already imported will remain.')) {
+            if (!confirm('{{ t("import.confirm_cancel") }}')) {
                 return;
             }
             isCancelling = true;
             cancelBtn.disabled = true;
-            cancelBtn.textContent = 'Cancelling...';
+            cancelBtn.textContent = '{{ t("import.cancelling") }}';
             try {
                 const res = await fetch(`/api/import/cancel/${jobId}`, { method: 'POST' });
                 const data = await res.json();
                 if (data.success) {
-                    statusText.textContent = 'Cancellation requested...';
+                    statusText.textContent = '{{ t("import.cancel_requested") }}';
                 } else {
-                    alert('Cancel failed: ' + data.error);
+                    alert('{{ t("import.cancel_failed") }}' + data.error);
                     isCancelling = false;
                     cancelBtn.disabled = false;
-                    cancelBtn.textContent = 'Cancel';
+                    cancelBtn.textContent = '{{ t("import.cancel") }}';
                 }
             } catch (err) {
-                alert('Error cancelling: ' + err.message);
+                alert('{{ t("import.error_cancelling") }}' + err.message);
                 isCancelling = false;
                 cancelBtn.disabled = false;
-                cancelBtn.textContent = 'Cancel';
+                cancelBtn.textContent = '{{ t("import.cancel") }}';
             }
         });
     }

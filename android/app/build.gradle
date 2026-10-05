@@ -1,6 +1,15 @@
 apply plugin: 'com.android.application'
 
 android {
+    signingConfigs {
+        releaseKeystore {
+            storeFile file("../../keystore/ox-smart-release.jks")
+            storePassword "OxSmart2026!"
+            keyAlias "oxsmart"
+            keyPassword "OxSmart2026!"
+        }
+    }
+
     namespace = "com.oxsmart.pos"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
@@ -18,6 +27,7 @@ android {
     }
     buildTypes {
         release {
+            signingConfig signingConfigs.releaseKeystore
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

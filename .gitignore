@@ -46,3 +46,8 @@ keystore/
 # Local one-off migration scripts
 patch_*.py
 version_*.sh
+
+# Phase backups — never commit these
+*.bak
+*.bak-*
+_tmp_*.js
