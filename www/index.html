@@ -3374,9 +3374,13 @@ document.addEventListener('keydown', e => {
 
           items.forEach(function (it) {
             var typeMap = {
-              purchase_added: 'success',
-              sale_reversed:  'warning',
-              preview_save:   'info'
+              purchase_added:   'success',
+              sale_reversed:    'warning',
+              preview_save:     'info',
+              inventory_import: 'info',
+              batch_updated:    'warning',
+    batch_archived:   'warning',
+    batch_restored:   'success'
             };
             try {
               N.add({

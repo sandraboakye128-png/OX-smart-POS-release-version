@@ -17,6 +17,41 @@ RECEIPTS_DIR = "receipts"
 os.makedirs(RECEIPTS_DIR, exist_ok=True)
 
 
+def _get_receipt_config():
+    """Current receipt config. Reads from app_settings when available;
+    falls back to module constants on any error."""
+    cfg = {
+        'shop_name':   SHOP_NAME,
+        'complement':  COMPLEMENT,
+        'phone':       PHONE,
+        'email':       EMAIL,
+        'dev_name':    DEV_NAME,
+        'dev_contact': DEV_CONTACT,
+        'thank_you':   'Thank you for shopping with us!',
+        'footer':      'Come again anytime \u2764\uFE0F',
+    }
+    try:
+        from services.settings_service import get_app_settings
+        s = get_app_settings() or {}
+        pairs = [
+            ('receipt_shop_name',   'shop_name'),
+            ('receipt_complement',  'complement'),
+            ('receipt_phone',       'phone'),
+            ('receipt_email',       'email'),
+            ('receipt_dev_name',    'dev_name'),
+            ('receipt_dev_contact', 'dev_contact'),
+            ('receipt_thank_you',   'thank_you'),
+            ('receipt_footer',      'footer'),
+        ]
+        for src, dst in pairs:
+            v = s.get(src)
+            if v:
+                cfg[dst] = v
+    except Exception as e:
+        print(f"[receipt] app_settings read failed: {e}")
+    return cfg
+
+
 # ==============================================================
 # THERMAL RECEIPT GENERATOR (80mm PROFESSIONAL STYLE)
 # ==============================================================
@@ -33,6 +68,16 @@ def generate_receipt_multi(cart_items, total, payment_method='cash', cheque_numb
     cheque_number: cheque number if payment_method is 'cheque'
     Returns: (filepath, preview_text)
     """
+    cfg = _get_receipt_config()
+    SHOP_NAME      = cfg['shop_name']
+    COMPLEMENT     = cfg['complement']
+    PHONE          = cfg['phone']
+    EMAIL          = cfg['email']
+    DEV_NAME       = cfg['dev_name']
+    DEV_CONTACT    = cfg['dev_contact']
+    THANK_YOU      = cfg['thank_you']
+    FOOTER_NOTE    = cfg['footer']
+
     now = datetime.now()
     date_str = now.strftime("%Y-%m-%d %H:%M")
     receipt_no = now.strftime("%Y%m%d%H%M%S")
@@ -182,13 +227,8 @@ def generate_receipt_multi(cart_items, total, payment_method='cash', cheque_numb
     y -= 5 * mm
 
     c.setFont("Helvetica-Oblique", 9)
-    c.drawCentredString(center, y, "Thank you for shopping with us!")
-    y -= 4 * mm
-    c.drawCentredString(center, y, "We appreciate your business ❤️")
-    y -= 4 * mm
-    c.drawCentredString(center, y, "Please come again anytime")
+    c.drawCentredString(center, y, THANK_YOU)
     y -= 6 * mm
-
     divider("dot")
 
     # ---------------- DEVELOPER FOOTER ----------------
@@ -218,8 +258,8 @@ def generate_receipt_multi(cart_items, total, payment_method='cash', cheque_numb
         preview_lines.append(f"PAYMENT: CHEQUE #{cheque_number}")
     
     preview_lines.append(date_str)
-    preview_lines.append("Thank you for shopping!")
-    preview_lines.append("Come again anytime ❤️")
+    preview_lines.append(THANK_YOU)
+    preview_lines.append(FOOTER_NOTE)
     preview_lines.append("-" * 32)
     preview_lines.append(DEV_NAME)
     preview_lines.append(DEV_CONTACT)

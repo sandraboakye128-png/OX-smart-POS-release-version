@@ -113,7 +113,7 @@
     <!-- ===== SERVICE WORKER ===== -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=11')
+            navigator.serviceWorker.register('/sw.js?v=12')
                 .then(() => console.log('✅ Service Worker registered (v11)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
@@ -793,10 +793,13 @@
             </a>
             {% endif %}
 
+            {% set _show_screen = (app_settings.show_screen_pages if app_settings else 1) %}
+            {% set _scr_label = (app_settings.screen_label if app_settings and app_settings.screen_label else t('nav.screens')) %}
+            {% if _show_screen %}
             <div class="mt-2">
                 <div class="dropdown-toggle flex items-center justify-between px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm" onclick="toggleDropdown(this)">
                     <span class="flex items-center gap-3">
-                        <i class="fas fa-mobile-alt w-5"></i> {{ t('nav.screens') }}
+                        <i class="fas fa-mobile-alt w-5"></i> {{ _scr_label }}
                     </span>
                     <i class="fas fa-chevron-down text-xs"></i>
                 </div>
@@ -812,6 +815,7 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
 
             {% if current_user and current_user.role == 'admin' %}
             <div class="border-t border-gray-700 my-2"></div>
@@ -1831,9 +1835,13 @@
   'use strict';
   var PREFIX = 'srv_';
   var KIND_TYPE = {
-    purchase_added: 'success',
-    sale_reversed:  'warning',
-    preview_save:   'info'
+    purchase_added:   'success',
+    sale_reversed:    'warning',
+    preview_save:     'info',
+    inventory_import: 'info',
+    batch_updated:    'warning',
+    batch_archived:   'warning',
+    batch_restored:   'success'
   };
 
   function _N() { return window.Notifications; }
@@ -1942,6 +1950,8 @@
   window.ServerNotifs = { refresh: refresh, dismiss: dismissRemote, clearAll: clearRemote, PREFIX: PREFIX };
 
   document.addEventListener('DOMContentLoaded', function () {
+    var _pub = ['/login', '/signup'];
+    if (_pub.some(function(p){ return window.location.pathname.indexOf(p) === 0; })) return;
     hookUI();
     if (document.getElementById('notifBell')) refresh();
   });

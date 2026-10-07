@@ -92,6 +92,23 @@
         </div>
     </div>
     <div>
+        <label class="block text-sm font-medium text-gray-700">Sort by</label>
+        <select id="sortBy" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="updated_newest">Recently updated first</option>
+            <option value="cost_high">Cost: high → low</option>
+            <option value="cost_low">Cost: low → high</option>
+            <option value="selling_high">Selling: high → low</option>
+            <option value="selling_low">Selling: low → high</option>
+            <option value="qty_high">Quantity: high → low</option>
+            <option value="name_asc">Name: A → Z</option>
+            <option value="badge_added">✨ Added via Excel/Import first</option>
+            <option value="badge_updated">✏️ Updated batches first</option>
+            <option value="badge_most">Most badges first</option>
+        </select>
+    </div>
+    <div>
         <label class="block text-sm font-medium text-gray-700">From Date</label>
         <input type="date" id="fromDate" class="border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800">
     </div>
@@ -219,8 +236,8 @@
 </div>
 
 <!-- PURCHASE HISTORY MODAL -->
-<div id="historyModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+<div id="historyModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-2 md:p-6">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl md:max-w-3xl max-h-[85vh] flex flex-col overflow-hidden mx-auto">
         <div class="flex-shrink-0 p-4 border-b flex justify-between items-center bg-white">
             <h3 class="text-xl font-bold text-gray-800" id="historyModalTitle">📋 Batch History</h3>
             <button onclick="closeHistoryModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
@@ -785,6 +802,44 @@ function checkForBatchEdit() {
 //  HISTORY MODAL — API-first, cache update_history on success,
 //  fall back to Dexie cache (with synthesized entry if none).
 // ============================================================
+    // ── Original-value resolvers: Excel inserts left these null,
+    //    so fall through to current values where needed.
+    function _origQty(p) {
+        var v = p.original_quantity;
+        if (v != null && v !== 0) return v;
+        if (p.current_quantity != null && p.current_quantity !== 0) return p.current_quantity;
+        if (p.quantity != null) return p.quantity;
+        return 0;
+    }
+    function _origCost(p) {
+        var v = p.original_cost_price;
+        if (v != null && v !== 0) return v;
+        if (p.current_cost_price != null && p.current_cost_price !== 0) return p.current_cost_price;
+        if (p.cost_price != null) return p.cost_price;
+        return 0;
+    }
+    function _origSell(p) {
+        var v = p.original_selling_price;
+        if (v != null && v !== 0) return v;
+        if (p.current_selling_price != null && p.current_selling_price !== 0) return p.current_selling_price;
+        if (p.selling_price != null) return p.selling_price;
+        return 0;
+    }
+    // ── Source pill for update history entries ──
+    function _renderSourcePill(u) {
+        var s = (u && u.source) ? String(u.source).toLowerCase() : '';
+        var map = {
+            excel:  ['\uD83D\uDCCA Excel Preview',    'bg-purple-100 text-purple-800 border-purple-200'],
+            import: ['\uD83D\uDCE5 Import Inventory', 'bg-indigo-100 text-indigo-800 border-indigo-200'],
+            page:   ['\uD83D\uDD8A Purchases Page',   'bg-amber-100 text-amber-800 border-amber-200']
+        };
+        var m = map[s] || ['\u2753 Unknown source', 'bg-gray-100 text-gray-700 border-gray-200'];
+        var who = (u && u.username) ? ' \u00b7 ' + escapeHtml(u.username) : '';
+        return '<span class="inline-block text-[10px] px-1.5 py-0.5 rounded border ' + m[1] + ' ml-1">' +
+               m[0] + who + '</span>';
+    }
+
+
 async function viewPurchaseHistory(batchId) {
     // Try API first when online
     if (navigator.onLine) {
@@ -919,14 +974,36 @@ function renderHistoryModal(data, batchId, isOffline) {
     const totalSold = data.total_sold || 0;
     const updateHistory = data.update_history || [];
 
-    let html = `
+    const _thisBatch = currentPurchases.find(function(x) { return x.batch_id === batchId; });
+            var _badgeList = [];
+            if (_thisBatch) {
+                try {
+                    if (Array.isArray(_thisBatch.badges)) _badgeList = _thisBatch.badges.slice();
+                    else if (typeof _thisBatch.badges === 'string' && _thisBatch.badges) _badgeList = JSON.parse(_thisBatch.badges) || [];
+                } catch (e) { _badgeList = []; }
+            }
+            var _BADGE_LABELS = {
+                excel_add:     '✨ Added from Excel',
+                import_add:    '📥 Added from Import',
+                excel_update:  '✏️ Updated from Excel',
+                import_update: '🔄 Updated from Import',
+                page_update:   '🖊 Updated Here'
+            };
+            var _badgesHtml = _badgeList.length
+                ? '<div id="_historyBadgeRow" class="flex flex-wrap gap-1 mb-3">' +
+                  _badgeList.map(function(b) {
+                      return '<span class="text-xs bg-gray-100 border border-gray-200 px-2 py-0.5 rounded">' +
+                             (_BADGE_LABELS[b] || b) + '</span>';
+                  }).join('') + '</div>'
+                : '';
+let html = `
         <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
             <h4 class="font-bold text-blue-700 mb-2">📦 Original Purchase</h4>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
                 <div><span class="text-gray-500">Date:</span> <strong>${formatDate(purchase.original_date)}</strong></div>
-                <div><span class="text-gray-500">Quantity:</span> <strong>${purchase.original_quantity}</strong></div>
-                <div><span class="text-gray-500">Cost:</span> <strong>${formatMoney(purchase.original_cost_price)}</strong></div>
-                <div><span class="text-gray-500">Selling:</span> <strong>${formatMoney(purchase.original_selling_price)}</strong></div>
+                <div><span class="text-gray-500">Quantity:</span> <strong>${_origQty(purchase)}</strong></div>
+                <div><span class="text-gray-500">Cost:</span> <strong>${formatMoney(_origCost(purchase))}</strong></div>
+                <div><span class="text-gray-500">Selling:</span> <strong>${formatMoney(_origSell(purchase))}</strong></div>
             </div>
             ${purchase.current_quantity !== purchase.original_quantity ? `
                 <div class="mt-2 text-xs text-blue-600">
@@ -975,7 +1052,7 @@ function renderHistoryModal(data, batchId, isOffline) {
                 <div id="updatesList" class="space-y-2 max-h-40 overflow-y-auto">
                     ${updateHistory.slice(0, 2).map(u => `
                         <div class="text-xs text-gray-600 border-b pb-1">
-                            <span class="font-medium">${formatDate(u.date)}</span>
+                            <span class="font-medium">${formatDate(u.date)}</span>${_renderSourcePill(u)}
                             ${u.synthesized ? '<span class="ml-2 text-[10px] text-amber-600">(inferred from cached data)</span>' : ''}
                             <ul class="ml-2 mt-1">
                                 ${Object.entries(u.changes || {}).map(([key, val]) =>
@@ -986,7 +1063,7 @@ function renderHistoryModal(data, batchId, isOffline) {
                     `).join('')}
                     ${updateHistory.length > 2 ? `<div id="moreUpdates" class="hidden">${updateHistory.slice(2).map(u => `
                         <div class="text-xs text-gray-600 border-b pb-1 mt-1">
-                            <span class="font-medium">${formatDate(u.date)}</span>
+                            <span class="font-medium">${formatDate(u.date)}</span>${_renderSourcePill(u)}
                             <ul class="ml-2 mt-1">
                                 ${Object.entries(u.changes || {}).map(([key, val]) =>
                                     `<li>${key}: ${val.old} → ${val.new}</li>`
@@ -1005,7 +1082,7 @@ function renderHistoryModal(data, batchId, isOffline) {
     html += `
         <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
             <div class="grid grid-cols-3 md:grid-cols-5 gap-2 text-sm text-center">
-                <div><span class="text-gray-500 block">Original</span><span class="font-bold">${purchase.original_quantity}</span></div>
+                <div><span class="text-gray-500 block">Original</span><span class="font-bold">${_origQty(purchase)}</span></div>
                 <div><span class="text-gray-500 block">Sold</span><span class="font-bold text-blue-600">${totalSold}</span></div>
                 <div><span class="text-gray-500 block">Remaining</span><span class="font-bold text-green-600">${purchase.remaining_quantity || 0}</span></div>
                 <div><span class="text-gray-500 block">Current</span><span class="font-bold">${purchase.current_quantity}</span></div>
@@ -1068,7 +1145,7 @@ async function loadPurchases(forceRefreshFlag = false) {
                         selling_price: p.selling_price,
                         total_cost: p.cost_price * p.quantity - (p.discount || 0),
                         date: p.date,
-                        action: p.action || 'added',
+                        action: p.action || 'added', badges: p.badges || null, updated_at: p.updated_at || null,
                         source: p.source || '',
                         claimed_quantity: p.claimed_quantity || 0,
                         original_quantity: p.original_quantity || p.quantity,
@@ -1110,7 +1187,7 @@ async function loadPurchases(forceRefreshFlag = false) {
                     selling_price: b.selling_price,
                     total_cost: b.cost_price * b.quantity - (b.discount || 0),
                     date: b.date,
-                    action: b.action || 'added',
+                    action: b.action || 'added', badges: b.badges || null, updated_at: b.updated_at || null,
                     source: b.source || '',
                     claimed_quantity: b.claimed_quantity || 0,
                     original_quantity: b.original_quantity || b.quantity,
@@ -1173,7 +1250,7 @@ async function storePurchasesInDexie(apiPurchases) {
                 claimed_quantity: p.claimed_quantity || 0,
                 sold_quantity: (typeof p.sold_quantity === 'number') ? p.sold_quantity : null,
                 date: p.date,
-                action: p.action || 'added',
+                action: p.action || 'added', badges: p.badges || null, updated_at: p.updated_at || null,
                 source: p.source || '',
                 original_quantity: p.original_quantity || p.quantity,
                 original_date: p.original_date || p.date,
@@ -1209,7 +1286,59 @@ async function storePurchasesInDexie(apiPurchases) {
 }
 
 // ---------- Render list ----------
+    // ── Sort engine ──
+    function _badgeArr(p) {
+        try {
+            if (Array.isArray(p.badges)) return p.badges.slice();
+            if (typeof p.badges === 'string' && p.badges) return JSON.parse(p.badges) || [];
+        } catch (e) {}
+        const a = (p.action || '').toLowerCase();
+        if (a === 'added_from_excel')   return ['excel_add'];
+        if (a === 'updated_from_excel') return ['excel_update'];
+        if (a === 'added_from_import')  return ['import_add'];
+        if (a === 'updated_from_import')return ['import_update'];
+        return [];
+    }
+    function _num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+    function getSortFn(key) {
+        switch (key) {
+            case 'newest':          return (a, b) => new Date(b.date || 0) - new Date(a.date || 0);
+            case 'oldest':          return (a, b) => new Date(a.date || 0) - new Date(b.date || 0);
+            case 'updated_newest':  return (a, b) => new Date(b.updated_at || b.date || 0) - new Date(a.updated_at || a.date || 0);
+            case 'cost_high':       return (a, b) => _num(b.cost_price) - _num(a.cost_price);
+            case 'cost_low':        return (a, b) => _num(a.cost_price) - _num(b.cost_price);
+            case 'selling_high':    return (a, b) => _num(b.selling_price) - _num(a.selling_price);
+            case 'selling_low':     return (a, b) => _num(a.selling_price) - _num(b.selling_price);
+            case 'qty_high':        return (a, b) => _num(b.quantity) - _num(a.quantity);
+            case 'name_asc':        return (a, b) => String(a.name || '').toLowerCase().localeCompare(String(b.name || '').toLowerCase());
+            case 'badge_added':
+                return (a, b) => {
+                    const A = _badgeArr(a), B = _badgeArr(b);
+                    const aAdd = (A.includes('excel_add') || A.includes('import_add')) ? 0 : 1;
+                    const bAdd = (B.includes('excel_add') || B.includes('import_add')) ? 0 : 1;
+                    if (aAdd !== bAdd) return aAdd - bAdd;
+                    return new Date(b.date || 0) - new Date(a.date || 0);
+                };
+            case 'badge_updated':
+                return (a, b) => {
+                    const A = _badgeArr(a), B = _badgeArr(b);
+                    const aU = A.some(x => x.endsWith('_update')) ? 0 : 1;
+                    const bU = B.some(x => x.endsWith('_update')) ? 0 : 1;
+                    if (aU !== bU) return aU - bU;
+                    return new Date(b.updated_at || b.date || 0) - new Date(a.updated_at || a.date || 0);
+                };
+            case 'badge_most':      return (a, b) => _badgeArr(b).length - _badgeArr(a).length;
+            default:                return null;
+        }
+    }
+
 function renderList(purchases) {
+        // Apply current sort choice before rendering
+        try {
+            var _sk = (document.getElementById('sortBy') || {}).value || 'newest';
+            var _fn = getSortFn(_sk);
+            if (_fn && Array.isArray(purchases)) purchases = purchases.slice().sort(_fn);
+        } catch (e) {}
     const container = document.getElementById('purchasesList');
     if (!purchases || purchases.length === 0) {
         container.innerHTML = '<div class="text-center text-gray-400 py-8">No accessory purchase records found.</div>';
@@ -1232,19 +1361,32 @@ function renderList(purchases) {
             'moved_forced', 'moved_new',
             'remaining_moved_to_new_batch', 'depleted_by_update'
         ]);
-        const isExcelAdded   = (p.action === 'added_from_excel');
-        const isExcelUpdated = (p.action === 'updated_from_excel');
-        const isOtherUpdated = OTHER_UPDATED.has(p.action);
-        const isUpdated      = isExcelAdded || isExcelUpdated || isOtherUpdated;
-
-        let updatedBadge = '';
-        if (isExcelAdded) {
-            updatedBadge = `<span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded ml-2">📊 Added from Excel</span>`;
-        } else if (isExcelUpdated) {
-            updatedBadge = `<span class="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded ml-2">🔄 Updated from Excel</span>`;
-        } else if (isOtherUpdated) {
-            updatedBadge = `<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded ml-2">🔄 Updated</span>`;
+        // ─── Badges (multi-badge render) ───
+        const _BADGE_MAP = {
+            excel_add:     ['✨ Added from Excel',    'bg-emerald-100 text-emerald-800'],
+            import_add:    ['📥 Added from Import',   'bg-teal-100 text-teal-800'],
+            excel_update:  ['✏️ Updated from Excel',  'bg-purple-100 text-purple-800'],
+            import_update: ['🔄 Updated from Import', 'bg-indigo-100 text-indigo-800'],
+            page_update:   ['🖊 Updated Here',        'bg-amber-100 text-amber-800']
+        };
+        let _bList = [];
+        try {
+            if (Array.isArray(p.badges)) _bList = p.badges.slice();
+            else if (typeof p.badges === 'string' && p.badges) _bList = JSON.parse(p.badges) || [];
+        } catch (e) { _bList = []; }
+        if (!_bList.length) {
+            const _a = (p.action || '').toLowerCase();
+            if (_a === 'added_from_excel') _bList = ['excel_add'];
+            else if (_a === 'updated_from_excel') _bList = ['excel_update'];
+            else if (_a === 'added_from_import') _bList = ['import_add'];
+            else if (_a === 'updated_from_import') _bList = ['import_update'];
         }
+        const updatedBadge = _bList.map(function(code) {
+            var m = _BADGE_MAP[code];
+            return m ? `<span class="text-xs ${m[1]} px-2 py-0.5 rounded ml-2">${m[0]}</span>` : '';
+        }).join('');
+        // Back-compat alias — downstream code still checks isUpdated
+        const isUpdated = _bList.length > 0;
 
         return `
             <div class="border rounded-lg p-4 hover:shadow transition">
@@ -1895,6 +2037,28 @@ document.getElementById('advancedToggle').addEventListener('click', function() {
     document.getElementById('advancedSearch').classList.toggle('hidden');
 });
 document.getElementById('applyAdvancedSearch').addEventListener('click', applyAdvancedSearch);
+// Sort dropdown
+
+(function() {
+
+    var sb = document.getElementById('sortBy');
+
+    if (!sb) return;
+
+    try { var s = localStorage.getItem('purchases_sort_key'); if (s) sb.value = s; } catch (e) {}
+
+    sb.addEventListener('change', function() {
+
+        try { localStorage.setItem('purchases_sort_key', sb.value); } catch (e) {}
+
+        if (Array.isArray(currentFilteredData)) renderList(currentFilteredData);
+
+        else if (Array.isArray(currentPurchases)) renderList(currentPurchases);
+
+    });
+
+})();
+
 document.getElementById('clearSearchBtn').addEventListener('click', function() {
     document.getElementById('searchInput').value = '';
     this.classList.add('hidden');

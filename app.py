@@ -1196,6 +1196,33 @@ def serialize_purchase(p):
             p_copy['date'] = p_copy['date'].isoformat()
         else:
             p_copy['date'] = str(p_copy['date'])
+    # Normalize badges: parse JSON, or derive from legacy action
+    _b = p_copy.get('badges')
+    if _b:
+        try:
+            _b = json.loads(_b) if isinstance(_b, str) else _b
+        except Exception:
+            _b = []
+        if not isinstance(_b, list):
+            _b = []
+    else:
+        _act = (p_copy.get('action') or '').lower()
+        _map = {
+            'added_from_excel':   ['excel_add'],
+            'updated_from_excel': ['excel_update'],
+            'added_from_import':  ['import_add'],
+            'updated_from_import':['import_update'],
+        }
+        _b = _map.get(_act, [])
+    p_copy['badges'] = _b
+    # updated_at: fall back to date
+    if 'updated_at' in p_copy and p_copy['updated_at']:
+        if hasattr(p_copy['updated_at'], 'isoformat'):
+            p_copy['updated_at'] = p_copy['updated_at'].isoformat()
+        else:
+            p_copy['updated_at'] = str(p_copy['updated_at'])
+    else:
+        p_copy['updated_at'] = p_copy.get('date')
     return p_copy
 
 @app.route('/api/purchases', methods=['GET'])
@@ -1541,8 +1568,78 @@ def api_update_purchase(batch_id):
             selling_price=float(data['selling_price']),
             source=data.get('source', 'Unknown'),
             update_mode=update_mode,
-            keep_sold_with_old=keep_sold_with_old
+            keep_sold_with_old=keep_sold_with_old,
+            user_id=session.get('user_id'),
+            username=session.get('username'),
         )
+
+        # Capture OLD values for the notification diff (before edit)
+        _old_snapshot = {}
+        try:
+            _c = get_connection()
+            _cur = _c.cursor()
+            _cur.execute("""
+                SELECT pb.quantity, pb.cost_price, pb.selling_price, pb.discount,
+                       p.name, p.brand
+                FROM purchase_batches pb
+                JOIN products p ON p.id = pb.product_id
+                WHERE pb.id = %s
+            """, (batch_id,))
+            _r = _cur.fetchone()
+            if _r:
+                _old_snapshot = {
+                    'quantity':      float(_r[0] or 0),
+                    'cost_price':    float(_r[1] or 0),
+                    'selling_price': float(_r[2] or 0),
+                    'discount':      float(_r[3] or 0),
+                    'name':          _r[4] or '',
+                    'brand':         _r[5] or '',
+                }
+            _c.close()
+        except Exception as _e:
+            print(f"[page_update-snap] {_e}")
+
+        # Mark the resulting batch as edited on this page
+        try:
+            _append_batch_badge(new_batch_id, 'page_update')
+        except Exception:
+            pass
+
+        # Fire notification with a compact change summary
+        try:
+            def _fnum(v):
+                try: return float(v or 0)
+                except Exception: return 0.0
+            _nd = data.get('name', '') or ''
+            _nb = data.get('brand', '') or ''
+            _nq = _fnum(data.get('quantity'))
+            _nc = _fnum(data.get('cost_price'))
+            _ns = _fnum(data.get('selling_price'))
+            _nd2 = _fnum(data.get('discount'))
+
+            _bits = []
+            if _old_snapshot:
+                if _fnum(_old_snapshot.get('quantity')) != _nq:
+                    _bits.append(f"qty {int(_old_snapshot['quantity'])}->{int(_nq)}")
+                if _fnum(_old_snapshot.get('cost_price')) != _nc:
+                    _bits.append(f"cost {_old_snapshot['cost_price']:.2f}->{_nc:.2f}")
+                if _fnum(_old_snapshot.get('selling_price')) != _ns:
+                    _bits.append(f"sell {_old_snapshot['selling_price']:.2f}->{_ns:.2f}")
+                if _fnum(_old_snapshot.get('discount')) != _nd2:
+                    _bits.append(f"disc {_old_snapshot['discount']:.2f}->{_nd2:.2f}")
+                if (_old_snapshot.get('name') or '') != _nd or (_old_snapshot.get('brand') or '') != _nb:
+                    _bits.append(f"renamed to {_nd} ({_nb})")
+
+            _summary = ' · '.join(_bits) if _bits else 'values updated'
+            add_notification(
+                'batch_updated',
+                f'✏️ Batch #{new_batch_id} updated',
+                f'{_nd} ({_nb}) · {_summary}',
+                {'batch_id': new_batch_id, 'changes': _bits},
+                user_id=session.get('user_id'),
+            )
+        except Exception as _ne:
+            print(f"[page_update-notify] {_ne}")
 
         return jsonify({'success': True, 'new_batch_id': new_batch_id})
 
@@ -1630,6 +1727,12 @@ def api_add_purchase():
             _c.close()
         except Exception as _e:
             print(f"⚠️ Could not resolve product_id for batch {batch_id}: {_e}")
+
+        # Page adds get no badge, but we stamp updated_at for consistency
+        try:
+            _set_batch_updated_at(batch_id)
+        except Exception:
+            pass
 
         try:
             add_notification(
@@ -1897,11 +2000,48 @@ def api_low_stock():
 @login_required
 def api_delete_batch(batch_id):
     delete_type = request.args.get('type', 'keep')
+    _info = {}
     try:
+        # Snapshot the batch details for the notification
+        try:
+            _c = get_connection()
+            _cur = _c.cursor()
+            _cur.execute("""
+                SELECT pb.quantity, COALESCE(p.name,''), COALESCE(p.brand,''),
+                       COALESCE(p.category,'')
+                FROM purchase_batches pb
+                JOIN products p ON p.id = pb.product_id
+                WHERE pb.id = %s
+            """, (batch_id,))
+            _r = _cur.fetchone()
+            if _r:
+                _info = {'quantity': int(_r[0] or 0), 'name': _r[1],
+                         'brand': _r[2], 'category': _r[3]}
+            _c.close()
+        except Exception as _e:
+            print(f"[delete-snapshot] {_e}")
+
         if delete_type == 'clean':
             delete_batch_clean_all(batch_id)
         else:
             delete_batch(batch_id)
+
+        # Fire notification so the bell reflects the delete
+        try:
+            _nm = _info.get('name', '') or 'Unknown'
+            _br = _info.get('brand', '') or ''
+            add_notification(
+                'batch_archived',
+                f'🗑 Batch #{batch_id} archived',
+                f"{_nm} ({_br}) · qty {_info.get('quantity', 0)} · {delete_type}",
+                {'batch_id': batch_id, 'name': _nm, 'brand': _br,
+                 'quantity': _info.get('quantity', 0),
+                 'delete_type': delete_type},
+                user_id=session.get('user_id'),
+            )
+        except Exception as _ne:
+            print(f"[delete-notify] {_ne}")
+
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -3049,7 +3189,11 @@ from services.settings_service import (
     get_user_settings,
     update_user_settings,
     format_currency,
-    format_date
+    format_date,
+    init_app_settings_table,
+    get_app_settings,
+    update_app_settings,
+    APP_SETTINGS_COLUMNS,
 )
 
 @app.route('/settings', methods=['GET'])
@@ -3146,6 +3290,54 @@ def api_update_settings():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def _default_settings():
+    """Full default settings dict — used when no user is logged in
+    (login page) so base.html's `settings.X` references never
+    resolve to Undefined (which breaks the JS APP_SETTINGS object)."""
+    return {
+        'theme': 'light',
+        'currency_symbol': '₵',
+        'currency_code': 'GHS',
+        'language': 'en',
+        'date_format': 'DD/MM/YYYY',
+        'font_size': 'medium',
+        'font_family': 'system',
+        'low_stock_threshold': 10,
+    }
+
+
+@app.route('/api/app_settings', methods=['GET'])
+@login_required
+def api_get_app_settings():
+    return jsonify({'success': True, 'settings': get_app_settings()})
+
+
+@app.route('/api/app_settings', methods=['POST'])
+@login_required
+def api_update_app_settings():
+    is_admin = (
+        session.get('role') == 'admin'
+        or str(session.get('username') or '').lower() == 'oxbee'
+    )
+    if not is_admin:
+        return jsonify({'success': False, 'error': 'Admin access required'}), 403
+    data = request.json or {}
+    ok, keys, err = update_app_settings(data)
+    if not ok:
+        return jsonify({'success': False, 'error': err or 'Update failed'}), 400
+    return jsonify({'success': True, 'updated': keys, 'settings': get_app_settings()})
+
+
+@app.context_processor
+def inject_app_settings():
+    """Expose app_settings to all templates so base.html can read labels
+    + sidebar toggles without a separate fetch."""
+    try:
+        return {'app_settings': get_app_settings()}
+    except Exception:
+        return {'app_settings': {}}
+
+
 @app.context_processor
 def inject_settings():
     if 'user_id' in session:
@@ -3158,10 +3350,8 @@ def inject_settings():
                 'format_date': lambda dt: format_date(dt, session.get('user_id'))
             }
         except:
-            return {
-                'settings': {'theme': 'light', 'currency_symbol': '₵', 'currency_code': 'GHS', 'language': 'en', 'date_format': 'DD/MM/YYYY'}
-            }
-    return {'settings': {'theme': 'light', 'currency_symbol': '₵', 'currency_code': 'GHS', 'language': 'en', 'date_format': 'DD/MM/YYYY'}}
+            return {'settings': _default_settings()}
+    return {'settings': _default_settings()}
 
 
 # ===================== I18N CONTEXT PROCESSOR =====================
@@ -3192,8 +3382,24 @@ def inject_i18n():
         except Exception:
             lang = DEFAULT_LANG
 
+    # For anonymous users (login page), still translate — the EN dict
+    # is the fallback, so login screen shows proper labels, not raw keys.
+    if user_id:
+        _translator = make_translator(user_id)
+    else:
+        try:
+            _en = translations_for('en')
+            def _translator(key, **kw):
+                s = _en.get(key, key)
+                if kw and isinstance(s, str):
+                    for _k, _v in kw.items():
+                        s = s.replace('{' + str(_k) + '}', str(_v))
+                return s
+        except Exception:
+            _translator = lambda k, **kw: k
+
     return {
-        't': make_translator(user_id) if user_id else (lambda k, **kw: k),
+        't': _translator,
         'current_language': lang,
         'i18n_dict': translations_for(lang),
     }
@@ -3245,7 +3451,7 @@ def api_archive():
             active_params = []
             
             if search:
-                active_query += " AND (name ILIKE %s OR brand ILIKE %s)"
+                active_query += " AND (LOWER(COALESCE(name,'')) LIKE LOWER(%s) OR LOWER(COALESCE(brand,'')) LIKE LOWER(%s))"
                 active_params.extend([search_pattern, search_pattern])
             
             # Get count
@@ -3337,7 +3543,7 @@ def api_archive():
             deleted_params = []
             
             if search:
-                deleted_query += " AND (name ILIKE %s OR brand ILIKE %s)"
+                deleted_query += " AND (LOWER(COALESCE(name,'')) LIKE LOWER(%s) OR LOWER(COALESCE(brand,'')) LIKE LOWER(%s))"
                 deleted_params.extend([search_pattern, search_pattern])
             
             # ✅ Fix: Only apply status filter if not 'ALL'
@@ -3481,8 +3687,35 @@ def api_archive_restore():
     archive_id = data.get('archive_id')
     if not archive_id:
         return jsonify({'success': False, 'error': 'Missing archive_id'}), 400
+    _name = ''
+    _bid = None
     try:
+        try:
+            _c = get_connection()
+            _cur = _c.cursor()
+            _cur.execute("SELECT name, batch_id FROM deleted_products WHERE id = %s",
+                         (archive_id,))
+            _r = _cur.fetchone()
+            if _r:
+                _name = _r[0] or ''
+                _bid = _r[1]
+            _c.close()
+        except Exception:
+            pass
+
         restore_archive(archive_id)
+
+        try:
+            add_notification(
+                'batch_restored',
+                f'♻️ Restored {_name}' + (f' (batch #{_bid})' if _bid else ''),
+                'Restored from Archive back to active inventory.',
+                {'archive_id': archive_id, 'batch_id': _bid, 'name': _name},
+                user_id=session.get('user_id'),
+            )
+        except Exception:
+            pass
+
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -4031,26 +4264,78 @@ def run_inventory_import(job_id, file_stream, target_category, mode='append'):
                         existing_batch_id = br[0]
 
                 if existing_batch_id:
+                    # Snapshot old row for history
+                    _old_imp = {}
+                    try:
+                        cur.execute("""
+                            SELECT quantity, remaining_quantity, claimed_quantity,
+                                   cost_price, selling_price, discount, COALESCE(source,'')
+                            FROM purchase_batches WHERE id = %s
+                        """, (existing_batch_id,))
+                        _r = cur.fetchone()
+                        if _r:
+                            _old_imp = {
+                                'quantity':           _r[0],
+                                'remaining_quantity': _r[1],
+                                'claimed_quantity':   _r[2],
+                                'cost_price':         _r[3],
+                                'selling_price':      _r[4],
+                                'discount':           _r[5],
+                                'source':             _r[6],
+                            }
+                    except Exception:
+                        pass
+
                     cur.execute("""
                         UPDATE purchase_batches
                         SET quantity = %s, remaining_quantity = %s, claimed_quantity = %s,
                             cost_price = %s, selling_price = %s, discount = %s,
-                            source = %s, action = 'updated_from_excel'
+                            source = %s, action = 'updated_from_import',
+                            updated_at = CURRENT_TIMESTAMP
                         WHERE id = %s
                     """, (item['quantity'], item['remaining_quantity'], item['claimed_quantity'],
                           item['cost_price'], item['selling_price'], item['discount'],
                           item['source'], existing_batch_id))
+
+                    # Log with source='import'
+                    try:
+                        _log_batch_update_inline(cur, existing_batch_id, _old_imp, {
+                            'quantity':           item['quantity'],
+                            'remaining_quantity': item['remaining_quantity'],
+                            'claimed_quantity':   item['claimed_quantity'],
+                            'cost_price':         item['cost_price'],
+                            'selling_price':      item['selling_price'],
+                            'discount':           item['discount'],
+                            'source':             item['source'],
+                        }, source='import', user_id=None, username=None)
+                    except Exception:
+                        pass
+                    # Merge badge
+                    try:
+                        cur.execute("SELECT COALESCE(badges, '[]') FROM purchase_batches WHERE id = %s", (existing_batch_id,))
+                        _r = cur.fetchone()
+                        _arr = json.loads(_r[0]) if (_r and _r[0]) else []
+                        if not isinstance(_arr, list): _arr = []
+                        if 'import_update' not in _arr:
+                            _arr.append('import_update')
+                            cur.execute("UPDATE purchase_batches SET badges = %s WHERE id = %s",
+                                        (json.dumps(_arr), existing_batch_id))
+                    except Exception:
+                        pass
                     updated_count += 1
                     matched_count += 1
                 else:
                     cur.execute("""
                         INSERT INTO purchase_batches
                         (product_id, quantity, remaining_quantity, claimed_quantity,
-                         cost_price, selling_price, discount, date, action, source)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'added_from_excel', %s)
+                         cost_price, selling_price, discount, date, action, source,
+                         badges, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'added_from_import', %s,
+                                %s, CURRENT_TIMESTAMP)
                     """, (product_id, item['quantity'], item['remaining_quantity'],
                           item['claimed_quantity'], item['cost_price'], item['selling_price'],
-                          item['discount'], item['purchase_date'], item['source']))
+                          item['discount'], item['purchase_date'], item['source'],
+                          json.dumps(['import_add'])))
                     if item['remaining_quantity'] != 0:
                         cur.execute("""
                             UPDATE products SET stock = COALESCE(stock, 0) + %s WHERE id = %s
@@ -4100,6 +4385,22 @@ def run_inventory_import(job_id, file_stream, target_category, mode='append'):
             'warnings': warning_rows,
             'message': message,
         })
+
+        # Fire inventory_import notification
+        try:
+            _cat_label = 'Screens' if target_category == 'Screen' else 'Accessories'
+            add_notification(
+                'inventory_import',
+                f'📥 Imported · {_cat_label}',
+                f'{inserted_count} added, {updated_count} updated'
+                  + (f' · {len(skipped_rows)} skipped' if skipped_rows else ''),
+                {'job_id': job_id, 'category': target_category, 'mode': mode,
+                 'inserted': inserted_count, 'updated': updated_count,
+                 'skipped': len(skipped_rows)},
+                user_id=session.get('user_id'),
+            )
+        except Exception as _ne:
+            print(f"[inventory_import-notify] {_ne}")
 
     except Exception as e:
         if conn:
@@ -5159,6 +5460,183 @@ def _auth_users_table():
     return 'users' if _pg_backend() else 'auth.users'
 
 
+# ── Purchase badges: schema, migration, and append helpers ──
+_BADGE_CODES = ('excel_add','import_add','excel_update','import_update','page_update')
+
+
+def _log_batch_update_inline(cur, batch_id, old_data, new_data,
+                              source='import', user_id=None, username=None):
+    """Record a batch edit in batch_update_history. Self-contained;
+    app.py already imports preview_service but a local copy avoids
+    circular-import risk during background import threads."""
+    import json as _json
+    diff = {}
+    for key in old_data:
+        if old_data.get(key) != new_data.get(key):
+            diff[key] = {"old": old_data.get(key), "new": new_data.get(key)}
+    if not diff:
+        return
+    try:
+        cur.execute("""
+            INSERT INTO batch_update_history
+            (batch_id, changed_fields, source, user_id, username, updated_at)
+            VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+        """, (batch_id, _json.dumps(diff), source, user_id, username))
+        return
+    except Exception:
+        pass
+    try:
+        cur.execute("""
+            INSERT INTO batch_update_history (batch_id, changed_fields, updated_at)
+            VALUES (%s, %s, CURRENT_TIMESTAMP)
+        """, (batch_id, _json.dumps(diff)))
+    except Exception:
+        pass
+
+
+def init_batch_update_history():
+    """Create batch_update_history if missing. Idempotent."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        if _pg_backend():
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS batch_update_history (
+                    id SERIAL PRIMARY KEY,
+                    batch_id INTEGER NOT NULL,
+                    changed_fields TEXT,
+                    source TEXT,
+                    user_id INTEGER,
+                    username TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+        else:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS batch_update_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    batch_id INTEGER NOT NULL,
+                    changed_fields TEXT,
+                    source TEXT,
+                    user_id INTEGER,
+                    username TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+        # Idempotent column adds for existing installs
+        for _ddl in (
+            "ALTER TABLE batch_update_history ADD COLUMN source TEXT",
+            "ALTER TABLE batch_update_history ADD COLUMN user_id INTEGER",
+            "ALTER TABLE batch_update_history ADD COLUMN username TEXT",
+        ):
+            try:
+                cur.execute(_ddl)
+                conn.commit()
+            except Exception:
+                try: conn.rollback()
+                except Exception: pass
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_buh_batch ON batch_update_history(batch_id)")
+        conn.commit()
+        print("OK batch_update_history ready.")
+    except Exception as e:
+        try: conn.rollback()
+        except Exception: pass
+        print("WARN batch_update_history: %s" % e)
+    finally:
+        try: conn.close()
+        except Exception: pass
+
+
+def init_purchase_badges():
+    """Add badges + updated_at to purchase_batches if missing, and backfill
+    badges from the legacy action column. Safe to run on every boot."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        for ddl in (
+            "ALTER TABLE purchase_batches ADD COLUMN badges TEXT",
+            "ALTER TABLE purchase_batches ADD COLUMN updated_at TIMESTAMP",
+        ):
+            try:
+                cur.execute(ddl)
+                conn.commit()
+            except Exception:
+                try: conn.rollback()
+                except Exception: pass
+        # Backfill badges from action (only where badges is empty)
+        cur.execute("""
+            UPDATE purchase_batches
+            SET badges = CASE
+                WHEN COALESCE(action,'') = 'added_from_excel'   THEN '["excel_add"]'
+                WHEN COALESCE(action,'') = 'updated_from_excel' THEN '["excel_update"]'
+                WHEN COALESCE(action,'') = 'added_from_import'  THEN '["import_add"]'
+                WHEN COALESCE(action,'') = 'updated_from_import' THEN '["import_update"]'
+                ELSE COALESCE(badges, '[]')
+            END
+            WHERE badges IS NULL OR badges = '' OR badges = 'null'
+        """)
+        # Backfill updated_at from the business date (best guess)
+        try:
+            cur.execute("""
+                UPDATE purchase_batches
+                SET updated_at = date
+                WHERE updated_at IS NULL
+            """)
+        except Exception:
+            pass
+        conn.commit()
+        print("✅ purchase_batches badges + updated_at ready.")
+    except Exception as e:
+        try: conn.rollback()
+        except Exception: pass
+        print(f"⚠️  purchase_badges migration: {e}")
+    finally:
+        try: conn.close()
+        except Exception: pass
+
+
+def _set_batch_updated_at(batch_id):
+    """Bump updated_at on a batch. Never raises."""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE purchase_batches SET updated_at = CURRENT_TIMESTAMP WHERE id = %s", (batch_id,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[badge-set-ua] {batch_id}: {e}")
+
+
+def _append_batch_badge(batch_id, code):
+    """Append `code` to a batch's badges JSON (dedup). Bumps updated_at.
+    Never raises."""
+    if code not in _BADGE_CODES:
+        return
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT COALESCE(badges, '[]') FROM purchase_batches WHERE id = %s", (batch_id,))
+        r = cur.fetchone()
+        if not r:
+            conn.close()
+            return
+        try:
+            arr = json.loads(r[0]) if r[0] else []
+        except Exception:
+            arr = []
+        if not isinstance(arr, list):
+            arr = []
+        if code not in arr:
+            arr.append(code)
+            cur.execute("UPDATE purchase_batches SET badges = %s WHERE id = %s",
+                        (json.dumps(arr), batch_id))
+        cur.execute("UPDATE purchase_batches SET updated_at = CURRENT_TIMESTAMP WHERE id = %s", (batch_id,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[badge-append] {batch_id} {code}: {e}")
+
+
 def init_notifications_table():
     conn = get_connection()
     cur = conn.cursor()
@@ -5177,6 +5655,22 @@ def init_notifications_table():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_notifications_dismissed ON notifications(dismissed_at)")
+
+        # Auto-dismiss stale rows: anything dismissed, or older than 7 days.
+        # Python-side cutoff so this works on both SQLite and Postgres.
+        try:
+            from datetime import datetime as _dt, timedelta as _td
+            cutoff = (_dt.now() - _td(days=7)).isoformat(sep=' ')
+            cur.execute(
+                "DELETE FROM notifications "
+                "WHERE dismissed_at IS NOT NULL OR created_at < %s",
+                (cutoff,)
+            )
+        except Exception as _e:
+            try: conn.rollback()
+            except Exception: pass
+            print(f"[notif-gc] {_e}")
+
         conn.commit()
         print("✅ notifications table ensured.")
     except Exception as e:
@@ -5216,6 +5710,9 @@ def add_notification(kind, title, message='', meta=None, user_id=None):
 init_notifications_table()
 
 
+init_purchase_badges()
+init_batch_update_history()
+init_app_settings_table()
 @app.route('/api/notifications', methods=['GET'])
 @login_required
 def api_list_notifications():
@@ -5321,6 +5818,25 @@ def api_preview_rows(kind, category):
         return jsonify({'success': False, 'error': 'Invalid category'}), 400
     try:
         rows = get_purchase_rows(category) if kind == 'purchases' else get_sales_rows(category)
+
+        # Optionally append archived purchase rows (red-rows-on-reload)
+        try:
+            _inc = (request.args.get('include_deleted') or '').lower() in ('1','true','yes')
+        except Exception:
+            _inc = False
+        if _inc and kind == 'purchases':
+            try:
+                from services.preview_service import get_archived_purchase_rows
+                _arch = get_archived_purchase_rows(category)
+                # Drop any archived rows whose batch_id already appears live
+                _live_ids = set(str(r.get('batch_id') or '') for r in rows)
+                for _a in _arch:
+                    if str(_a.get('batch_id') or '') in _live_ids:
+                        continue
+                    rows.append(_a)
+            except Exception as _e:
+                print(f"[api_preview_rows] archived merge failed: {_e}")
+
         cols = PURCHASE_COLUMNS if kind == 'purchases' else SALES_COLUMNS
         return jsonify({
             'success': True,
@@ -5352,13 +5868,22 @@ def api_preview_save(kind, category):
     data = request.json or {}
     rows = data.get('rows', [])
     deleted_ids = data.get('deleted_ids', []) or []
+    dirty_ids = data.get('dirty_ids', None)
+    update_mode = (data.get('update_mode') or 'auto').lower()
+    if update_mode not in ('auto', 'update', 'create'):
+        update_mode = 'auto'
     mode = (data.get('mode') or 'merge').lower()
     if mode not in ('replace', 'append', 'merge'):
         return jsonify({'success': False, 'error': 'Invalid mode'}), 400
 
+    print(f"[api-preview-save] kind={kind} cat={category} mode={mode} rows={len(rows)} "
+          f"deleted_ids={deleted_ids!r} dirty_ids={dirty_ids!r} update_mode={update_mode}")
+
     try:
         if kind == 'purchases':
-            stats = save_purchases(rows, category, mode, deleted_ids=deleted_ids)
+            stats = save_purchases(rows, category, mode,
+                                   deleted_ids=deleted_ids,
+                                   dirty_ids=dirty_ids)
         else:
             stats = save_sales(rows, category, mode, deleted_ids=deleted_ids,
                                user_id=session.get('user_id'))
@@ -5369,12 +5894,16 @@ def api_preview_save(kind, category):
             if upd: bits.append(f'{upd} updated')
             if dlt: bits.append(f'{dlt} deleted')
             if bits:
+                _badge_hint = []
+                if ins: _badge_hint.append('excel_add')
+                if upd: _badge_hint.append('excel_update')
                 add_notification(
                     'preview_save',
                     f'📊 {kind.title()} saved ({category})',
-                    ', '.join(bits),
+                    ', '.join(bits) + (' · badges: ' + ', '.join(_badge_hint) if _badge_hint else ''),
                     {'kind': kind, 'category': category, 'mode': mode,
-                     'inserted': ins, 'updated': upd, 'deleted': dlt},
+                     'inserted': ins, 'updated': upd, 'deleted': dlt,
+                     'badges': _badge_hint},
                     user_id=session.get('user_id'),
                 )
         except Exception as _ne:

@@ -37,6 +37,142 @@ VALID_FONT_FAMILIES = {'system', 'humanist', 'serif', 'mono', 'rounded'}
 # ------------------------------------------------------------
 #  Backend detection
 # ------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════
+#  APP SETTINGS (shop-wide, single row)
+#  Receipt content, display labels, feature toggles.
+# ═══════════════════════════════════════════════════════════════
+APP_SETTINGS_COLUMNS = [
+    'accessory_label', 'screen_label', 'screen_category_value', 'show_screen_pages',
+    'receipt_shop_name', 'receipt_complement', 'receipt_phone', 'receipt_email',
+    'receipt_dev_name', 'receipt_dev_contact', 'receipt_thank_you', 'receipt_footer',
+]
+
+APP_SETTINGS_DEFAULTS = {
+    'accessory_label':        'Accessories',
+    'screen_label':           'Screens',
+    'screen_category_value':  'Screen',
+    'show_screen_pages':      1,
+    'receipt_shop_name':      'TOMFRIMP MOBICOM SOLUTIONS',
+    'receipt_complement':     'HOME OF COMPUTER, PHONES, AND ACCESSORIES',
+    'receipt_phone':          '0246418380',
+    'receipt_email':          'frimpongt97@gmail.com',
+    'receipt_dev_name':       'HUMMINGBIRD DIGITAL SOLUTIONS',
+    'receipt_dev_contact':    '0533052562 / 0201404188',
+    'receipt_thank_you':      'Thank you for shopping with us!',
+    'receipt_footer':         'Come again anytime \u2764\uFE0F',
+}
+
+
+def _app_settings_is_pg():
+    try:
+        from database.db import DATABASE_URL
+        return bool(DATABASE_URL) and str(DATABASE_URL).startswith('postgres')
+    except Exception:
+        return False
+
+
+def init_app_settings_table():
+    """Create app_settings table if missing; ensure single row exists.
+    Safe to call on every boot."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                id INTEGER PRIMARY KEY,
+                accessory_label TEXT,
+                screen_label TEXT,
+                screen_category_value TEXT,
+                show_screen_pages INTEGER DEFAULT 1,
+                receipt_shop_name TEXT,
+                receipt_complement TEXT,
+                receipt_phone TEXT,
+                receipt_email TEXT,
+                receipt_dev_name TEXT,
+                receipt_dev_contact TEXT,
+                receipt_thank_you TEXT,
+                receipt_footer TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # Ensure row id=1 exists
+        cur.execute("SELECT COUNT(*) FROM app_settings WHERE id = 1")
+        if (cur.fetchone()[0] or 0) == 0:
+            cur.execute("INSERT INTO app_settings (id) VALUES (1)")
+        # Backfill any NULL columns with defaults
+        for k, v in APP_SETTINGS_DEFAULTS.items():
+            try:
+                cur.execute(f"UPDATE app_settings SET {k} = %s WHERE id = 1 AND {k} IS NULL", (v,))
+            except Exception:
+                pass
+        conn.commit()
+        print("\u2705 app_settings table ready.")
+    except Exception as e:
+        try: conn.rollback()
+        except Exception: pass
+        print(f"\u26A0\uFE0F  init_app_settings_table: {e}")
+    finally:
+        try: conn.close()
+        except Exception: pass
+
+
+def get_app_settings():
+    """Read the single-row app settings. Falls back to defaults on any error."""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cols = ', '.join(APP_SETTINGS_COLUMNS)
+        cur.execute(f"SELECT {cols} FROM app_settings WHERE id = 1")
+        row = cur.fetchone()
+        conn.close()
+        d = dict(APP_SETTINGS_DEFAULTS)  # start with defaults
+        if row:
+            for i, k in enumerate(APP_SETTINGS_COLUMNS):
+                v = row[i]
+                if v is not None and v != '':
+                    d[k] = v
+        # Normalize boolean-ish
+        try:
+            d['show_screen_pages'] = 1 if int(d.get('show_screen_pages') or 0) else 0
+        except Exception:
+            d['show_screen_pages'] = 1
+        return d
+    except Exception as e:
+        print(f"[app_settings] read failed: {e}")
+        return dict(APP_SETTINGS_DEFAULTS)
+
+
+def update_app_settings(updates):
+    """Update one or more fields on the single-row app_settings table.
+    Returns (success, updated_keys, error)."""
+    allowed = set(APP_SETTINGS_COLUMNS)
+    clean = {}
+    for k, v in (updates or {}).items():
+        if k not in allowed:
+            continue
+        if k == 'show_screen_pages':
+            clean[k] = 1 if v else 0
+        else:
+            clean[k] = ('' if v is None else str(v))
+    if not clean:
+        return False, [], 'No valid fields'
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        sets = ', '.join(f"{k} = %s" for k in clean.keys())
+        vals = list(clean.values())
+        cur.execute(f"UPDATE app_settings SET {sets}, updated_at = CURRENT_TIMESTAMP WHERE id = 1", vals)
+        conn.commit()
+        return True, list(clean.keys()), None
+    except Exception as e:
+        try: conn.rollback()
+        except Exception: pass
+        return False, [], str(e)
+    finally:
+        try: conn.close()
+        except Exception: pass
+
+
 def _is_postgres(cur):
     try:
         cur.execute("SELECT version()")

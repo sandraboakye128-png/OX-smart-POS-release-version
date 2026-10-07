@@ -51,3 +51,11 @@ version_*.sh
 *.bak
 *.bak-*
 _tmp_*.js
+_tmp.json
+_*.txt
+_*.py
+templates/*.bak-*
+templates/*.broken-*
+services/*.bak-*
+www/*.bak-*
+app.py.bak-*

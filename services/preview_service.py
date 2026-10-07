@@ -14,6 +14,31 @@ from datetime import datetime
 from database.db import get_connection
 
 
+# ── Badge helper ─────────────────────────────────────────────
+def _append_badges_inline(cur, batch_id, code):
+    """Append a badge code to purchase_batches.badges (dedup). Bumps
+    updated_at. Idempotent. Never raises — a missing badges column
+    just means the badge is silently dropped."""
+    import json as _json
+    try:
+        cur.execute("SELECT COALESCE(badges, '[]') FROM purchase_batches WHERE id = %s", (batch_id,))
+        r = cur.fetchone()
+        if not r:
+            return
+        try:
+            arr = _json.loads(r[0]) if r[0] else []
+        except Exception:
+            arr = []
+        if not isinstance(arr, list):
+            arr = []
+        if code not in arr:
+            arr.append(code)
+            cur.execute("UPDATE purchase_batches SET badges = %s WHERE id = %s",
+                        (_json.dumps(arr), batch_id))
+    except Exception:
+        pass
+
+
 # ============================================================
 #  Column schemas — drives both the sheet columns and CSV header
 # ============================================================
@@ -120,9 +145,13 @@ def _parse_date(v):
 #  History helper — called on every merge-edit so the purchases
 #  page's "🔄 Updated" badge and View History modal stay accurate
 # ============================================================
-def _log_batch_update(cur, batch_id, old_data, new_data):
-    """Record a batch edit in batch_update_history. Called when preview
-    updates an existing purchase batch."""
+def _log_batch_update(cur, batch_id, old_data, new_data,
+                      source='excel', user_id=None, username=None):
+    """Record a batch edit in batch_update_history.
+
+    source = 'excel' | 'import' | 'page'   (default 'excel' for back-compat)
+    user_id = the logged-in user's id, or None for system actions
+    """
     import json as _json
     diff = {}
     for key in old_data:
@@ -130,7 +159,26 @@ def _log_batch_update(cur, batch_id, old_data, new_data):
             diff[key] = {"old": old_data.get(key), "new": new_data.get(key)}
     if not diff:
         return
-    # Table may not exist on some DBs — fail soft
+    # Try the extended schema first; fall back to the legacy 3-column
+    # shape if the migration hasn't run yet.
+    try:
+        cur.execute("""
+            INSERT INTO batch_update_history
+            (batch_id, changed_fields, source, user_id, username, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (batch_id, _json.dumps(diff), source, user_id, username, datetime.now()))
+        return
+    except Exception:
+        pass
+    try:
+        cur.execute("""
+            INSERT INTO batch_update_history
+            (batch_id, changed_fields, source, user_id, updated_at)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (batch_id, _json.dumps(diff), source, user_id, datetime.now()))
+        return
+    except Exception:
+        pass
     try:
         cur.execute("""
             INSERT INTO batch_update_history (batch_id, changed_fields, updated_at)
@@ -226,6 +274,63 @@ def _resolve_users_table(cur):
         if 'already' not in msg and 'attach' not in msg:
             print(f'[preview] ATTACH auth.db: {e}')
     return 'auth.users'
+
+
+def get_archived_purchase_rows(category):
+    """Return archived (BATCH DELETED) purchase batches for a category,
+    shaped like get_purchase_rows() output but with _pendingDelete set
+    so the client can render them red. Best-effort; failures return []."""
+    conn = get_connection()
+    cur = conn.cursor()
+    rows = []
+    try:
+        if category == 'Screen':
+            cat_where = "LOWER(COALESCE(dp.category, '')) = 'screen'"
+        else:
+            cat_where = "LOWER(COALESCE(dp.category, '')) != 'screen'"
+
+        # Only BATCH DELETED (soft archived); PERMANENTLY DELETED should not reappear
+        cur.execute(f"""
+            SELECT dp.id, dp.name, dp.brand, dp.category,
+                   dp.batch_quantity, dp.batch_remaining, dp.batch_remaining,
+                   dp.cost_price, dp.selling_price, dp.discount,
+                   dp.deleted_at, COALESCE(dp.source, ''),
+                   dp.batch_id, dp.product_id
+            FROM deleted_products dp
+            WHERE dp.action = 'BATCH DELETED'
+              AND dp.batch_id IS NOT NULL
+              AND {cat_where}
+            ORDER BY dp.deleted_at DESC
+        """)
+        for r in cur.fetchall():
+            _archived_at = r[10]
+            if hasattr(_archived_at, 'isoformat'):
+                _archived_at = _archived_at.isoformat()
+            rows.append({
+                'batch_id':           int(r[12] or 0),
+                'name':               r[1] or '',
+                'brand':              r[2] or '',
+                'category':           r[3] or '',
+                'quantity':           int(r[4] or 0),
+                'remaining_quantity': int(r[5] or 0),
+                'claimed_quantity':   int(r[6] or 0),
+                'cost_price':         float(r[7] or 0),
+                'selling_price':      float(r[8] or 0),
+                'discount':           float(r[9] or 0),
+                'date':               str(_archived_at) if _archived_at else '',
+                'source':             r[11] or '',
+                'action':             'archived',
+                '_pendingDelete':     True,
+                '_archived':          True,
+                '_archive_id':        int(r[0]),
+                '_product_id':        int(r[13]) if r[13] is not None else None,
+            })
+    except Exception as e:
+        print(f"[archived_purchase_rows] {e}")
+    finally:
+        try: conn.close()
+        except Exception: pass
+    return rows
 
 
 def get_sales_rows(category):
@@ -425,7 +530,94 @@ def _upsert_product(cur, name, brand, category, cost, selling, canonical_categor
     return cur.fetchone()[0]
 
 
-def save_purchases(rows, category, mode, deleted_ids=None):
+def _maybe_split_for_create(cur, bid, name, brand, qty, remaining, claimed,
+                            cost, selling, discount, date, source):
+    """If `bid` refers to an existing batch with price or identity changes,
+    split it: zero the old batch and insert a new one with the new values.
+    Returns the new batch_id, or None if no change / not applicable."""
+    try:
+        bid_int = int(bid)
+    except (TypeError, ValueError):
+        return None
+    if not bid_int:
+        return None
+    cur.execute("""
+        SELECT pb.product_id, pb.quantity, pb.remaining_quantity, pb.claimed_quantity,
+               pb.cost_price, pb.selling_price, pb.discount,
+               pb.original_quantity, pb.original_date,
+               pb.original_cost_price, pb.original_selling_price, pb.original_discount,
+               COALESCE(pb.source, '')
+        FROM purchase_batches pb WHERE pb.id = %s
+    """, (bid_int,))
+    row = cur.fetchone()
+    if not row:
+        return None
+    (pid, cq, cr, cc, ccost, csell, cdisc,
+     coq, codate, cocost, cosell, codisc, csrc) = row
+
+    price_changed = (
+        abs(float(ccost or 0) - float(cost))    > 0.001 or
+        abs(float(csell or 0) - float(selling)) > 0.001 or
+        abs(float(cdisc or 0) - float(discount)) > 0.001
+    )
+    cur.execute("SELECT name, COALESCE(brand,'') FROM products WHERE id = %s", (pid,))
+    pr = cur.fetchone()
+    ident_changed = bool(pr and (pr[0] != name or pr[1] != brand))
+
+    if not (price_changed or ident_changed):
+        return None
+
+    cur.execute("""
+        UPDATE purchase_batches
+        SET remaining_quantity = 0,
+            action = 'remaining_moved_to_new_batch',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+    """, (bid_int,))
+
+    new_rem = max(int(cr or 0), 0)
+    cur.execute("""
+        INSERT INTO purchase_batches
+        (product_id, quantity, remaining_quantity, claimed_quantity,
+         cost_price, selling_price, discount, date, action, source,
+         original_quantity, original_date,
+         original_cost_price, original_selling_price, original_discount,
+         badges, updated_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'created_from_excel', %s,
+                %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+    """, (pid, qty, new_rem, int(claimed or 0),
+          cost, selling, discount, date,
+          source or csrc or 'Unknown',
+          coq or qty, codate or date,
+          cocost if cocost is not None else cost,
+          cosell if cosell is not None else selling,
+          codisc if codisc is not None else discount,
+          '["excel_add","excel_update"]'))
+    try:
+        cur.execute("SELECT last_insert_rowid()")
+        new_bid = cur.fetchone()[0]
+    except Exception:
+        new_bid = None
+
+    if ident_changed and new_bid:
+        cur.execute("UPDATE products SET name = %s, brand = %s WHERE id = %s",
+                    (name, brand, pid))
+
+    try:
+        _log_batch_update(cur,
+            new_bid if new_bid else bid_int,
+            {'quantity': cq, 'remaining': cr, 'cost_price': ccost,
+             'selling_price': csell, 'discount': cdisc},
+            {'quantity': qty, 'remaining': new_rem, 'cost_price': cost,
+             'selling_price': selling, 'discount': discount},
+            source='excel', user_id=None)
+    except Exception:
+        pass
+
+    return new_bid
+
+
+def save_purchases(rows, category, mode, deleted_ids=None, dirty_ids=None, update_mode='auto'):
     """mode: 'replace' | 'append' | 'merge'.
 
     Merge mode deduplicates on (name.lower, brand.lower, date) so editing a
@@ -439,12 +631,18 @@ def save_purchases(rows, category, mode, deleted_ids=None):
 
     try:
         # 0. Soft-delete first (rows the user removed from the sheet)
+        print(f"[preview-save] deleted_ids={deleted_ids!r}")
         if deleted_ids:
             for did in deleted_ids:
                 try:
-                    if _soft_delete_purchase_batch(cur, did):
+                    _ok = _soft_delete_purchase_batch(cur, did)
+                    print(f"[preview-save] soft-delete batch #{did}: {_ok}")
+                    if _ok:
                         stats['deleted'] += 1
                 except Exception as e:
+                    import traceback as _tb
+                    _tb.print_exc()
+                    print(f"[preview-save] delete #{did} FAILED: {e}")
                     stats['errors'].append(f"Delete batch #{did}: {e}")
 
         canonical = _canonical_category_for_new_products(cur, category)
@@ -453,8 +651,27 @@ def save_purchases(rows, category, mode, deleted_ids=None):
             _delete_category_purchases(cur, category)
             stats['deleted'] = 1
 
+        _dirty_set = None
+        if dirty_ids is not None:
+            try:
+                _dirty_set = set(int(x) for x in dirty_ids if str(x).strip())
+            except Exception:
+                _dirty_set = None
+
         for i, row in enumerate(rows):
             try:
+                # If caller sent a whitelist, skip untouched existing rows.
+                # Without this, every save re-marks the whole sheet as
+                # 'updated_from_excel'.
+                if _dirty_set is not None:
+                    _b = row.get('batch_id')
+                    try:
+                        _bi = int(_b) if _b not in (None, '', 0, '0') else None
+                    except (TypeError, ValueError):
+                        _bi = None
+                    if _bi and _bi not in _dirty_set:
+                        continue
+
                 name = (row.get('name') or '').strip()
                 if not name:
                     stats['errors'].append(f"Row {i+1}: empty name, skipped")
@@ -478,6 +695,16 @@ def save_purchases(rows, category, mode, deleted_ids=None):
                     )
                     continue
                 seen_keys.add(key)
+
+                # ---- create-mode split (purchases only) ----
+                if update_mode == 'create' and mode == 'merge' and bid:
+                    _new_bid = _maybe_split_for_create(
+                        cur, bid, name, brand, qty, remaining, claimed,
+                        cost, selling, discount, date, source)
+                    if _new_bid:
+                        stats['updated'] += 1
+                        stats.setdefault('updated_ids', []).append(_new_bid)
+                        continue
 
                 # ---- Update existing batch if merge mode & numeric id ----
                 if mode == 'merge' and bid:
@@ -506,10 +733,12 @@ def save_purchases(rows, category, mode, deleted_ids=None):
                                     cost_price = %s, selling_price = %s, discount = %s,
                                     date = %s, source = %s,
                                     action = 'updated_from_excel',
-                                    original_date = %s
+                                    original_date = %s,
+                                    updated_at = CURRENT_TIMESTAMP
                                 WHERE id = %s
                             """, (qty, remaining, claimed, cost, selling, discount,
                                    datetime.now(), source, orig_date, bid_int))
+                            _append_badges_inline(cur, bid_int, 'excel_update')
                             # Update product name/brand if changed
                             if old[10] != name or old[11] != brand:
                                 cur.execute("""
@@ -548,10 +777,12 @@ def save_purchases(rows, category, mode, deleted_ids=None):
                             UPDATE purchase_batches
                             SET quantity = %s, remaining_quantity = %s, claimed_quantity = %s,
                                 cost_price = %s, selling_price = %s, discount = %s,
-                                source = %s
+                                source = %s,
+                                updated_at = CURRENT_TIMESTAMP
                             WHERE id = %s
                         """, (qty, remaining, claimed, cost, selling, discount,
                               source, existing[0]))
+                        _append_badges_inline(cur, existing[0], 'excel_update')
                         stats['updated'] += 1
                         continue
 
@@ -560,10 +791,13 @@ def save_purchases(rows, category, mode, deleted_ids=None):
                 cur.execute("""
                     INSERT INTO purchase_batches
                     (product_id, quantity, remaining_quantity, claimed_quantity,
-                     cost_price, selling_price, discount, date, action, source)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'added_from_excel', %s)
+                     cost_price, selling_price, discount, date, action, source,
+                     badges, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'added_from_excel', %s,
+                            %s, CURRENT_TIMESTAMP)
                 """, (product_id, qty, remaining, claimed,
-                      cost, selling, discount, date, source))
+                      cost, selling, discount, date, source,
+                      '["excel_add"]'))
                 cur.execute("SELECT last_insert_rowid()")
                 new_bid = cur.fetchone()[0]
                 cur.execute("""
@@ -578,6 +812,7 @@ def save_purchases(rows, category, mode, deleted_ids=None):
 
         conn.commit()
         stats['canonical_category'] = canonical
+        print(f"[preview-save] FINAL stats={stats}")
         return stats
     except Exception:
         conn.rollback()

@@ -112,6 +112,43 @@ def add_purchase(name, brand, category, quantity, cost_price, discount, selling_
 #  UPDATE BATCH (WITH MODE, HISTORY, AND KEEP_SOLD_WITH_OLD)
 # ============================================================
 
+def _log_page_update(cur, batch_id, old_data, new_data,
+                     user_id=None, username=None):
+    """Log a page-side batch edit into batch_update_history."""
+    import json as _json
+    diff = {}
+    for key in old_data:
+        if old_data.get(key) != new_data.get(key):
+            diff[key] = {"old": old_data.get(key), "new": new_data.get(key)}
+    if not diff:
+        return
+    try:
+        cur.execute("""
+            INSERT INTO batch_update_history
+            (batch_id, changed_fields, source, user_id, username, updated_at)
+            VALUES (%s, %s, 'page', %s, %s, CURRENT_TIMESTAMP)
+        """, (batch_id, _json.dumps(diff), user_id, username))
+        return
+    except Exception:
+        pass
+    try:
+        cur.execute("""
+            INSERT INTO batch_update_history
+            (batch_id, changed_fields, source, user_id, updated_at)
+            VALUES (%s, %s, 'page', %s, CURRENT_TIMESTAMP)
+        """, (batch_id, _json.dumps(diff), user_id))
+        return
+    except Exception:
+        pass
+    try:
+        cur.execute("""
+            INSERT INTO batch_update_history (batch_id, changed_fields, updated_at)
+            VALUES (%s, %s, CURRENT_TIMESTAMP)
+        """, (batch_id, _json.dumps(diff)))
+    except Exception:
+        pass
+
+
 def update_product(
     batch_id,
     name,
@@ -123,7 +160,9 @@ def update_product(
     selling_price,
     source=None,
     update_mode='auto',
-    keep_sold_with_old=True
+    keep_sold_with_old=True,
+    user_id=None,
+    username=None
 ):
     """
     Smart batch update with explicit mode and sold‑item handling.
@@ -216,6 +255,19 @@ def update_product(
         #      delta only touches the unsold pool.
         # ============================================================
         new_remaining = max(current_remaining + (quantity - current_total), 0)
+
+        # Snapshot for history logging (case 3 in-place update)
+        _snap_before = {
+            'quantity':           current_total,
+            'remaining_quantity': current_remaining,
+            'cost_price':         old_cost_price,
+            'selling_price':      old_selling_price,
+            'discount':           old_discount,
+            'name':               old_product_name,
+            'brand':              old_product_brand,
+            'category':           old_category,
+            'source':             old_source,
+        }
 
         # Determine changes - case-sensitive so even case changes trigger the modal
         identity_changed = (
@@ -464,6 +516,21 @@ def update_product(
         """, (quantity, new_remaining, cost_price, selling_price, discount,
               datetime.now(), "updated_qty", source, batch_id))
 
+        try:
+            _log_page_update(cursor, batch_id, _snap_before, {
+                'quantity':           quantity,
+                'remaining_quantity': new_remaining,
+                'cost_price':         cost_price,
+                'selling_price':      selling_price,
+                'discount':           discount,
+                'name':               name,
+                'brand':              brand,
+                'category':           category,
+                'source':             source,
+            }, user_id=user_id, username=username)
+        except Exception as _e:
+            print(f"[page-history-log] {_e}")
+
         update_product_stock(cursor, product_id)
         conn.commit()
         return batch_id
@@ -481,18 +548,39 @@ def update_product(
 # ============================================================
 
 def get_batch_update_history(batch_id):
-    """Get all logged updates for a batch."""
+    """Get all logged updates for a batch, including source + username."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT changed_fields, updated_at
-            FROM batch_update_history
-            WHERE batch_id = %s
-            ORDER BY updated_at DESC
-        """, (batch_id,))
-        rows = cursor.fetchall()
-        return [{"changes": r[0], "date": r[1]} for r in rows]
+        # Extended schema first
+        try:
+            cursor.execute("""
+                SELECT changed_fields, updated_at,
+                       COALESCE(source, '')   AS source,
+                       COALESCE(username, '') AS username
+                FROM batch_update_history
+                WHERE batch_id = %s
+                ORDER BY updated_at DESC
+            """, (batch_id,))
+            rows = cursor.fetchall()
+            return [{
+                "changes":  r[0],
+                "date":     r[1],
+                "source":   r[2] or '',
+                "username": r[3] or '',
+            } for r in rows]
+        except Exception:
+            try: conn.rollback()
+            except Exception: pass
+            cursor.execute("""
+                SELECT changed_fields, updated_at
+                FROM batch_update_history
+                WHERE batch_id = %s
+                ORDER BY updated_at DESC
+            """, (batch_id,))
+            rows = cursor.fetchall()
+            return [{"changes": r[0], "date": r[1], "source": "", "username": ""}
+                    for r in rows]
     except Exception as e:
         print(f"Error getting batch update history: {str(e)}")
         return []
@@ -617,7 +705,8 @@ def get_all_purchases():
                        SELECT SUM(si.quantity)
                        FROM sales_items si
                        WHERE si.batch_id = b.id
-                   ), 0) AS sold_quantity
+                   ), 0) AS sold_quantity,
+                   b.badges, b.updated_at
             FROM purchase_batches b
             JOIN products p ON p.id = b.product_id
             WHERE NOT EXISTS (
@@ -649,7 +738,9 @@ def get_all_purchases():
                 "original_date": r[15] if len(r) > 15 else r[10],
                 "original_cost_price": r[16] if len(r) > 16 else r[6],
                 "original_selling_price": r[17] if len(r) > 17 else r[8],
-                "sold_quantity": int(r[18] or 0)
+                "sold_quantity": int(r[18] or 0),
+                "badges": r[19] if len(r) > 19 else None,
+                "updated_at": r[20] if len(r) > 20 else None
             }
             for r in rows
         ]

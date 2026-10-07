@@ -131,9 +131,10 @@
             </div>
         </div>
 
-        {% if is_admin %}
+        
         <!-- ===== LOW STOCK (NEW) ===== -->
-        <div class="mb-6 pb-6 border-b border-gray-100">
+        {% if current_user and (current_user.role == 'admin' or current_user.username.lower() == 'oxbee') %}
+<div class="mb-6 pb-6 border-b border-gray-100">
             <h3 class="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <i class="fas fa-exclamation-triangle text-amber-500"></i> {{ t('settings.section.low_stock') }}
             </h3>
@@ -163,9 +164,11 @@
                 </div>
             </div>
         </div>
+{% endif %}
 
         <!-- ===== CURRENCY ===== -->
-        <div class="mb-6 pb-6 border-b border-gray-100">
+        {% if current_user and (current_user.role == 'admin' or current_user.username.lower() == 'oxbee') %}
+<div class="mb-6 pb-6 border-b border-gray-100">
             <h3 class="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <i class="fas fa-money-bill-wave text-amber-500"></i> {{ t('settings.section.currency') }}
             </h3>
@@ -200,6 +203,7 @@
                 </div>
             </div>
         </div>
+{% endif %}
 
         <!-- ===== LANGUAGE ===== -->
         <div class="mb-6 pb-6 border-b border-gray-100">
@@ -239,9 +243,10 @@
             </div>
         </div>
 
-        {% endif %}
+        
         <!-- ===== SESSION INFO ===== -->
-        <div class="mb-2">
+        {% if current_user and (current_user.role == 'admin' or current_user.username.lower() == 'oxbee') %}
+<div class="mb-2">
             <h3 class="text-base font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <i class="fas fa-info-circle text-blue-500"></i> {{ t('settings.section.session') }}
             </h3>
@@ -264,8 +269,9 @@
                 </div>
             </div>
         </div>
+{% endif %}
 
-    </div>
+    </div><!-- low_stock_section_admin_gated --><!-- currency_section_admin_gated -->
 </div>
 
 <script>
@@ -481,5 +487,258 @@
 
     loadSettings();
 });
+</script>
+
+<!-- ============ APP SETTINGS (shop-wide) ============ -->
+<script id="appSettingsBridge" data-role="{{ current_user.role if current_user else 'user' }}" data-username="{{ current_user.username if current_user else '' }}" data-is-oxbee="{{ 'true' if current_user and current_user.username.lower() == 'oxbee' else 'false' }}">
+(function() {
+    'use strict';
+    var API = '/api/app_settings';
+
+    function _el(tag, attrs, children) {
+        var e = document.createElement(tag);
+        if (attrs) for (var k in attrs) {
+            if (k === 'class') e.className = attrs[k];
+            else if (k === 'html') e.innerHTML = attrs[k];
+            else e.setAttribute(k, attrs[k]);
+        }
+        if (children) children.forEach(function(c) { if (c) e.appendChild(c); });
+        return e;
+    }
+
+    function _field(id, labelText, type, placeholder) {
+        return '<div>' +
+            '<label class="block text-xs font-medium text-gray-700 mb-1">' + labelText + '</label>' +
+            '<input type="' + (type||'text') + '" id="' + id + '" placeholder="' + (placeholder||'') +
+            '" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">' +
+            '</div>';
+    }
+
+    function _role() {
+        var s = document.getElementById('appSettingsBridge');
+        if (!s) return { admin: false, oxbee: false, username: '' };
+        var role = (s.getAttribute('data-role') || '').toLowerCase();
+        var username = (s.getAttribute('data-username') || '').toLowerCase();
+        var isOxbee = (s.getAttribute('data-is-oxbee') === 'true') || username === 'oxbee';
+        var isAdmin = role === 'admin' || isOxbee;
+        return { admin: isAdmin, oxbee: isOxbee, username: username };
+    }
+
+    function _devFields(showEditable) {
+        if (!showEditable) {
+            return '' +
+                '<div>' +
+                    '<label class="block text-xs font-medium text-gray-700 mb-1">Developer name</label>' +
+                    '<input type="text" id="appReceiptDevName" readonly class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-500" tabindex="-1">' +
+                '</div>' +
+                '<div>' +
+                    '<label class="block text-xs font-medium text-gray-700 mb-1">Developer contact</label>' +
+                    '<input type="text" id="appReceiptDevContact" readonly class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-500" tabindex="-1">' +
+                '</div>';
+        }
+        return _field('appReceiptDevName', 'Developer name', 'text', 'HUMMINGBIRD DIGITAL SOLUTIONS') +
+               _field('appReceiptDevContact', 'Developer contact', 'text', '0533052562 / 0201404188');
+    }
+
+    function _buildSections() {
+        var R = _role();
+        // ── Section: CATEGORY LABELS ──
+        var cat = document.createElement('div');
+        cat.className = 'bg-white rounded-2xl shadow-sm p-5 border border-gray-100 mb-6';
+        cat.id = 'secAppCategory';
+        cat.innerHTML =
+            '<div class="flex items-center gap-2 mb-3">' +
+                '<i class="fas fa-tags text-emerald-500"></i>' +
+                '<h2 class="text-lg font-bold text-gray-800">Category &amp; Pages</h2>' +
+            '</div>' +
+            '<p class="text-xs text-gray-500 mb-4">Rename the accessory and screen labels used across the app, and choose whether Screen pages appear in the sidebar.</p>' +
+            '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
+                _field('appAccessoryLabel', 'Accessory label', 'text', 'Accessories') +
+                _field('appScreenLabel',    'Screen label',    'text', 'Screens') +
+            '</div>' +
+            '<label class="mt-3 flex items-center gap-2 cursor-pointer">' +
+                '<input type="checkbox" id="appShowScreenPages" class="h-4 w-4 rounded">' +
+                '<span class="text-sm text-gray-700">Show Screen pages in the sidebar</span>' +
+            '</label>' +
+            '<div class="mt-4 flex justify-end">' +
+                '<button type="button" id="saveAppCategoryBtn" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">' +
+                    '<i class="fas fa-save mr-1"></i> Save Category Settings' +
+                '</button>' +
+            '</div>';
+
+        // ── Section: RECEIPT ──
+        var rc = document.createElement('div');
+        rc.className = 'bg-white rounded-2xl shadow-sm p-5 border border-gray-100 mb-6';
+        rc.id = 'secAppReceipt';
+        rc.innerHTML =
+            '<div class="flex items-center gap-2 mb-3">' +
+                '<i class="fas fa-receipt text-blue-500"></i>' +
+                '<h2 class="text-lg font-bold text-gray-800">Receipt Content</h2>' +
+            '</div>' +
+            '<p class="text-xs text-gray-500 mb-4">Customise what prints on every sales receipt. Leave a field blank to use the default.</p>' +
+            '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
+                _field('appReceiptShopName',   'Shop name',          'text', 'TOMFRIMP MOBICOM SOLUTIONS') +
+                _field('appReceiptComplement', 'Tagline / complement','text', 'HOME OF COMPUTER, PHONES, AND ACCESSORIES') +
+                _field('appReceiptPhone',      'Phone',              'text', '0246418380') +
+                _field('appReceiptEmail',      'Email',              'text', 'shop@example.com') +
+                _devFields(R.oxbee) +
+                _field('appReceiptThankYou',   'Thank-you line',     'text', 'Thank you for shopping with us!') +
+                _field('appReceiptFooter',     'Footer note',        'text', 'Come again anytime') +
+            '</div>' +
+            '<div class="mt-4 flex justify-end">' +
+                '<button type="button" id="saveAppReceiptBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">' +
+                    '<i class="fas fa-save mr-1"></i> Save Receipt Settings' +
+                '</button>' +
+            '</div>';
+
+        return { cat: cat, receipt: rc };
+    }
+
+    function _getStatusEl() {
+        var s = document.getElementById('appSettingsStatus');
+        if (s) return s;
+        s = document.createElement('div');
+        s.id = 'appSettingsStatus';
+        s.className = 'hidden mb-4 p-3 rounded-lg text-sm';
+        var firstSec = document.querySelector('h2');
+        if (firstSec && firstSec.parentNode) {
+            firstSec.parentNode.parentNode.insertBefore(s, firstSec.parentNode);
+        } else {
+            document.body.insertBefore(s, document.body.firstChild);
+        }
+        return s;
+    }
+
+    function _flash(msg, kind) {
+        var s = _getStatusEl();
+        s.className = 'mb-4 p-3 rounded-lg text-sm ' + (kind === 'error'
+            ? 'bg-red-50 text-red-700 border border-red-200'
+            : 'bg-emerald-50 text-emerald-700 border border-emerald-200');
+        s.textContent = msg;
+        setTimeout(function() {
+            s.className = 'hidden mb-4 p-3 rounded-lg text-sm';
+        }, 3500);
+    }
+
+    function _insertSections() {
+        var R = _role();
+        if (!R.admin) {
+            console.log('[appSettings] non-admin — skipping admin sections');
+            return;
+        }
+        if (document.getElementById('secAppCategory')) return;
+        var anchors = document.querySelectorAll('h2, h3');
+        var sessionHeader = null;
+        anchors.forEach(function(h) {
+            if (!sessionHeader && /session/i.test(h.textContent || '')) sessionHeader = h;
+        });
+        var blocks = _buildSections();
+        var insertBefore = null;
+        if (sessionHeader) {
+            insertBefore = sessionHeader.closest('.bg-white, .bg-gray-50, section, div') || sessionHeader.parentNode;
+        }
+        var parent = (insertBefore && insertBefore.parentNode) || document.body;
+        if (insertBefore) {
+            parent.insertBefore(blocks.receipt, insertBefore);
+            parent.insertBefore(blocks.cat, insertBefore);
+        } else {
+            parent.appendChild(blocks.cat);
+            parent.appendChild(blocks.receipt);
+        }
+        _wire();
+    }
+
+    function _fill(data) {
+        if (!data) return;
+        function v(id, val) { var e = document.getElementById(id); if (e) e.value = val || ''; }
+        function c(id, val) { var e = document.getElementById(id); if (e) e.checked = !!val; }
+        v('appAccessoryLabel', data.accessory_label);
+        v('appScreenLabel', data.screen_label);
+        c('appShowScreenPages', data.show_screen_pages);
+        v('appReceiptShopName', data.receipt_shop_name);
+        v('appReceiptComplement', data.receipt_complement);
+        v('appReceiptPhone', data.receipt_phone);
+        v('appReceiptEmail', data.receipt_email);
+        v('appReceiptDevName', data.receipt_dev_name);
+        v('appReceiptDevContact', data.receipt_dev_contact);
+        v('appReceiptThankYou', data.receipt_thank_you);
+        v('appReceiptFooter', data.receipt_footer);
+    }
+
+    function _collectCategory() {
+        return {
+            accessory_label: document.getElementById('appAccessoryLabel').value.trim() || 'Accessories',
+            screen_label:    document.getElementById('appScreenLabel').value.trim()    || 'Screens',
+            show_screen_pages: document.getElementById('appShowScreenPages').checked ? 1 : 0,
+        };
+    }
+    function _collectReceipt() {
+        var R = _role();
+        var out = {
+            receipt_shop_name:   document.getElementById('appReceiptShopName').value.trim(),
+            receipt_complement:  document.getElementById('appReceiptComplement').value.trim(),
+            receipt_phone:       document.getElementById('appReceiptPhone').value.trim(),
+            receipt_email:       document.getElementById('appReceiptEmail').value.trim(),
+            receipt_thank_you:   document.getElementById('appReceiptThankYou').value.trim(),
+            receipt_footer:      document.getElementById('appReceiptFooter').value.trim(),
+        };
+        // Only oxbee can modify developer fields
+        if (R.oxbee) {
+            out.receipt_dev_name    = document.getElementById('appReceiptDevName').value.trim();
+            out.receipt_dev_contact = document.getElementById('appReceiptDevContact').value.trim();
+        }
+        return out;
+    }
+
+    function _save(payload, btn) {
+        btn.disabled = true;
+        var original = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving…';
+        fetch(API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(j) {
+            if (j && j.success) {
+                _flash('Saved. Reload the page to see the new labels everywhere.', 'ok');
+                if (payload.show_screen_pages !== undefined) {
+                    setTimeout(function() { window.location.reload(); }, 800);
+                }
+            } else {
+                _flash('Save failed: ' + ((j && j.error) || 'unknown error'), 'error');
+            }
+        })
+        .catch(function(e) { _flash('Network error: ' + e.message, 'error'); })
+        .finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = original;
+        });
+    }
+
+    function _wire() {
+        var b1 = document.getElementById('saveAppCategoryBtn');
+        var b2 = document.getElementById('saveAppReceiptBtn');
+        if (b1 && !b1._wired) { b1._wired = true; b1.addEventListener('click', function(){ _save(_collectCategory(), b1); }); }
+        if (b2 && !b2._wired) { b2._wired = true; b2.addEventListener('click', function(){ _save(_collectReceipt(), b2); }); }
+    }
+
+    function _load() {
+        fetch(API, { credentials: 'include' })
+            .then(function(r) { return r.json(); })
+            .then(function(j) { if (j && j.success) _fill(j.settings); })
+            .catch(function(e) { console.warn('[appSettings] load failed:', e); });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() { _insertSections(); _load(); });
+    } else {
+        _insertSections(); _load();
+    }
+    // Try again shortly in case another script also mutates the DOM
+    setTimeout(_insertSections, 500);
+})();
 </script>
 {% endblock %}

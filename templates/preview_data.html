@@ -17,14 +17,14 @@
         transform: rotate(90deg);
         transform-origin: center center;
     }
-    .pv-row-new td { background: #fef9c3 !important; }
+    .pv-row-new td { background: #fde68a !important; }
     .pv-row-import-added td {
-        background: #dcfce7 !important;
-        border-bottom: 1px solid #86efac !important;
+        background: #a7f3d0 !important;
+        border-bottom: 1px solid #10b981 !important;
     }
     .pv-row-import-updated td {
-        background: #e9d5ff !important;
-        border-bottom: 1px solid #d8b4fe !important;
+        background: #c4b5fd !important;
+        border-bottom: 1px solid #8b5cf6 !important;
     }
     .pv-row-not-in-db td {
         background: #fee2e2 !important;
@@ -33,6 +33,49 @@
     @media (max-width: 480px) {
         #pvRotateBtn { padding: 4px 6px !important; }
     }
+
+    /* Excel-like sortable headers */
+    .pv-th-sort { cursor: pointer; user-select: none; }
+    .pv-th-sort:hover { background: #e5e7eb !important; }
+    .pv-th-sort .pv-sort-arrow::after {
+        content: '';
+        display: inline-block;
+        margin-left: 4px;
+        font-size: 9px;
+        color: #d1d5db;
+    }
+    .pv-th-sort.pv-sorted-asc  .pv-sort-arrow::after { content: '\25B2'; color: #4f46e5; }
+    .pv-th-sort.pv-sorted-desc .pv-sort-arrow::after { content: '\25BC'; color: #4f46e5; }
+
+    /* ===== Excel grid chrome ===== */
+    .pv-letters-row th {
+        background: #f3f4f6 !important; color: #6b7280;
+        font-size: 10px !important; font-weight: 600;
+        text-align: center !important; padding: 2px 4px !important;
+        border-bottom: 1px solid #d1d5db !important;
+        border-right: 1px solid #e5e7eb; user-select: none;
+    }
+    .pv-letters-row th.pv-letter-num { background: #e5e7eb !important; color: #4b5563; }
+    #pvHead th.pv-th-active { background: #dbeafe !important; color: #1e40af !important; }
+    .pv-rownum {
+        background: #f3f4f6 !important; color: #6b7280 !important;
+        font-size: 10px !important; text-align: center !important;
+        border-right: 1px solid #d1d5db !important;
+        padding: 2px 6px !important; user-select: none;
+    }
+    .pv-filter-arrow {
+        display: inline-block; margin-left: 4px;
+        color: #9ca3af; cursor: pointer; font-size: 9px;
+        padding: 1px 3px; border-radius: 3px;
+    }
+    .pv-filter-arrow:hover { background: #e5e7eb; color: #0f172a; }
+    .pv-filter-arrow.pv-filtered { color: #2563eb; font-weight: 700; }
+    .pv-filter-pill {
+        display: inline-flex; align-items: center; gap: 4px;
+        background: #dbeafe; color: #1e40af;
+        font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    }
+    .pv-filter-pill button { background: none; border: 0; color: #1e40af; cursor: pointer; font-size: 12px; line-height: 1; padding: 0 2px; }
 
     /* Landscape + fullscreen mode for the main Excel sheet */
     #pvStep3.pv-sheet-fullscreen {
@@ -77,7 +120,40 @@
     #pvStep3.pv-sheet-fullscreen #pvSheetRotateBtn:hover {
         background: #b91c1c !important;
     }
+    /* Toolbar stays reachable in landscape: single row, h-scroll if needed */
+    #pvStep3.pv-sheet-fullscreen > div:first-child {
+        flex: 0 0 auto !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        padding: 4px 6px !important;
+        gap: 6px !important;
+    }
+    #pvStep3.pv-sheet-fullscreen > div:first-child > * {
+        flex-shrink: 0 !important;
+    }
+    #pvStep3.pv-sheet-fullscreen > div:first-child .flex-1 {
+        display: none !important;
+    }
+    #pvStep3.pv-sheet-fullscreen > div:first-child button {
+        font-size: 12px !important;
+        padding: 6px 10px !important;
+        white-space: nowrap !important;
+    }
 </style>
+<style id="pv-vivid-rows">
+    tr.pv-row-new td                    { background: #fde68a !important; }
+    tr.pv-row-import-added td           { background: #86efac !important; border-bottom: 1px solid #16a34a !important; }
+    tr.pv-row-import-updated td         { background: #c4b5fd !important; border-bottom: 1px solid #7c3aed !important; }
+    tr.pv-row-not-in-db td              { background: #fca5a5 !important; border-bottom: 1px solid #dc2626 !important; color: #7f1d1d !important; opacity: 0.85; }
+    tr.pv-row-new td.pv-rownum,
+    tr.pv-row-import-added td.pv-rownum,
+    tr.pv-row-import-updated td.pv-rownum,
+    tr.pv-row-not-in-db td.pv-rownum    { background: #f3f4f6 !important; color: #6b7280 !important; opacity: 1; }
+    tr.pv-row-not-in-db td[contenteditable="true"] { pointer-events: none; color: #7f1d1d !important; }
+    tr.pv-row-not-in-db input[type="datetime-local"] { pointer-events: none; background: #f3f4f6 !important; color: #7f1d1d !important; opacity: 0.7; }
+</style>
+
 
 
 
@@ -161,6 +237,12 @@
                 <span id="pvSheetRotateIcon">&#8635;</span>
                 <span id="pvSheetRotateLabel"> Landscape</span>
             </button>
+
+            <label class="flex items-center gap-1.5 text-xs font-semibold text-red-700 cursor-pointer select-none px-2 py-1.5 border-2 border-red-300 rounded-lg hover:bg-red-50 whitespace-nowrap"
+                   title="Hide rows marked for deletion (red rows)">
+                <input type="checkbox" id="pvHideDeletedChk" class="h-3.5 w-3.5 accent-red-600" onchange="pvToggleHideDeleted(this.checked)">
+                <span>&#x1F5D1; Hide deleted</span>
+            </label>
             {% if current_user and (current_user.role == 'admin' or current_user.username|lower == 'oxbee') %}
             <button onclick="previewSavePrompt()"
                     class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold">
@@ -170,10 +252,93 @@
         </div>
 
         <!-- Sheet -->
+<!-- ============ EXCEL-STYLE DATA TOOLBAR ============ -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="flex flex-wrap items-center gap-1 px-2 py-1 border-b border-gray-200 bg-gray-50">
+        <span class="px-3 py-1 text-xs font-semibold rounded-t border-b-2 border-emerald-500 text-emerald-700 bg-white">Data</span>
+        <span class="text-[10px] text-gray-400 px-2 hidden md:inline">Excel-style tools</span>
+        <div class="flex-1"></div>
+        <span id="pvTableStatus" class="text-xs text-gray-500 pr-1">Showing 0 of 0</span>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 px-2 py-2">
+        <button type="button" onclick="pvSortActive('asc')"
+                class="flex items-center gap-1 px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100"
+                title="Sort the active column A → Z">
+            <span>&#x2191;A</span><span>&#x2193;Z</span>
+            <span class="hidden md:inline">Sort A → Z</span>
+        </button>
+        <button type="button" onclick="pvSortActive('desc')"
+                class="flex items-center gap-1 px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100"
+                title="Sort the active column Z → A">
+            <span>&#x2193;Z</span><span>&#x2191;A</span>
+            <span class="hidden md:inline">Sort Z → A</span>
+        </button>
+        <button type="button" onclick="pvOpenCustomSort()"
+                class="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">
+            &#x21C5; <span class="hidden md:inline">Custom Sort…</span>
+        </button>
+        <div class="w-px h-5 bg-gray-300 mx-1"></div>
+        <button type="button" id="pvBtnFilterToggle" onclick="pvToggleFilterMode()"
+                class="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">
+            &#x25BC; <span class="hidden md:inline">Filter</span>
+        </button>
+        <button type="button" onclick="pvClearSortFilter()"
+                class="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100">
+            &#x2715; <span class="hidden md:inline">Clear</span>
+        </button>
+        <div class="flex-1"></div>
+        <span id="pvActiveInfo" class="text-xs text-gray-500 italic hidden"></span>
+    </div>
+    <div id="pvFilterPills" class="flex flex-wrap gap-1 px-2 pb-2"></div>
+</div>
+
+<!-- Filter dropdown (single, repositioned per click) -->
+<div id="pvFilterMenu" class="hidden bg-white border border-gray-300 rounded-lg shadow-2xl"
+     style="position:fixed; z-index:2147483644; min-width:230px; max-width:340px;">
+    <div class="p-2 border-b border-gray-200 bg-gray-50">
+        <input type="text" id="pvFilterSearch" placeholder="Search values…"
+               class="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+               oninput="pvFilterSearchInput(this.value)">
+    </div>
+    <div class="p-1 border-b border-gray-200 bg-gray-50 flex justify-between text-xs">
+        <button type="button" onclick="pvFilterSelectAll(true)"  class="text-emerald-700 hover:underline px-2 py-0.5">Select all</button>
+        <button type="button" onclick="pvFilterSelectAll(false)" class="text-gray-500 hover:underline px-2 py-0.5">Clear</button>
+    </div>
+    <div id="pvFilterList" class="max-h-64 overflow-y-auto p-2 text-xs"></div>
+    <div class="p-2 border-t border-gray-200 bg-gray-50 flex justify-end gap-1">
+        <button type="button" onclick="pvFilterCancel()" class="px-3 py-1 text-xs border rounded hover:bg-gray-100">Cancel</button>
+        <button type="button" onclick="pvFilterApply()"  class="px-3 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700">OK</button>
+    </div>
+</div>
+
+<!-- Custom Sort modal -->
+<div id="pvCustomSortModal" class="hidden flex items-center justify-center p-4"
+     style="position:fixed !important; inset:0 !important; z-index:2147483645 !important; background:rgba(0,0,0,0.6) !important; isolation:isolate;">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5">
+        <h3 class="text-lg font-bold text-gray-800 mb-3">&#x21C5; Custom Sort</h3>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Sort by</label>
+        <select id="pvCustomSortCol" class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm"></select>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Order</label>
+        <div class="flex flex-wrap gap-3 mb-4 text-sm">
+            <label class="flex items-center gap-1 cursor-pointer">
+                <input type="radio" name="pvCustomSortDir" value="asc" checked> A → Z / small → large
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer">
+                <input type="radio" name="pvCustomSortDir" value="desc"> Z → A / large → small
+            </label>
+        </div>
+        <div class="flex justify-end gap-2">
+            <button type="button" onclick="pvCloseCustomSort()" class="px-4 py-2 text-sm bg-gray-200 rounded hover:bg-gray-300">Cancel</button>
+            <button type="button" onclick="pvApplyCustomSort()" class="px-4 py-2 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700">OK</button>
+        </div>
+    </div>
+</div>
+
         <div id="pvSheetWrapper" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="overflow-auto" style="max-height: 65vh;">
                 <table id="pvTable" class="min-w-full text-xs md:text-sm" style="border-collapse: collapse;">
                     <thead class="bg-gray-100 sticky top-0 z-10">
+                        <tr id="pvColLetters" class="pv-letters-row"></tr>
                         <tr id="pvHead"></tr>
                     </thead>
                     <tbody id="pvBody"></tbody>
@@ -189,7 +354,7 @@
                         class="flex items-center justify-center w-7 h-7 text-amber-800 hover:text-amber-900 hover:bg-amber-100 rounded-md transition flex-shrink-0"
                         title="Show / hide the colour legend"
                         aria-label="Toggle colour legend">
-                    <span id="pvRecentLegendArrow" class="text-xs font-bold">&#9654;</span>
+                    <span id="pvRecentLegendArrow" class="text-xs font-bold">&#9660;</span>
                 </button>
                 <span class="text-sm font-semibold text-amber-800">🆕 <span id="pvRecentCount">0</span> new row(s) this session</span>
                 <button onclick="pvShowRecentModal()"
@@ -197,7 +362,7 @@
                     View All with highlights
                 </button>
             </div>
-            <div id="pvRecentLegend" class="hidden pt-2 border-t border-amber-300">
+            <div id="pvRecentLegend" class="pt-2 border-t border-amber-300">
                 <div class="flex flex-wrap items-center gap-3 text-[11px] text-gray-600">
                     <span class="flex items-center gap-1">
                         <span style="display:inline-block;width:14px;height:14px;background:#fef9c3;border:1px solid #ca8a04;border-radius:3px;"></span>
@@ -254,6 +419,23 @@
     </div>
 </div>
 
+<!-- ============ UPDATE MODE MODAL (Excel Preview · purchases only) ============ -->
+<div id="pvUpdateModeModal" class="hidden flex items-center justify-center p-4" style="position:fixed !important; inset:0 !important; z-index:2147483647 !important; background:rgba(0,0,0,0.7) !important; isolation:isolate;">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5">
+        <h3 class="text-lg font-bold text-gray-800 mb-2">🔄 Update Mode</h3>
+        <p class="text-sm text-gray-500 mb-4">Some existing rows have price or identity changes. How should these be handled?</p>
+        <button type="button" onclick="pvPickUpdateMode('update')" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded mb-2 text-sm font-semibold">
+            ✏️ Update existing batch (keep same ID)
+        </button>
+        <p class="text-xs text-gray-500 mb-3">✓ Sales history stays linked<br>✓ Only one batch per item</p>
+        <button type="button" onclick="pvPickUpdateMode('create')" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded mb-2 text-sm font-semibold">
+            ➕ Create new batch with new values
+        </button>
+        <p class="text-xs text-gray-500 mb-3">✓ Original preserved<br>✓ New batch ID for the new values</p>
+        <button type="button" onclick="pvCloseUpdateModeModal()" class="w-full bg-gray-400 hover:bg-gray-500 text-white py-2 rounded text-sm">Cancel</button>
+    </div>
+</div>
+
 <!-- ============ SAVE MODE MODAL ============ -->
 <div id="pvSaveModal" class="hidden flex items-center justify-center p-4" style="position:fixed !important; inset:0 !important; z-index:2147483646 !important; background:rgba(0,0,0,0.7) !important; isolation:isolate;">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5">
@@ -298,6 +480,8 @@
 <script>
 (function() {
 'use strict';
+window.__pvHideDebug = true;  // set false to silence filter debug logs
+console.log('[pv] build v3 (dom-scan fix) loaded');
 
 const $ = id => document.getElementById(id);
 let PV = {
@@ -305,9 +489,43 @@ let PV = {
     originalIds: new Set(),
     recentIds: new Set(),          // newly added during this session
     deletedIds: new Set(),         // rows deleted from the sheet
+    dirtyIds: new Set(),           // existing batch ids the user actually edited
+    uiSort:   { key: '', dir: '' },   // Excel-like display sort (never mutates rows)
+    uiFilter: { text: '', column: '' },
     suggestions: { products: [], categories: [] },
     suggestCell: null              // currently focused cell for the suggest box
 };
+
+// ── Defensive init: ensures every field exists even after partial upgrades ──
+(function _pvEnsureFields() {
+    if (!PV.recentIds)     PV.recentIds     = new Set();
+    if (!PV.deletedIds)    PV.deletedIds    = new Set();
+    if (!PV.dirtyIds)      PV.dirtyIds      = new Set();
+    if (!PV.originalIds)   PV.originalIds   = new Set();
+    if (!PV.originalRows)  PV.originalRows  = [];
+    if (!PV.uiSort)        PV.uiSort        = { key: '', dir: '' };
+    if (!PV.uiFilter)      PV.uiFilter      = { text: '', column: '', cols: {} };
+    if (!PV.uiFilter.cols) PV.uiFilter.cols = {};
+    if (typeof PV.uiFilter.text   !== 'string')  PV.uiFilter.text = '';
+    if (typeof PV.uiFilter.column !== 'string')  PV.uiFilter.column = '';
+    if (typeof PV.activeColumnKey !== 'string')  PV.activeColumnKey = '';
+    if (typeof PV.filterMode      !== 'boolean') PV.filterMode = false;
+    if (typeof PV.hideDeleted !== 'boolean') {
+        try { PV.hideDeleted = localStorage.getItem('pv_hide_deleted') === '1'; }
+        catch (e) { PV.hideDeleted = false; }
+    }
+    // Sync the checkbox visual state
+    try {
+        var _cb = document.getElementById('pvHideDeletedChk');
+        if (_cb) _cb.checked = !!PV.hideDeleted;
+    } catch (e) {}
+    if (!PV.suggestions) PV.suggestions = { products: [], categories: [] };
+    try {
+        var _chk = document.getElementById('pvHideDeletedChk');
+        if (_chk) _chk.checked = !!PV.hideDeleted;
+    } catch (e) {}
+})();
+
 
 // CSS for red divider
 (function injectPvStyle() {
@@ -358,11 +576,33 @@ window.previewBackToMenu = function() {
 async function previewLoad() {
     $('pvBody').innerHTML = '<tr><td colspan="20" class="text-center py-6 text-gray-400">{{ t("preview.loading") }}</td></tr>';
     try {
-        const res = await fetch(`/api/preview/${PV.kind}/${PV.category}`);
+        const _inc = (PV.kind === 'purchases') ? '?include_deleted=1' : '';
+        const res = await fetch(`/api/preview/${PV.kind}/${PV.category}${_inc}`);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Load failed');
         PV.columns = data.columns;
         PV.rows = data.rows;
+        // Mark any rows the server returned with _pendingDelete flag as archived
+        var _hydrated = 0;
+        (data.rows || []).forEach(function(r) {
+            if (r && (r._pendingDelete === true || r._archived === true || r._archive_id || r.action === 'archived')) {
+                r._pendingDelete = true;
+                r._archivedThisSession = true;
+                if (r._archive_id) r._archiveId = r._archive_id;
+                _hydrated++;
+            }
+        });
+        console.log('[pv-load] hydrated ' + _hydrated + ' archived rows from server');
+        // Snapshot for change-detection — strip the archived marker so restoring
+        // doesn't look like a "modification" on the next Save.
+        PV.originalRows = JSON.parse(JSON.stringify(data.rows || [])).map(function(o) {
+            try { delete o._pendingDelete; } catch (e) {}
+            try { delete o._archived; } catch (e) {}
+            try { delete o._archivedThisSession; } catch (e) {}
+            try { delete o._archive_id; } catch (e) {}
+            try { delete o._archiveId; } catch (e) {}
+            return o;
+        });
         PV.originalIds = new Set(data.rows.map(r => String(r.batch_id || r.sale_id || '')));
         // Seed recentIds with rows already flagged as excel-sourced
         (data.rows || []).forEach(r => {
@@ -392,31 +632,195 @@ async function previewLoad() {
 }
 
 function previewRenderHead() {
-    const tr = $('pvHead');
-    tr.innerHTML = '<th class="px-2 py-2 text-left text-[10px] text-gray-400 border-b sticky left-0 bg-gray-100">#</th>'
-        + PV.columns.map(c =>
-            `<th class="px-3 py-2 text-left text-[11px] md:text-xs font-semibold text-gray-600 border-b whitespace-nowrap">${c.header}</th>`
-        ).join('')
-        + '<th class="px-2 py-2 border-b bg-gray-100"></th>';
+    var trL = document.getElementById('pvColLetters');
+    var trH = $('pvHead');
+    if (trL) {
+        var letters = ['A','B','C','D','E','F','G','H','I','J','K','L','M',
+                       'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+                       'AA','AB','AC','AD','AE','AF','AG','AH','AI','AJ','AK','AL'];
+        var html = '<th class="pv-letter-num" style="width:32px;">#</th>';
+        for (var i = 0; i < PV.columns.length; i++) {
+            html += '<th style="min-width:80px;">' + (letters[i] || '') + '</th>';
+        }
+        html += '<th class="pv-letter-num" style="width:38px;"></th>';
+        trL.innerHTML = html;
+    }
+    if (!trH) return;
+    var activeKey = (PV.activeColumnKey || '');
+    var filterOn = (PV.filterMode === true);
+    var _fcols = (PV.uiFilter && PV.uiFilter.cols) ? PV.uiFilter.cols : {};
+
+    var head = '<th class="pv-rownum" style="width:32px;">#</th>';
+    for (var j = 0; j < PV.columns.length; j++) {
+        var c = PV.columns[j];
+        var cls = 'px-2 py-1 text-left text-[11px] md:text-xs font-semibold text-gray-600 border-b whitespace-nowrap';
+        if (c.key === activeKey) cls += ' pv-th-active';
+        var arrow = '';
+        if (filterOn) {
+            var isFiltered = _fcols[c.key] ? ' pv-filtered' : '';
+            arrow = '<span class="pv-filter-arrow' + isFiltered + '" '
+                  + 'onclick="pvOpenFilterMenu(event, \'' + c.key.replace(/'/g, "\\'") + '\')">'
+                  + '&#x25BC;</span>';
+        }
+        var sortMark = '';
+        if (PV.uiSort && PV.uiSort.key === c.key) {
+            sortMark = PV.uiSort.dir === 'desc' ? ' <span style="color:#4f46e5">&#x25BC;</span>'
+                                                : ' <span style="color:#4f46e5">&#x25B2;</span>';
+        }
+        head += '<th class="' + cls + '" data-colkey="' + escapeHtml(String(c.key)) + '">'
+             + escapeHtml(String(c.header)) + sortMark + arrow + '</th>';
+    }
+    head += '<th class="pv-rownum" style="width:38px;"></th>';
+    trH.innerHTML = head;
+
+    try {
+        var sel = document.getElementById('pvCustomSortCol');
+        if (sel && sel.options.length === 0 && PV.columns.length) {
+            PV.columns.forEach(function(c) {
+                var o = document.createElement('option');
+                o.value = c.key;
+                o.textContent = c.header;
+                sel.appendChild(o);
+            });
+        }
+    } catch (e) {}
+
+    try {
+        var info = document.getElementById('pvActiveInfo');
+        if (info && PV.activeColumnKey && PV.columns) {
+            var cc = PV.columns.find(function(c){ return c.key === PV.activeColumnKey; });
+            if (cc) { info.textContent = 'Active column: ' + cc.header; info.classList.remove('hidden'); }
+        } else if (info) { info.classList.add('hidden'); }
+    } catch (e) {}
 }
+
+// ── Excel-like sort + find engine ──
+function _pvApplyUiFilter(plan) {
+    var f = PV.uiFilter || {};
+    var text = String(f.text || '').trim().toLowerCase();
+    var cols = f.cols || {};
+    var hasColFilter = false;
+    for (var k in cols) { if (cols[k] && cols[k].size > 0) { hasColFilter = true; break; } }
+
+    var _hide = !!PV.hideDeleted;
+    if (!text && !hasColFilter && !_hide) return plan;
+
+    return plan.filter(function(entry) {
+        var r = entry.row;
+        if (_hide) {
+            if (r && (r._pendingDelete || r._archivedThisSession || r._archived ||
+                      r._archive_id || r._archiveId || r.action === 'archived')) {
+                return false;
+            }
+        }
+        for (var ck in cols) {
+            var set = cols[ck];
+            if (!set || set.size === 0) continue;
+            var v = String(r[ck] == null ? '' : r[ck]);
+            if (!set.has(v)) return false;
+        }
+        if (text) {
+            var col = f.column || '';
+            if (col) return String(r[col] == null ? '' : r[col]).toLowerCase().indexOf(text) >= 0;
+            for (var k2 in r) {
+                if (k2 === '__tempId') continue;
+                if (String(r[k2] == null ? '' : r[k2]).toLowerCase().indexOf(text) >= 0) return true;
+            }
+            return false;
+        }
+        return true;
+    });
+}
+
+function _pvApplyUiSort(plan) {
+    var s = PV.uiSort || {};
+    if (!s.key) return plan;
+    var dir = (s.dir === 'desc') ? -1 : 1;
+    var key = s.key;
+    return plan.slice().sort(function(a, b) {
+        var va = a.row[key], vb = b.row[key];
+        var na = parseFloat(va), nb = parseFloat(vb);
+        var aNum = !isNaN(na) && String(va).trim() !== '';
+        var bNum = !isNaN(nb) && String(vb).trim() !== '';
+        if (aNum && bNum) return (na - nb) * dir;
+        var sa = String(va == null ? '' : va).toLowerCase();
+        var sb = String(vb == null ? '' : vb).toLowerCase();
+        if (sa < sb) return -1 * dir;
+        if (sa > sb) return  1 * dir;
+        return 0;
+    });
+}
+
+function _pvUpdateTableStatus(shown, total) {
+    var el = document.getElementById('pvTableStatus');
+    if (!el) return;
+    el.textContent = 'Showing ' + shown + ' of ' + total;
+    if (shown !== total) el.classList.add('font-semibold', 'text-indigo-600');
+    else el.classList.remove('font-semibold', 'text-indigo-600');
+}
+
+window.pvClearFind = function() {
+    var i = document.getElementById('pvFindInput');
+    var s = document.getElementById('pvFindColumn');
+    if (i) i.value = '';
+    if (s) s.value = '';
+    PV.uiFilter = { text: '', column: '' };
+    previewRenderBody();
+};
+
+// ── Hide-deleted toggle ──
+window.pvToggleHideDeleted = function(v) {
+    PV.hideDeleted = !!v;
+    try { localStorage.setItem('pv_hide_deleted', PV.hideDeleted ? '1' : '0'); } catch (e) {}
+    console.log('[pv-hide] toggled to ' + PV.hideDeleted);
+    try { previewRenderBody(); } catch (e) { console.warn('[pv-hide] render failed:', e); }
+};
 
 function previewRenderBody() {
     const tb = $('pvBody');
+    // Display-only pipeline: sort/filter never mutate PV.rows
+    let _plan = PV.rows.map(function(r, i) { return { idx: i, row: r }; });
+    var _planBefore = _plan.length;
+    var _archTotal = 0;
+    (PV.rows || []).forEach(function(rr) {
+        if (rr && (rr._pendingDelete || rr._archivedThisSession || rr.action === 'archived')) _archTotal++;
+    });
+    _plan = _pvApplyUiFilter(_plan);
+    _plan = _pvApplyUiSort(_plan);
+    if (PV.hideDeleted) {
+        console.log('[pv-render] hide=true before=' + _planBefore + ' after=' + _plan.length + ' archivedRows=' + _archTotal);
+    }
+    _pvUpdateTableStatus(_plan.length, PV.rows.length);
+    const _sortActive = !!(PV.uiSort && PV.uiSort.key);
+    let _displayNum = 0;
     let dividerInserted = false;
-    tb.innerHTML = PV.rows.map((r, i) => {
+    tb.innerHTML = _plan.map(function(entry) {
+        const i = entry.idx;
+        const r = entry.row;
+        _displayNum++;
+        const _visibleNum = _displayNum;
         const rid = String(r.batch_id || r.sale_id || '');
         const isNew = rid === '' || !PV.originalIds.has(rid);
         let divider = '';
-        if (isNew && !dividerInserted && PV.originalIds.size > 0) {
+        if (isNew && !dividerInserted && PV.originalIds.size > 0 && !_sortActive) {
             dividerInserted = true;
             divider = `<tr class="pv-new-divider"><td colspan="${PV.columns.length + 2}">▲ New rows added from Excel ▲</td></tr>`;
         }
+        const _isArchived = !!r._pendingDelete;
         const cells = PV.columns.map(c => {
             const val = r[c.key] != null ? r[c.key] : '';
             const isCategory = (c.key === 'category');
             const isDate = (c.key === 'date');
             const categoryIsEditable =
                 isCategory && PV.category === 'Accessory';
+
+            // ARCHIVED ROW: hard-lock every cell — no contenteditable, no inputs
+            if (_isArchived) {
+                return `<td data-key="${c.key}" data-type="${c.type}"
+                        contenteditable="false"
+                        class="px-3 py-1.5 border-b text-red-900 whitespace-nowrap select-none"
+                        style="pointer-events:none !important; user-select:none;">${escapeHtml(String(val))}</td>`;
+            }
 
             if (isDate) {
                 // Date cell: calendar input
@@ -437,7 +841,9 @@ function previewRenderBody() {
         }).join('');
         const _action = String(r.action || '').toLowerCase();
         let rowCls = '';
-        if (isNew) {
+        if (r._pendingDelete) {
+            rowCls = 'pv-row-not-in-db';
+        } else if (isNew) {
             rowCls = 'pv-row-new';
         } else if (_action === 'added_from_excel') {
             rowCls = 'pv-row-import-added';
@@ -445,22 +851,141 @@ function previewRenderBody() {
             rowCls = 'pv-row-import-updated';
         }
         return `${divider}<tr data-row="${i}" class="${rowCls}">
-            <td class="px-2 py-1.5 border-b text-[10px] text-gray-400 bg-gray-50 sticky left-0">${i+1}</td>
+            <td class="pv-rownum border-b sticky left-0">${_visibleNum}</td>
             ${cells}
             <td class="px-2 py-1.5 border-b bg-gray-50 text-center">
-                <button onclick="previewDeleteRow(${i})"
-                        class="text-red-500 hover:text-red-700 text-xs" title="Delete">🗑</button>
+                ${r._pendingDelete
+                        ? `<button onclick="previewRestoreRow(${i})" class="text-emerald-600 hover:text-emerald-800 text-xs font-bold" title="Restore">↺</button>`
+                        : `<button onclick="previewDeleteRow(${i})" class="text-red-500 hover:text-red-700 text-xs" title="Delete">🗑</button>`}
             </td>
         </tr>`;
     }).join('');
 }
 
-window.previewDeleteRow = function(i) {
-    if (!confirm('{{ t("preview.confirm_delete_row") }}')) return;
-    PV.rows.splice(i, 1);
-    previewRenderBody();
-    $('pvCount').textContent = `${PV.rows.length} rows`;
+// ═══════════════════════════════════════════════════════════════════
+//  EXCEL PREVIEW — row delete / restore
+//  DELETE = archive immediately on the server; row stays RED in-session.
+//  ↺ RESTORE = un-archive on the server; row returns to normal.
+//  Reloading the sheet hides archived rows (server no longer returns them).
+// ═══════════════════════════════════════════════════════════════════
+window.previewDeleteRow = async function(i) {
+    var r = PV.rows[i];
+    if (!r) return;
+    var bid = r.batch_id;
+    var isNew = !!r.__tempId || bid == null || bid === '' || bid === 0;
+
+    if (isNew) {
+        if (!confirm('{{ t("preview.confirm_delete_row") }}')) return;
+        PV.rows.splice(i, 1);
+        previewRenderBody();
+        try { $('pvCount').textContent = PV.rows.length + ' rows'; } catch (e) {}
+        return;
+    }
+
+    if (!confirm('Archive batch #' + bid + '?\n\nIt will be soft-deleted NOW and moved to Archive.\nThe row will stay RED here \u2014 click \u21BA to restore, or reload to hide.')) return;
+
+    // Offline → mark as pending (Save will retry)
+    if (!navigator.onLine) {
+        r._pendingDelete = true;
+        try { PV.deletedIds.add(String(bid)); } catch (e) {}
+        previewRenderBody();
+        return;
+    }
+
+    var status = document.getElementById('pvStatus');
+    if (status) status.textContent = 'Archiving batch #' + bid + '\u2026';
+
+    try {
+        var res = await fetch('/api/batches/' + encodeURIComponent(bid) + '?type=keep', {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        var data = {};
+        try { data = await res.json(); } catch (e) {}
+        if (!res.ok || (data && data.success === false)) {
+            throw new Error((data && data.error) || ('HTTP ' + res.status));
+        }
+        // SUCCESS: KEEP the row in place. Mark it red + non-editable.
+        r._pendingDelete = true;
+        r._archivedThisSession = true;
+        r._archiveId = (data && data.archive_id) ? data.archive_id : null;
+        try { PV.deletedIds.delete(String(bid)); } catch (e) {}
+        console.log('[pv-delete] archived #' + bid + ' (kept in sheet)');
+        previewRenderBody();
+        if (status) status.textContent = '\u2705 Batch #' + bid + ' archived. Row is red \u2014 click \u21BA to restore, or reload to hide.';
+        try { pvRenderRecentBar(); } catch (e) {}
+        try {
+            if (window.Notifications && typeof window.Notifications.refreshFromServer === 'function') {
+                setTimeout(function(){ window.Notifications.refreshFromServer({force:true}); }, 400);
+            }
+        } catch (e) {}
+    } catch (err) {
+        console.warn('[pv-delete] immediate archive failed:', err);
+        // Fallback: mark pending so Save or a manual click can retry
+        r._pendingDelete = true;
+        try { PV.deletedIds.add(String(bid)); } catch (e) {}
+        previewRenderBody();
+        if (status) status.textContent = '\u26A0\uFE0F Could not archive #' + bid + ' \u2014 marked pending. Click Save to retry.';
+    }
 };
+
+window.previewRestoreRow = async function(i) {
+    var r = PV.rows[i];
+    if (!r) return;
+
+    // Case 1: server-side archived → un-archive it
+    if (r._archivedThisSession || r._archiveId) {
+        var status = document.getElementById('pvStatus');
+        if (status) status.textContent = 'Restoring batch #' + r.batch_id + '\u2026';
+        try {
+            var aid = r._archiveId;
+            if (!aid) {
+                // Fallback: find it in the archive
+                var listRes = await fetch('/api/archive?status=ALL&page=1&per_page=500&search=', { credentials: 'include' });
+                var listData = await listRes.json();
+                var match = (listData.items || []).find(function(x) {
+                    return String(x.batch_id) === String(r.batch_id);
+                });
+                if (!match) throw new Error('Archive entry for batch #' + r.batch_id + ' not found');
+                aid = match.id;
+            }
+            var res = await fetch('/api/archive/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ archive_id: aid })
+            });
+            var data = await res.json();
+            if (!res.ok || (data && data.success === false)) {
+                throw new Error((data && data.error) || ('HTTP ' + res.status));
+            }
+            // Clear archived state → row returns to its original color
+            try { delete r._pendingDelete; } catch (e) { r._pendingDelete = false; }
+            try { delete r._archivedThisSession; } catch (e) { r._archivedThisSession = false; }
+            try { delete r._archiveId; } catch (e) { r._archiveId = null; }
+            console.log('[pv-restore] restored #' + r.batch_id);
+            previewRenderBody();
+            if (status) status.textContent = '\u2705 Batch #' + r.batch_id + ' restored.';
+            try { pvRenderRecentBar(); } catch (e) {}
+            try {
+                if (window.Notifications && typeof window.Notifications.refreshFromServer === 'function') {
+                    setTimeout(function(){ window.Notifications.refreshFromServer({force:true}); }, 400);
+                }
+            } catch (e) {}
+        } catch (err) {
+            console.warn('[pv-restore] failed:', err);
+            if (status) status.textContent = '\u26A0\uFE0F Restore failed: ' + err.message;
+        }
+        return;
+    }
+
+    // Case 2: only marked pending → just clear the flag
+    try { delete r._pendingDelete; } catch (e) { r._pendingDelete = false; }
+    try { PV.deletedIds.delete(String(r.batch_id)); } catch (e) {}
+    previewRenderBody();
+    try { pvRenderRecentBar(); } catch (e) {}
+};
+
 
 window.previewAddRow = function() {
     const blank = {};
@@ -494,6 +1019,13 @@ function collectRows() {
     const out = [];
     tb.querySelectorAll('tr').forEach(tr => {
         if (tr.classList.contains('pv-new-divider')) return;
+        const _rIdx = parseInt(tr.dataset.row, 10);
+        if (!isNaN(_rIdx) && PV.rows[_rIdx] && PV.rows[_rIdx]._pendingDelete) {
+            return;  // skip rows marked for archival
+        }
+        if (!isNaN(_rIdx) && PV.rows[_rIdx] && PV.rows[_rIdx]._archivedThisSession) {
+            return;  // never resend archived rows as updates
+        }
         const obj = {};
         tr.querySelectorAll('td[data-key]').forEach(td => {
             const key = td.dataset.key;
@@ -533,34 +1065,141 @@ window.previewOpenInExcel = function() {
 
 // ---- Save -------------------------------------------------------------
 window.previewSavePrompt = function() {
-    $('pvSaveModal').classList.remove('hidden');
+    // Chrome only renders the fullscreen element; a sibling modal would
+    // be invisible. Exit fullscreen first, then open the modal.
+    var open = function() { $('pvSaveModal').classList.remove('hidden'); };
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+        try {
+            (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+                .then(function() { setTimeout(open, 50); })
+                .catch(function() { setTimeout(open, 50); });
+        } catch (e) { setTimeout(open, 50); }
+        return;
+    }
+    open();
 };
 window.previewCloseSaveModal = function() {
     $('pvSaveModal').classList.add('hidden');
 };
-window.previewConfirmSave = async function() {
-    const mode = document.querySelector('input[name="pvSaveMode"]:checked').value;
-    const rows = collectRows();
-    $('pvStatus').textContent = '{{ t("preview.saving") }}';
+async function _pvHasPriceOrIdentityChange(rows) {
+    var orig = PV.originalRows || [];
+    if (!orig.length) {
+        try {
+            var res = await fetch('/api/preview/' + PV.kind + '/' + PV.category);
+            var data = await res.json();
+            if (data && data.success) {
+                orig = data.rows || [];
+                PV.originalRows = JSON.parse(JSON.stringify(orig));
+            }
+        } catch (e) { console.warn('[pv-updmode] snapshot fetch failed:', e); }
+    }
+    if (!orig.length) return false;
+    var byId = {};
+    for (var i = 0; i < orig.length; i++) {
+        var o = orig[i];
+        if (o.batch_id != null) byId[String(o.batch_id)] = o;
+    }
+    for (var j = 0; j < rows.length; j++) {
+        var r = rows[j];
+        var bid = r.batch_id;
+        if (bid == null || bid === '' || bid === 0) continue;
+        var prev = byId[String(bid)];
+        if (!prev) continue;
+        if (Number(r.cost_price || 0)    !== Number(prev.cost_price || 0))    return true;
+        if (Number(r.selling_price || 0) !== Number(prev.selling_price || 0)) return true;
+        if (Number(r.discount || 0)      !== Number(prev.discount || 0))      return true;
+        if (String(r.name || '')     !== String(prev.name || ''))     return true;
+        if (String(r.brand || '')    !== String(prev.brand || ''))    return true;
+        if (String(r.category || '') !== String(prev.category || '')) return true;
+    }
+    return false;
+}
+
+var _pvPendingSave = null;
+
+window.pvPickUpdateMode = function(mode) {
+    var m = document.getElementById('pvUpdateModeModal');
+    if (m) m.classList.add('hidden');
+    if (!_pvPendingSave) return;
+    var p = _pvPendingSave;
+    _pvPendingSave = null;
+    _pvDoSave(p.rows, p.mode, mode);
+};
+
+window.pvCloseUpdateModeModal = function() {
+    var m = document.getElementById('pvUpdateModeModal');
+    if (m) m.classList.add('hidden');
+    _pvPendingSave = null;
+};
+
+async function _pvDoSave(rows, mode, updateMode) {
+    var $l = document.getElementById;
+    var status = document.getElementById('pvStatus');
+    if (status) status.textContent = 'Saving…';
     try {
-        const res = await fetch(`/api/preview/${PV.kind}/${PV.category}`, {
+        var res = await fetch('/api/preview/' + PV.kind + '/' + PV.category, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ rows, mode, deleted_ids: Array.from(PV.deletedIds) })
+            body: JSON.stringify({
+                rows: rows,
+                mode: mode,
+                update_mode: updateMode || 'auto',
+                deleted_ids: (function() {
+                    // Belt + suspenders: merge PV.deletedIds with any row
+                    // currently rendered with the .pv-row-not-in-db class.
+                    // Fixes the case where the Set is missing values
+                    // (stale service worker, race conditions).
+                    var combined = new Set(PV.deletedIds || []);
+                    try {
+                        document.querySelectorAll('#pvBody tr.pv-row-not-in-db').forEach(function(tr) {
+                            var idx = parseInt(tr.dataset.row, 10);
+                            if (isNaN(idx) || !PV.rows[idx]) return;
+                            var b = PV.rows[idx].batch_id;
+                            if (b != null && b !== '' && b !== 0) {
+                                combined.add(String(b));
+                            }
+                        });
+                    } catch (e) { console.warn('[pv-save] dom-scan failed:', e); }
+                    console.log('[pv-save] deleted_ids to send =', Array.from(combined));
+                    return Array.from(combined);
+                })(),
+                dirty_ids:   Array.from(PV.dirtyIds || [])
+            })
         });
-        const data = await res.json();
+        var data = await res.json();
         if (!data.success) throw new Error(data.error || 'Save failed');
-        const s = data.stats || {};
-        $('pvStatus').innerHTML = `✅ {{ t("preview.saved") }} — ` +
-            `inserted:${s.inserted||0} updated:${s.updated||0} ` +
-            (s.errors && s.errors.length ? `— ${s.errors.length} warnings` : '');
-        previewCloseSaveModal();
-        previewLoad();
+        var s = data.stats || {};
+        if (status) status.innerHTML = '✅ Saved — inserted:' + (s.inserted||0) +
+            ' updated:' + (s.updated||0) +
+            (s.errors && s.errors.length ? ' — ' + s.errors.length + ' warnings' : '');
+        try { if (typeof previewCloseSaveModal === 'function') previewCloseSaveModal(); } catch (e) {}
+        PV.deletedIds = new Set();
+        PV.dirtyIds   = new Set();
+        PV.updateMode = 'auto';
+        try { await previewLoad(); } catch (e) {}
+        try { pvRenderRecentBar(); } catch (e) {}
     } catch (e) {
-        $('pvStatus').innerHTML = `<span class="text-red-600">❌ ${e.message}</span>`;
-        previewCloseSaveModal();
+        if (status) status.innerHTML = '<span class="text-red-600">❌ ' + e.message + '</span>';
+        try { if (typeof previewCloseSaveModal === 'function') previewCloseSaveModal(); } catch (e2) {}
     }
+}
+
+window.previewConfirmSave = async function() {
+        const mode = document.querySelector('input[name="pvSaveMode"]:checked').value;
+    const rows = collectRows();
+    // Purchases-only: if any existing row has price/identity changes AND mode
+    // is a batch-matching one, offer the update-vs-create choice.
+    if (PV.kind === 'purchases' && mode === 'merge' && await _pvHasPriceOrIdentityChange(rows)) {
+        _pvPendingSave = { rows: rows, mode: mode };
+        var _sm = document.getElementById('pvSaveModal');
+        if (_sm) _sm.classList.add('hidden');
+        var _um = document.getElementById('pvUpdateModeModal');
+        if (_um) _um.classList.remove('hidden');
+        return;
+    }
+    await _pvDoSave(rows, mode, 'auto');
+
 };
 
 // ---- Utils ------------------------------------------------------------
@@ -613,6 +1252,16 @@ function pvRenderSuggest(items, onPick) {
 document.addEventListener('input', function(e) {
     const td = e.target.closest && e.target.closest('td[data-key][contenteditable="true"]');
     if (!td) return;
+    try {
+        const _tr = td.closest('tr');
+        if (_tr) {
+            const _idx = parseInt(_tr.dataset.row, 10);
+            if (!isNaN(_idx) && PV.rows[_idx]) {
+                const _rid = String(PV.rows[_idx].batch_id || '');
+                if (_rid && _rid !== '0') PV.dirtyIds.add(_rid);
+            }
+        }
+    } catch (e) {}
     const key = td.dataset.key;
     const typed = (td.textContent || '').trim().toLowerCase();
     if (!['name', 'brand', 'category', 'item_id'].includes(key)) { pvHideSuggest(); return; }
@@ -742,6 +1391,19 @@ document.addEventListener('focusout', function(e) {
     }
 });
 
+// Date inputs use 'change', not 'input' in some browsers
+document.addEventListener('change', function(e) {
+    var inp = e.target;
+    if (!inp || inp.tagName !== 'INPUT' || inp.type !== 'datetime-local') return;
+    var td = inp.closest && inp.closest('td[data-key="date"]');
+    var tr = td && td.closest('tr');
+    if (!tr) return;
+    var idx = parseInt(tr.dataset.row, 10);
+    if (isNaN(idx) || !PV.rows[idx]) return;
+    var rid = String(PV.rows[idx].batch_id || '');
+    if (rid && rid !== '0') PV.dirtyIds.add(rid);
+});
+
 // Close on outside click
 document.addEventListener('mousedown', function(e) {
     const box = document.getElementById('pvSuggestBox');
@@ -765,15 +1427,14 @@ function pvRenderRecentBar() {
     if (!bar || !n) return;
     const seen = new Set();
     let total = 0;
+    // Only count rows the user just added (via ➕ Add Row). Rows that
+    // came from an earlier import are shown by their colour, not here.
     (PV.rows || []).forEach(r => {
-        const rid = String(r.batch_id || r.sale_id || '') || (r.__tempId || '');
-        if (seen.has(rid)) return;
-        seen.add(rid);
-        const isTemp = !!r.__tempId && PV.recentIds.has(r.__tempId);
-        const action = String(r.action || '').toLowerCase();
-        if (isTemp || action === 'added_from_excel' || action === 'updated_from_excel') {
-            total++;
-        }
+        if (!r.__tempId) return;
+        if (!PV.recentIds.has(r.__tempId)) return;
+        if (seen.has(r.__tempId)) return;
+        seen.add(r.__tempId);
+        total++;
     });
     n.textContent = String(total);
     if (total === 0) bar.classList.add('hidden');
@@ -788,6 +1449,260 @@ window.pvToggleRecentLegend = function() {
     if (arrow) arrow.innerHTML = nowHidden ? '&#9654;' : '&#9660;';
 };
 
+// ── Excel-like header click sorting (asc → desc → off) ──
+document.addEventListener('click', function(e) {
+    var th = e.target.closest && e.target.closest('th.pv-th-sort[data-sortkey]');
+    if (!th) return;
+    var key = th.getAttribute('data-sortkey');
+    if (!key) return;
+    var cur = PV.uiSort || { key: '', dir: '' };
+    if (cur.key !== key) {
+        PV.uiSort = { key: key, dir: 'asc' };
+    } else if (cur.dir === 'asc') {
+        PV.uiSort = { key: key, dir: 'desc' };
+    } else {
+        PV.uiSort = { key: '', dir: '' };
+    }
+    previewRenderHead();
+    previewRenderBody();
+});
+
+// ── Find input + column select (debounced) ──
+(function() {
+    var tmr = null;
+    function _wire() {
+        var inp = document.getElementById('pvFindInput');
+        var sel = document.getElementById('pvFindColumn');
+        if (inp && !inp._pvWired) {
+            inp._pvWired = true;
+            inp.addEventListener('input', function() {
+                clearTimeout(tmr);
+                var v = inp.value;
+                tmr = setTimeout(function() {
+                    PV.uiFilter = PV.uiFilter || { text: '', column: '' };
+                    PV.uiFilter.text = v;
+                    previewRenderBody();
+                }, 150);
+            });
+        }
+        if (sel && !sel._pvWired) {
+            sel._pvWired = true;
+            sel.addEventListener('change', function() {
+                PV.uiFilter = PV.uiFilter || { text: '', column: '' };
+                PV.uiFilter.column = sel.value;
+                previewRenderBody();
+            });
+        }
+    }
+    if (document.readyState !== 'loading') _wire();
+    else document.addEventListener('DOMContentLoaded', _wire);
+    var tries = 0;
+    var iv = setInterval(function() { _wire(); if (++tries > 20) clearInterval(iv); }, 250);
+})();
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown', function(e) {
+    var step3 = document.getElementById('pvStep3');
+    if (!step3 || step3.classList.contains('hidden')) return;
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        var inp = document.getElementById('pvFindInput');
+        if (inp) { e.preventDefault(); inp.focus(); inp.select(); }
+    } else if (e.key === 'Escape') {
+        var inp = document.getElementById('pvFindInput');
+        if (document.activeElement === inp && inp.value) {
+            inp.value = '';
+            PV.uiFilter = { text: '', column: '' };
+            previewRenderBody();
+        }
+    }
+});
+
+
+// ══════════════════════════════════════════════════════════
+//  EXCEL-STYLE DATA TOOLBAR — Sort / Filter / Clear
+// ══════════════════════════════════════════════════════════
+
+window.pvSortActive = function(dir) {
+    var key = PV.activeColumnKey || (PV.columns[0] && PV.columns[0].key);
+    if (!key) { alert('Click a cell first, then choose a sort direction.'); return; }
+    PV.uiSort = { key: key, dir: dir === 'desc' ? 'desc' : 'asc' };
+    try { previewRenderHead(); previewRenderBody(); pvRenderFilterPills(); } catch (e) {}
+};
+
+window.pvOpenCustomSort = function() {
+    var sel = document.getElementById('pvCustomSortCol');
+    if (sel && PV.activeColumnKey) sel.value = PV.activeColumnKey;
+    var modal = document.getElementById('pvCustomSortModal');
+    if (modal) modal.classList.remove('hidden');
+};
+window.pvCloseCustomSort = function() {
+    var m = document.getElementById('pvCustomSortModal');
+    if (m) m.classList.add('hidden');
+};
+window.pvApplyCustomSort = function() {
+    var col = (document.getElementById('pvCustomSortCol') || {}).value || '';
+    var radios = document.getElementsByName('pvCustomSortDir');
+    var dir = 'asc';
+    for (var i = 0; i < radios.length; i++) { if (radios[i].checked) { dir = radios[i].value; break; } }
+    if (!col) { alert('Pick a column first.'); return; }
+    PV.uiSort = { key: col, dir: dir };
+    PV.activeColumnKey = col;
+    pvCloseCustomSort();
+    try { previewRenderHead(); previewRenderBody(); pvRenderFilterPills(); } catch (e) {}
+};
+
+window.pvToggleFilterMode = function() {
+    PV.filterMode = !PV.filterMode;
+    var btn = document.getElementById('pvBtnFilterToggle');
+    if (btn) {
+        btn.classList.toggle('bg-blue-100', PV.filterMode);
+        btn.classList.toggle('border-blue-400', PV.filterMode);
+    }
+    previewRenderHead();
+};
+
+var _pvFilterState = { key: null, values: [], picked: new Set() };
+
+window.pvOpenFilterMenu = function(ev, colKey) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    _pvFilterState.key = colKey;
+    _pvFilterState.values = [];
+    var seen = new Set();
+    (PV.rows || []).forEach(function(r) {
+        var v = String(r[colKey] == null ? '' : r[colKey]);
+        if (!seen.has(v)) { seen.add(v); _pvFilterState.values.push(v); }
+    });
+    _pvFilterState.values.sort(function(a, b) {
+        var na = parseFloat(a), nb = parseFloat(b);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        return a.toLowerCase().localeCompare(b.toLowerCase());
+    });
+    var existing = (PV.uiFilter && PV.uiFilter.cols && PV.uiFilter.cols[colKey]) || null;
+    _pvFilterState.picked = new Set();
+    if (existing && existing.size > 0) {
+        existing.forEach(function(v) { _pvFilterState.picked.add(v); });
+    } else {
+        _pvFilterState.picked = new Set(_pvFilterState.values);
+    }
+    var search = document.getElementById('pvFilterSearch');
+    if (search) search.value = '';
+    _pvRenderFilterList('');
+    var menu = document.getElementById('pvFilterMenu');
+    if (menu) {
+        menu.classList.remove('hidden');
+        var rect = ev.target.getBoundingClientRect();
+        var top = rect.bottom + 2;
+        var left = rect.left;
+        if (left + 260 > window.innerWidth - 8) left = window.innerWidth - 268;
+        if (top + 320 > window.innerHeight - 8) top = Math.max(8, window.innerHeight - 328);
+        menu.style.top = top + 'px';
+        menu.style.left = Math.max(8, left) + 'px';
+    }
+};
+
+function _pvRenderFilterList(searchText) {
+    var list = document.getElementById('pvFilterList');
+    if (!list) return;
+    var st = (searchText || '').toLowerCase();
+    var vals = _pvFilterState.values.filter(function(v) { return !st || v.toLowerCase().indexOf(st) >= 0; });
+    if (vals.length === 0) { list.innerHTML = '<div class="text-gray-400 italic p-2">No values</div>'; return; }
+    var html = '';
+    vals.forEach(function(v) {
+        var checked = _pvFilterState.picked.has(v) ? 'checked' : '';
+        html += '<label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 cursor-pointer">'
+             + '<input type="checkbox" ' + checked + ' data-val="' + escapeHtml(v).replace(/"/g, '&quot;') + '" '
+             + 'onchange="pvFilterToggleValue(this)">'
+             + '<span class="truncate">' + (escapeHtml(v) || '<em class="text-gray-400">(blank)</em>') + '</span>'
+             + '</label>';
+    });
+    list.innerHTML = html;
+}
+
+window.pvFilterSearchInput = function(v) { _pvRenderFilterList(v || ''); };
+window.pvFilterSelectAll = function(yes) {
+    _pvFilterState.picked = new Set(yes ? _pvFilterState.values : []);
+    _pvRenderFilterList((document.getElementById('pvFilterSearch') || {}).value || '');
+};
+window.pvFilterToggleValue = function(cb) {
+    var v = cb.getAttribute('data-val');
+    if (cb.checked) _pvFilterState.picked.add(v); else _pvFilterState.picked.delete(v);
+};
+window.pvFilterCancel = function() { var m = document.getElementById('pvFilterMenu'); if (m) m.classList.add('hidden'); };
+window.pvFilterApply = function() {
+    if (!PV.uiFilter) PV.uiFilter = { text: '', column: '', cols: {} };
+    if (!PV.uiFilter.cols) PV.uiFilter.cols = {};
+    var v = _pvFilterState.picked;
+    if (v.size === 0 || v.size === _pvFilterState.values.length) {
+        delete PV.uiFilter.cols[_pvFilterState.key];
+    } else {
+        PV.uiFilter.cols[_pvFilterState.key] = new Set(v);
+    }
+    pvFilterCancel();
+    try { previewRenderHead(); previewRenderBody(); pvRenderFilterPills(); } catch (e) {}
+};
+window.pvRemoveColFilter = function(colKey) {
+    if (PV.uiFilter && PV.uiFilter.cols) delete PV.uiFilter.cols[colKey];
+    try { previewRenderHead(); previewRenderBody(); pvRenderFilterPills(); } catch (e) {}
+};
+window.pvClearSortFilter = function() {
+    PV.uiSort = { key: '', dir: '' };
+    PV.uiFilter = { text: '', column: '', cols: {} };
+    PV.activeColumnKey = '';
+    try { previewRenderHead(); previewRenderBody(); pvRenderFilterPills(); } catch (e) {}
+};
+
+function pvRenderFilterPills() {
+    var c = document.getElementById('pvFilterPills');
+    if (!c) return;
+    var cols = (PV.uiFilter && PV.uiFilter.cols) || {};
+    var html = '';
+    Object.keys(cols).forEach(function(k) {
+        var col = (PV.columns || []).find(function(x){ return x.key === k; });
+        var label = col ? col.header : k;
+        var set = cols[k];
+        var preview = Array.from(set).slice(0, 3).join(', ');
+        if (set.size > 3) preview += ' …';
+        html += '<span class="pv-filter-pill">' + escapeHtml(label) + ': ' + escapeHtml(preview)
+             + ' <button type="button" onclick="pvRemoveColFilter(\'' + k.replace(/'/g, "\\'") + '\')" title="Remove filter">&times;</button></span>';
+    });
+    if (PV.uiSort && PV.uiSort.key) {
+        var c2 = (PV.columns || []).find(function(x){ return x.key === PV.uiSort.key; });
+        var l2 = c2 ? c2.header : PV.uiSort.key;
+        html += '<span class="pv-filter-pill" style="background:#ede9fe;color:#5b21b6">Sort: '
+             + escapeHtml(l2) + ' ' + (PV.uiSort.dir === 'desc' ? '↓' : '↑')
+             + ' <button type="button" onclick="pvClearSortFilter()" title="Clear sort">&times;</button></span>';
+    }
+    c.innerHTML = html;
+}
+
+// Active column tracking
+document.addEventListener('mousedown', function(e) {
+    var td = e.target.closest && e.target.closest('td[data-key]');
+    var th = e.target.closest && e.target.closest('th[data-colkey]');
+    var key = td ? td.dataset.key : (th ? th.getAttribute('data-colkey') : '');
+    if (!key) return;
+    if (PV.activeColumnKey !== key) {
+        PV.activeColumnKey = key;
+        try { previewRenderHead(); } catch (e) {}
+    }
+});
+
+// Close filter / custom-sort modals
+document.addEventListener('click', function(e) {
+    var menu = document.getElementById('pvFilterMenu');
+    if (!menu || menu.classList.contains('hidden')) return;
+    if (menu.contains(e.target)) return;
+    if (e.target.closest && e.target.closest('.pv-filter-arrow')) return;
+    menu.classList.add('hidden');
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    var cm = document.getElementById('pvCustomSortModal');
+    if (cm && !cm.classList.contains('hidden')) { cm.classList.add('hidden'); return; }
+    var fm = document.getElementById('pvFilterMenu');
+    if (fm && !fm.classList.contains('hidden')) { fm.classList.add('hidden'); return; }
+});
+
 window.pvClearRecent = function() {
     PV.recentIds = new Set();
     pvRenderRecentBar();
@@ -795,6 +1710,18 @@ window.pvClearRecent = function() {
 };
 
 window.pvShowRecentModal = function() {
+    // Same fullscreen issue as the save modal — exit first.
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+        var _self = arguments, _this = this;
+        try {
+            (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+                .then(function() { setTimeout(function() {
+                    window.pvShowRecentModal.apply(_this, _self);
+                }, 80); })
+                .catch(function() {});
+        } catch (e) {}
+        return;
+    }
     const body = document.getElementById('pvRecentBody');
     if (!body) return;
     const cols = PV.columns;
@@ -969,7 +1896,11 @@ window.previewConfirmSave = async function() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ rows, mode })
+            body: JSON.stringify({
+                rows, mode,
+                deleted_ids: Array.from(PV.deletedIds),
+                dirty_ids:   Array.from(PV.dirtyIds)
+            })
         });
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Save failed');
@@ -984,6 +1915,7 @@ window.previewConfirmSave = async function() {
             (s.errors && s.errors.length ? ` — ${s.errors.length} warnings` : '');
         previewCloseSaveModal();
         PV.deletedIds.clear();
+        PV.dirtyIds.clear();
         await previewLoad();
         pvRenderRecentBar();
     } catch (e) {
