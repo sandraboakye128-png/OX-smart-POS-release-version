@@ -28,7 +28,7 @@
 <div class="bg-white rounded-xl shadow-md p-6 mb-6">
     <div class="flex items-center gap-2 mb-4">
         <h2 class="text-xl font-bold" id="formTitle">{{ t("purchases.form.add_scr") }}</h2>
-        <span class="bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded">Screens Only</span>
+        <span class="bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded">{{ app_settings.screen_label if app_settings and app_settings.screen_label else "Screens" }} Only</span>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-8 gap-3">
         <div>
@@ -43,8 +43,11 @@
         </div>
         <div>
             <label class="block text-sm font-medium text-gray-700">Category</label>
-            <input type="text" id="category" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2" value="Screen" readonly>
-            <div id="categorySuggestions" class="absolute z-10 bg-white border rounded-lg shadow-lg hidden"></div>
+            <input type="text" id="category_display" readonly tabindex="-1"
+                   data-cat-display="screen"
+                   value="{{ app_settings.screen_label if app_settings and app_settings.screen_label else 'Screens' }}"
+                   class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed">
+            <input type="hidden" id="category" value="Screen">
         </div>
         <div>
             <label class="block text-sm font-medium text-gray-700">{{ t("purchases.form.qty") }}</label>
@@ -1842,8 +1845,8 @@ let html = `
         editMode = true;
         editBatchId = batchId;
 
-        document.getElementById('formTitle').innerHTML = `✏️ Update Screen Purchase <span class="bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded">Screens Only</span> ${soldQty > 0 ? `<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2">📊 ${soldQty} Sold</span>` : ''}`;
-        document.getElementById('submitBtn').innerHTML = '✏️ Update Screen Purchase';
+        document.getElementById('formTitle').innerHTML = `✏️ Update ${window.CAT_LABELS.slSing} Purchase <span class="bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded">${window.CAT_LABELS.sl} Only</span> ${soldQty > 0 ? `<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2">📊 ${soldQty} Sold</span>` : ''}`;
+        document.getElementById('submitBtn').innerHTML = `✏️ Update ${window.CAT_LABELS.slSing} Purchase`;
         document.getElementById('cancelBtn').classList.remove('hidden');
 
         const form = document.querySelector('.bg-white.rounded-xl.shadow-md.p-6.mb-6');
@@ -1866,8 +1869,8 @@ let html = `
         document.getElementById('source').value = '';
         editMode = false;
         editBatchId = null;
-        document.getElementById('formTitle').innerHTML = '➕ Add Screen Purchase <span class="bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded">Screens Only</span>';
-        document.getElementById('submitBtn').innerHTML = '➕ Add Screen Purchase';
+        document.getElementById('formTitle').innerHTML = `➕ Add ${window.CAT_LABELS.sl} Purchase <span class="bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded">${window.CAT_LABELS.sl} Only</span>`;
+        document.getElementById('submitBtn').innerHTML = `➕ Add ${window.CAT_LABELS.slSing} Purchase`;
         document.getElementById('cancelBtn').classList.add('hidden');
         const form = document.querySelector('.bg-white.rounded-xl.shadow-md.p-6.mb-6');
         if (form) form.style.border = 'none';

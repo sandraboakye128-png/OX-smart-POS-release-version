@@ -1341,10 +1341,28 @@ const RENDER_URL = (function () {
     }
     return origin;
 })();
+// EXPOSE_RENDER_URL_V1 — sync.js runs before this inline script,
+// so it reads window.RENDER_URL lazily at each request.
+window.RENDER_URL = RENDER_URL;
 const TOKEN_KEY  = 'ox_api_token';
 const USER_KEY   = 'ox_shell_user';
 
 const $ = id => document.getElementById(id);
+
+// PER_USER_ID_V1 — stable identifier for the current shell user.
+// Prefers numeric id; falls back to username; falls back to 'anon'.
+// Used to scope pending_ops + notification storage keys per user.
+function _currentUserId() {
+    try {
+        const u = JSON.parse(localStorage.getItem('ox_shell_user') || 'null');
+        if (!u) return 'anon';
+        if (u.id != null) return String(u.id);
+        if (u.user_id != null) return String(u.user_id);
+        if (u.username) return String(u.username).toLowerCase();
+        return 'anon';
+    } catch (e) { return 'anon'; }
+}
+window._currentUserId = _currentUserId;
 
 // ============================================================
 //  THEME SYSTEM — aligned with web base.html
@@ -1470,6 +1488,24 @@ async function fetchAndCacheSettings() {
         if (!data || !data.success || !data.settings) return null;
         const s = data.settings;
         localStorage.setItem('ox_app_settings', JSON.stringify(s));
+
+        // FETCH_APP_SETTINGS_V1 — merge the shop-wide receipt/label settings
+        // on top of user settings so the shell can render receipts, labels,
+        // and category names using the same values as the web app.
+        try {
+            const ar = await fetch(RENDER_URL + '/api/app_settings', {
+                headers: { 'Authorization': 'Bearer ' + token },
+                credentials: 'include'
+            });
+            if (ar.ok) {
+                const aj = await ar.json();
+                if (aj && aj.success && aj.settings) {
+                    const merged = Object.assign({}, s, aj.settings);
+                    localStorage.setItem('ox_app_settings', JSON.stringify(merged));
+                    window.OX_SETTINGS = Object.assign(window.OX_SETTINGS || {}, merged);
+                }
+            }
+        } catch (e) { /* app_settings is best-effort; keep user settings */ }
 
         // Fetch i18n dict for the current language, cache it too
         if (s.language) {
@@ -1619,7 +1655,7 @@ const Notifications = (function () {
             return 'ox_shell_notifications_v1_' + id;
         } catch (e) { return 'ox_shell_notifications_v1_anon'; }
     }
-    const STORAGE_KEY = _notifUserKey();
+    let STORAGE_KEY = _notifUserKey();  // NOTIF_PER_USER_V1
     const items = [];
     let nextId = 1;
 
@@ -1775,6 +1811,18 @@ const Notifications = (function () {
         _refresh(); _save();
     }
 
+    // NOTIF_PER_USER_V1 — re-key storage when the logged-in user changes
+    function reloadForUser() {
+        const newKey = _notifUserKey();
+        if (newKey === STORAGE_KEY) return;
+        items.forEach(i => { if (i._timer) clearTimeout(i._timer); });
+        items.length = 0;
+        STORAGE_KEY = newKey;
+        _load();
+        _refresh();
+        console.log('[Notifications] reloaded for key:', STORAGE_KEY);
+    }
+
     _load();
     setTimeout(_refresh, 0);
     window.addEventListener('storage', (e) => {
@@ -1785,7 +1833,7 @@ const Notifications = (function () {
     });
 
     return {
-        add, update, remove, clearAll,
+        add, update, remove, clearAll, reloadForUser,
         info:    (t,m) => add({type:'info',    title:t, message:m, persistent:true}),
         success: (t,m) => add({type:'success', title:t, message:m, persistent:true}),
         warning: (t,m) => add({type:'warning', title:t, message:m, persistent:true}),
@@ -1938,6 +1986,34 @@ window.syncFromPendingModal = syncFromPendingModal;
 
 setInterval(refreshPendingNotifications, 8000);
 
+// PENDING_SYNC_REMINDER_V1 — every 2h, if the current user has pending
+// ops, nudge them to go online and sync.
+const PENDING_REMIND_INTERVAL_MS = 2 * 60 * 60 * 1000;   // 2h
+let _lastPendingRemindAt = 0;
+try { _lastPendingRemindAt = parseInt(localStorage.getItem('ox_pending_remind_at') || '0', 10) || 0; } catch (e) {}
+
+async function _maybeRemindPendingSync() {
+    if (typeof db === 'undefined' || !db) return;
+    try {
+        const me = (typeof _currentUserId === 'function') ? _currentUserId() : 'anon';
+        const all = await db.pending_ops.where('synced').equals(0).toArray();
+        const mine = all.filter(op => !op.user_id || op.user_id === me);
+        if (mine.length === 0) return;
+        const now = Date.now();
+        if ((now - _lastPendingRemindAt) < PENDING_REMIND_INTERVAL_MS) return;
+        _lastPendingRemindAt = now;
+        try { localStorage.setItem('ox_pending_remind_at', String(now)); } catch (e) {}
+        Notifications.warning(
+            'Sync reminder',
+            mine.length + ' pending change' + (mine.length === 1 ? '' : 's') +
+            '. Connect to the internet to sync.'
+        );
+    } catch (e) {}
+}
+window._maybeRemindPendingSync = _maybeRemindPendingSync;
+// Check every minute; the inner guard limits the actual reminder to 1 per 2h.
+setInterval(_maybeRemindPendingSync, 60 * 1000);
+
 // ============================================================
 //  NETWORK STATUS
 // ============================================================
@@ -2087,7 +2163,7 @@ async function goOnline() {
         return;
     }
     try {
-        window.open(RENDER_URL + '/', '_system');
+        /* SESSION_TTL_V1_SHELL */ window.open(RENDER_URL + '/?web_session=1day', '_system')
         showToast('🌐 Opening web app…');
     } catch (e) {
         showToast('Could not open browser', { error: true });
@@ -2135,10 +2211,15 @@ async function openSignup(e) {
         container.appendChild(wrap);
 
         wrap.querySelectorAll('script').forEach(oldScript => {
-            const newScript = document.createElement('script');
-            if (oldScript.src) newScript.src = oldScript.src;
-            else newScript.textContent = oldScript.textContent;
-            oldScript.parentNode.replaceChild(newScript, oldScript);
+            try {
+                const newScript = document.createElement('script');
+                if (oldScript.src) newScript.src = oldScript.src;
+                else newScript.textContent = oldScript.textContent;
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            } catch (err) {
+                console.error('[switchView] script inject failed:', err,
+                    ' source_len=', (oldScript.textContent || '').length);
+            }
         });
 
         currentView = 'signup';
@@ -2223,6 +2304,7 @@ async function doLogin() {
         }
         setToken(data.token);
         setStoredUser(data.user || { username });
+        try { if (Notifications && Notifications.reloadForUser) Notifications.reloadForUser(); } catch (e) {}
         Notifications.success('Signed in', 'Welcome, ' + username + '!');
         await enterApp(true, { skipAuthCheck: true });
     } catch (e) {
@@ -2238,6 +2320,7 @@ function doLogout() {
     if (!confirm('Sign out? You will need to log in again to sync.')) return;
     clearToken();
     clearStoredUser();
+    try { if (Notifications && Notifications.reloadForUser) Notifications.reloadForUser(); } catch (e) {}
     try {
         // Purge this user's notifications + settings so next login starts clean
         Object.keys(localStorage)
@@ -3125,6 +3208,90 @@ function menuItemHtml(key) {
 // ============================================================
 //  ROUTER
 // ============================================================
+// SHELL_LABEL_WALK_V1 — after a view is injected, swap "Accessories"
+// and "Screens" in visible text + display attrs with the admin labels.
+// Skips script and style tags, never touches value= on inputs.
+(function () {
+    function _labels() {
+        var cl = window.CAT_LABELS || {};
+        return {
+            al: cl.al || 'Accessories',
+            sl: cl.sl || 'Screens'
+        };
+    }
+    var _WORD_RE = /\b(Accessories|Accessory|Screens|Screen)\b/g;
+    function _swap(str) {
+        if (!str) return str;
+        var L = _labels();
+        if (L.al === 'Accessories' && L.sl === 'Screens') return str;
+        return str.replace(_WORD_RE, function (w) {
+            if (w === 'Accessories' || w === 'Accessory') return L.al;
+            if (w === 'Screens' || w === 'Screen') return L.sl;
+            return w;
+        });
+    }
+    window._oxSwapCatLabels = _swap;
+
+    function _walk(root) {
+        if (!root) return;
+        var L = _labels();
+        if (L.al === 'Accessories' && L.sl === 'Screens') return;
+
+        // Text nodes only — skip script/style/code
+        var walker = document.createTreeWalker(
+            root,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: function (node) {
+                    var p = node.parentNode;
+                    if (!p) return NodeFilter.FILTER_REJECT;
+                    var tag = (p.tagName || '').toUpperCase();
+                    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'CODE' || tag === 'PRE') {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            }
+        );
+        var textNodes = [];
+        while (walker.nextNode()) textNodes.push(walker.currentNode);
+        textNodes.forEach(function (n) {
+            if (_WORD_RE.test(n.nodeValue)) {
+                n.nodeValue = _swap(n.nodeValue);
+            }
+        });
+
+        // Display attrs — never value=
+        try {
+            root.querySelectorAll('[placeholder], [title], [aria-label]').forEach(function (el) {
+                ['placeholder', 'title', 'aria-label'].forEach(function (a) {
+                    var v = el.getAttribute(a);
+                    if (v && _WORD_RE.test(v)) el.setAttribute(a, _swap(v));
+                });
+            });
+        } catch (e) {}
+    }
+    window._oxWalkCatLabels = _walk;
+
+    // Re-walk on DOM mutations inside the dynamic view container.
+    // Handles renderList() / renderGrid() type code that injects later.
+    document.addEventListener('DOMContentLoaded', function () {
+        var target = document.getElementById('viewDynamic');
+        if (!target || typeof MutationObserver === 'undefined') return;
+        var scheduled = false;
+        var obs = new MutationObserver(function () {
+            if (scheduled) return;
+            scheduled = true;
+            setTimeout(function () {
+                scheduled = false;
+                try { _walk(target); } catch (e) {}
+            }, 80);
+        });
+        obs.observe(target, { childList: true, subtree: true, characterData: true });
+        console.log('[SHELL_LABEL_WALK_V1] observer installed');
+    });
+})();
+
 async function switchView(name) {
     closeMenu();
     if (name === currentView) return;
@@ -3192,6 +3359,10 @@ async function switchView(name) {
 
         // Translate any [data-i18n] in the freshly-injected view
         if (typeof _applyStaticI18n === 'function') _applyStaticI18n(wrap);
+        // SHELL_LABEL_WALK_V1 — swap category labels in static text + attrs
+        if (typeof window._oxWalkCatLabels === 'function') {
+            try { window._oxWalkCatLabels(wrap); } catch (e) {}
+        }
         // Fill any .ox-cur spans with the user's currency symbol
         if (typeof fillOxCur === 'function') {
             try { fillOxCur(); } catch (e) {}
@@ -3252,12 +3423,40 @@ window.backToDashboard = backToDashboard;
 // ============================================================
 //  BOOT
 // ============================================================
-(function boot() {
+(async function boot() {
     landingView.classList.remove('hidden');
     loginView.classList.add('hidden');
     loadingView.classList.add('hidden');
     appView.classList.add('hidden');
     refreshNetStatus({ syncOnRecover: false });
+
+    // AUTOLOGIN_FROM_WEB_V1 — arriving from web sidebar's "Offline" link
+    try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('autologin') === '1') {
+            if (getToken()) {
+                try { await enterApp(true, { skipAuthCheck: true }); return; } catch (e) {}
+            }
+            try {
+                var r = await fetch(RENDER_URL + '/api/auth/shell-token', {
+                    method: 'POST', credentials: 'include'
+                });
+                if (r.ok) {
+                    var j = await r.json();
+                    if (j && j.success && j.token) {
+                        setToken(j.token);
+                        setStoredUser(j.user || {});
+                        await enterApp(true, { skipAuthCheck: true });
+                        return;
+                    }
+                }
+            } catch (e) { console.warn('[autologin] mint failed:', e); }
+            // Web session wasn't valid → nudge the user toward login
+            landingView.classList.add('hidden');
+            loginView.classList.remove('hidden');
+            try { $('loginUser').focus(); } catch (e) {}
+        }
+    } catch (e) { console.warn('[autologin] error:', e); }
 })();
 
 document.getElementById('loginPass').addEventListener('keydown', e => {
@@ -3313,8 +3512,23 @@ document.addEventListener('keydown', e => {
         const isAuthEndpoint = url.includes('/api/auth/check') || url.includes('/api/auth/login');
         if (response.status === 401 && !isAuthEndpoint) {
             try {
+                localStorage.removeItem('ox_api_token');
+                localStorage.removeItem('ox_shell_user');
                 localStorage.removeItem('ox_user');
                 localStorage.removeItem('pin_unlocked');
+            } catch (e) {}
+            // SHELL_401_SAFE_V1 — never leave /offline/ on a 401
+            try {
+                if (window.location.pathname.indexOf('/offline') === 0) {
+                    if (appView && !appView.classList.contains('hidden')) {
+                        appView.classList.add('hidden');
+                        landingView.classList.remove('hidden');
+                        loadingView.classList.add('hidden');
+                        loginView.classList.add('hidden');
+                        showToast('Session expired — please sign in again', { error: true });
+                    }
+                    return response;
+                }
             } catch (e) {}
             if (!window.location.pathname.includes('/login')) {
                 window.location.href = '/login?expired=true&_t=' + Date.now();
@@ -3609,5 +3823,511 @@ document.addEventListener('keydown', e => {
 })();
 </script>
 <!-- /android-backbutton-bridge -->
+
+<!-- GROUP_HELPERS_V1 — shared batch price-grouping helpers -->
+<script>
+(function () {
+    'use strict';
+    function batchGoodStock(batch) {
+        if (!batch) return 0;
+        var rem = parseInt(batch.remaining_quantity || 0, 10);
+        var claimed = parseInt(batch.claimed_quantity || 0, 10);
+        return Math.max(rem - claimed, 0);
+    }
+    function batchRealSold(batch) {
+        if (!batch) return 0;
+        if (typeof batch.sold_quantity === 'number') return batch.sold_quantity;
+        var qty = parseInt(batch.quantity || 0, 10);
+        var rem = parseInt(batch.remaining_quantity || 0, 10);
+        return Math.max(qty - rem, 0);
+    }
+    function roundMoney(v) {
+        var n = parseFloat(v);
+        if (isNaN(n)) return 0;
+        return Math.round(n * 100) / 100;
+    }
+    function groupBatchesByPrice(batches) {
+        if (!Array.isArray(batches) || batches.length === 0) return [];
+        var map = new Map();
+        for (var i = 0; i < batches.length; i++) {
+            var b = batches[i];
+            if (!b) continue;
+            var cost = roundMoney(b.cost_price);
+            var sell = roundMoney(b.selling_price);
+            var key = cost + '|' + sell;
+            if (!map.has(key)) {
+                map.set(key, { key: key, cost_price: cost, selling_price: sell,
+                    batches: [], totals: { quantity: 0, remaining: 0, claimed: 0, sold: 0, good: 0 } });
+            }
+            var g = map.get(key);
+            g.batches.push(b);
+            g.totals.quantity  += parseInt(b.quantity || 0, 10);
+            g.totals.remaining += parseInt(b.remaining_quantity || 0, 10);
+            g.totals.claimed   += parseInt(b.claimed_quantity || 0, 10);
+            g.totals.sold      += batchRealSold(b);
+        }
+        map.forEach(function (g) {
+            g.totals.good = Math.max(g.totals.remaining - g.totals.claimed, 0);
+            g.batches.sort(function (a, b) { return new Date(b.date || 0) - new Date(a.date || 0); });
+        });
+        var arr = [];
+        map.forEach(function (g) { arr.push(g); });
+        arr.sort(function (a, b) {
+            return (a.cost_price - b.cost_price) || (a.selling_price - b.selling_price);
+        });
+        return arr;
+    }
+    function fifoPickFromGroup(group, qty) {
+        var need0 = parseInt(qty || 0, 10);
+        if (need0 <= 0) return [];
+        if (!group || !Array.isArray(group.batches) || group.batches.length === 0) {
+            throw new Error('fifoPickFromGroup: empty group');
+        }
+        var ordered = group.batches.slice().sort(function (a, b) {
+            return new Date(a.date || 0) - new Date(b.date || 0);
+        });
+        var need = need0;
+        var picks = [];
+        for (var i = 0; i < ordered.length; i++) {
+            if (need <= 0) break;
+            var b = ordered[i];
+            var good = batchGoodStock(b);
+            if (good <= 0) continue;
+            var take = Math.min(good, need);
+            picks.push({ batch_id: b.batch_id || b.id, qty: take, batch: b });
+            need -= take;
+        }
+        if (need > 0) throw new Error('fifoPickFromGroup: short by ' + need + ' unit(s)');
+        return picks;
+    }
+    window.batchGoodStock       = batchGoodStock;
+    window.batchRealSold        = batchRealSold;
+    window.roundMoney           = roundMoney;
+    window.groupBatchesByPrice  = groupBatchesByPrice;
+    window.fifoPickFromGroup    = fifoPickFromGroup;
+    console.log('OK: batch grouping helpers loaded');
+})();
+</script>
+
+
+<!-- SHELL_BELL_RING_V1 — two-tone chime + shake animation for shell -->
+<style>
+    .notif-bell.ring { animation: bell-ring 0.7s ease-in-out; }
+    @keyframes bell-ring {
+        0%, 100% { transform: rotate(0); }
+        15%, 45% { transform: rotate(-14deg); }
+        30%, 60% { transform: rotate(14deg); }
+        75% { transform: rotate(-6deg); }
+    }
+</style>
+<script>
+(function () {
+    'use strict';
+
+    // Two-tone chime via Web Audio API — same waveform as templates/base.html
+    if (typeof window.__oxBellSound !== 'function') {
+        window.__oxBellSound = (function () {
+            var ctx = null;
+            function tone(freq, start, dur, gain) {
+                try {
+                    var osc = ctx.createOscillator();
+                    var g = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    g.gain.setValueAtTime(0, ctx.currentTime + start);
+                    g.gain.linearRampToValueAtTime(gain, ctx.currentTime + start + 0.01);
+                    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+                    osc.connect(g).connect(ctx.destination);
+                    osc.start(ctx.currentTime + start);
+                    osc.stop(ctx.currentTime + start + dur);
+                } catch (e) {}
+            }
+            return function () {
+                try {
+                    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    if (ctx.state === 'suspended') ctx.resume();
+                    tone(880, 0, 0.12, 0.15);
+                    tone(1175, 0.10, 0.18, 0.15);
+                } catch (e) {}
+            };
+        })();
+    }
+
+    // Ring the bell: shake icon + play chime
+    function ringBell() {
+        var bell = document.getElementById('notifBell');
+        if (bell) {
+            bell.classList.remove('ring');
+            void bell.offsetWidth; // force reflow so animation restarts
+            bell.classList.add('ring');
+            setTimeout(function () { bell.classList.remove('ring'); }, 800);
+        }
+        try { if (window.__oxBellSound) window.__oxBellSound(); } catch (e) {}
+    }
+    window.__shellRingBell = ringBell;
+
+    // Wrap Notifications.add so every new (non-silent, non-progress) notif rings
+    function hook() {
+        var N = window.Notifications;
+        if (!N || N.__shellBellHooked) return false;
+        if (typeof N.add !== 'function') return false;
+        N.__shellBellHooked = true;
+        var origAdd = N.add;
+        N.add = function (opts) {
+            var result = origAdd.apply(this, arguments);
+            var isSilent = opts && (opts.silent === true || opts.type === 'progress');
+            if (!isSilent) ringBell();
+            return result;
+        };
+        return true;
+    }
+
+    if (!hook()) {
+        var tries = 0;
+        var iv = setInterval(function () {
+            if (hook() || ++tries > 40) clearInterval(iv);
+        }, 250);
+    }
+})();
+</script>
+
+<!-- SHELL_GROUP_TOGGLE_GLOBALS_V1 — expose batch-group toggles globally -->
+<script>
+(function () {
+    'use strict';
+    if (typeof window.toggleBatchGroup !== 'function') {
+        window.toggleBatchGroup = function (domId) {
+            var body = document.getElementById('body-' + domId);
+            var chev = document.getElementById('chev-' + domId);
+            if (!body) return;
+            var nowCollapsed = body.classList.toggle('collapsed');
+            if (chev) chev.textContent = nowCollapsed ? '\u25B8' : '\u25BE';
+            var group = body.closest ? body.closest('.batch-group') : null;
+            if (group) group.classList.toggle('is-collapsed', nowCollapsed);
+        };
+    }
+    if (typeof window.expandAllGroups !== 'function') {
+        window.expandAllGroups = function () {
+            document.querySelectorAll('#batchList .batch-group-body, #saleBatchList .batch-group-body').forEach(function (el) { el.classList.remove('collapsed'); });
+            document.querySelectorAll('#batchList .batch-group, #saleBatchList .batch-group').forEach(function (el) { el.classList.remove('is-collapsed'); });
+            document.querySelectorAll('#batchList .batch-group-chevron, #saleBatchList .batch-group-chevron').forEach(function (el) { el.textContent = '\u25BE'; });
+        };
+    }
+    if (typeof window.collapseAllGroups !== 'function') {
+        window.collapseAllGroups = function () {
+            document.querySelectorAll('#batchList .batch-group-body, #saleBatchList .batch-group-body').forEach(function (el) { el.classList.add('collapsed'); });
+            document.querySelectorAll('#batchList .batch-group, #saleBatchList .batch-group').forEach(function (el) { el.classList.add('is-collapsed'); });
+            document.querySelectorAll('#batchList .batch-group-chevron, #saleBatchList .batch-group-chevron').forEach(function (el) { el.textContent = '\u25B8'; });
+        };
+    }
+    if (typeof window.expandGroupContainingBatch !== 'function') {
+        window.expandGroupContainingBatch = function (batchId) {
+            var item = document.querySelector('#batchList .batch-item[data-batch-id="' + batchId + '"], #saleBatchList .batch-item[data-batch-id="' + batchId + '"]');
+            if (!item) return;
+            var body = item.closest('.batch-group-body');
+            if (!body) return;
+            if (body.classList.contains('collapsed')) {
+                body.classList.remove('collapsed');
+                var group = body.closest('.batch-group');
+                if (group) {
+                    group.classList.remove('is-collapsed');
+                    var chev = document.getElementById('chev-' + group.dataset.groupKey);
+                    if (chev) chev.textContent = '\u25BE';
+                }
+            }
+        };
+    }
+})();
+</script>
+
+<!-- SHELL_TT_MAP_AND_AUDIO_PRIME_V1 -->
+<script>
+(function () {
+    'use strict';
+
+    // ---------- 1. tt() short-key → i18n path map ----------
+    var TT_MAP = {
+        // products.card.*
+        'category':        'products.card.category',
+        'total_stock':     'products.card.total_stock',
+        'cost':            'products.card.cost',
+        'selling':         'products.card.selling',
+        'discount':        'products.card.discount',
+        'good_units':      'products.card.good_units',
+        'in_stock':        'products.card.in_stock',
+        'out_of_stock':    'products.card.out_of_stock',
+        'view_batches':    'products.card.view_batches',
+        'delete_product':  'products.card.delete_product',
+        'empty_none':      'products.empty.none',
+        // products.batch.*
+        'b_in_stock':      'products.batch.in_stock',
+        'b_depleted':      'products.batch.depleted',
+        'b_total':         'products.batch.total',
+        'b_sold':          'products.batch.sold',
+        'b_remaining':     'products.batch.remaining',
+        'b_claimed':       'products.batch.claimed',
+        'b_good':          'products.batch.good',
+        'b_claims':        'products.batch.claims',
+        'b_update':        'products.batch.update',
+        'b_no_batches':    'products.batch.no_batches'
+    };
+
+    window.tt = function (k, fb) {
+        var full = TT_MAP[k] || k;
+        try {
+            if (typeof window.t === 'function') {
+                var v = window.t(full);
+                if (v && /\{[a-zA-Z_]+\}/.test(v)) {
+                    v = window.t(full, { n: '__N__', count: '__N__', qty: '__N__', value: '__N__' });
+                }
+                if (v && v !== full && v !== k) return v;
+            }
+        } catch (e) {}
+        return fb || k;
+    };
+
+    // ---------- 2. AudioContext prime on first user gesture ----------
+    function prime() {
+        try {
+            if (!window.__oxAudioCtx) {
+                window.__oxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (window.__oxAudioCtx.state === 'suspended') {
+                window.__oxAudioCtx.resume().catch(function () {});
+            }
+        } catch (e) {}
+    }
+    ['click', 'touchstart', 'keydown', 'pointerdown'].forEach(function (evt) {
+        document.addEventListener(evt, prime, { once: true, passive: true });
+    });
+
+    // ---------- 3. Replace bell sound with a context-reusing version ----------
+    window.__oxBellSound = function () {
+        try {
+            var ctx = window.__oxAudioCtx;
+            if (!ctx) {
+                ctx = window.__oxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(function () {});
+                // If still suspended (no gesture yet), bail silently.
+                if (ctx.state === 'suspended') return;
+            }
+            function tone(freq, start, dur, gain) {
+                try {
+                    var osc = ctx.createOscillator();
+                    var g = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    g.gain.setValueAtTime(0, ctx.currentTime + start);
+                    g.gain.linearRampToValueAtTime(gain, ctx.currentTime + start + 0.01);
+                    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+                    osc.connect(g).connect(ctx.destination);
+                    osc.start(ctx.currentTime + start);
+                    osc.stop(ctx.currentTime + start + dur);
+                } catch (e) {}
+            }
+            tone(880, 0, 0.12, 0.15);
+            tone(1175, 0.10, 0.18, 0.15);
+        } catch (e) {}
+    };
+})();
+</script>
+
+<script>
+/* === SHELL_AUDIO_PRIME_FIX_V1 (start) === */
+(function () {
+    'use strict';
+
+    // Bind real user gestures only. Synthetic clicks (isTrusted===false)
+    // do not count as gestures in Chrome, so they must be ignored.
+    // Listeners are NOT { once:true } — we want several chances.
+    function prime(evt) {
+        if (evt && evt.isTrusted === false) return;
+        try {
+            if (!window.__oxAudioCtx) {
+                window.__oxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (window.__oxAudioCtx.state === 'suspended') {
+                window.__oxAudioCtx.resume().catch(function () {});
+            }
+        } catch (e) {}
+    }
+    ['click', 'touchstart', 'keydown', 'pointerdown'].forEach(function (evt) {
+        document.addEventListener(evt, prime, { passive: true });
+    });
+
+    // Silent-skip version: only plays when a real context is running.
+    // Never tries to create a context, so no console errors on load.
+    window.__oxBellSound = function () {
+        try {
+            var ctx = window.__oxAudioCtx;
+            if (!ctx || ctx.state !== 'running') return;
+            function tone(freq, start, dur, gain) {
+                try {
+                    var osc = ctx.createOscillator();
+                    var g = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    g.gain.setValueAtTime(0, ctx.currentTime + start);
+                    g.gain.linearRampToValueAtTime(gain, ctx.currentTime + start + 0.01);
+                    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+                    osc.connect(g).connect(ctx.destination);
+                    osc.start(ctx.currentTime + start);
+                    osc.stop(ctx.currentTime + start + dur);
+                } catch (e) {}
+            }
+            tone(880, 0, 0.12, 0.15);
+            tone(1175, 0.10, 0.18, 0.15);
+        } catch (e) {}
+    };
+})();
+/* === SHELL_AUDIO_PRIME_FIX_V1 (end) === */
+</script>
+
+
+<!-- SHELL_BATCH_FILTER_HOST_V1 — host-level bootstrap for the batch_id filter -->
+<script>
+(function () {
+    'use strict';
+
+    if (window.__SHELL_BATCH_HOST_V1) return;
+    window.__SHELL_BATCH_HOST_V1 = true;
+
+    // ---------- Read batch_id from URL (works in the newly-opened tab) ----------
+    function getBatchId() {
+        try {
+            var u = new URL(window.location.href);
+            var b = u.searchParams.get('batch_id');
+            if (b && !isNaN(parseInt(b, 10))) return parseInt(b, 10);
+        } catch (e) {}
+        return null;
+    }
+
+    // ---------- Install fetch wrapper once, globally ----------
+    (function wrapFetchOnce() {
+        if (window.__SHELL_BATCH_FETCH_WRAPPED) return;
+        window.__SHELL_BATCH_FETCH_WRAPPED = true;
+        var _origFetch = window.fetch;
+        window.fetch = function (input, init) {
+            try {
+                var bid = getBatchId();
+                var urlStr = (typeof input === 'string') ? input : (input && input.url) || '';
+                if (bid && urlStr.indexOf('/api/today_sales') !== -1 && urlStr.indexOf('batch_id=') === -1) {
+                    var sep = urlStr.indexOf('?') === -1 ? '?' : '&';
+                    var newUrl = urlStr + sep + 'batch_id=' + bid;
+                    if (typeof input === 'string') input = newUrl;
+                    else if (input && input.url) input = new Request(newUrl, input);
+                }
+            } catch (e) {}
+            return _origFetch.apply(this, [input, init]);
+        };
+    })();
+
+    // ---------- Update the banner as soon as it appears ----------
+    function ensureBanner() { /* SHELL_BATCH_BANNER_REMOVED_V1 — disabled */ }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ensureBanner);
+    } else {
+        setTimeout(ensureBanner, 0);
+    }
+
+    // Watch for the banner appearing when a view is injected
+    if (window.MutationObserver) {
+        var obs = new MutationObserver(function () { ensureBanner(); });
+        try {
+            obs.observe(document.documentElement, { childList: true, subtree: true });
+        } catch (e) {}
+    }
+})();
+</script>
+
+<!-- SHELL_URL_DISPATCH_V1 — navigate helpers open shell + view param -->
+<script>
+(function () {
+    'use strict';
+    function norm(cat) {
+        var c = String(cat || '').toLowerCase();
+        if (c === 'screen' || c === 'screens' || c.indexOf('screen') === 0) return 'screen';
+        return 'accessories';
+    }
+    function shellBase() {
+        // Derive the shell URL from the current page.
+        // We assume the shell lives at /offline/ with autologin.
+        try {
+            var u = new URL(window.location.href);
+            // If we're already inside /offline/, keep origin + /offline/
+            var path = u.pathname;
+            var m = path.match(/^(.*\/offline\/)/);
+            if (m) return u.origin + m[1];
+            return u.origin + '/offline/';
+        } catch (e) {
+            return '/offline/';
+        }
+    }
+    window.navigateToBatchSales = function (batchId, category) {
+        if (batchId === null || batchId === undefined || batchId === '') return;
+        var isScr = (norm(category) === 'screen');
+        var view = isScr ? 'today-screens' : 'today-accessories';
+        var url = shellBase() + '?autologin=1&view=' + view + '&batch_id=' + encodeURIComponent(batchId);
+        try { window.open(url, '_blank'); } catch (e) {}
+    };
+    window.navigateToPurchase = function (batchId, category) {
+        if (batchId === null || batchId === undefined || batchId === '') return;
+        var isScr = (norm(category) === 'screen');
+        var view = isScr ? 'purchases-screens' : 'purchases';
+        var url = shellBase() + '?autologin=1&view=' + view + '&edit_batch=' + encodeURIComponent(batchId);
+        try { window.open(url, '_blank'); } catch (e) {}
+    };
+})();
+</script>
+
+<!-- SHELL_BOOT_VIEW_V1 — dispatches ?view= to switchView after boot -->
+<script>
+(function () {
+    'use strict';
+    if (window.__SHELL_BOOT_VIEW_HOOKED) return;
+    window.__SHELL_BOOT_VIEW_HOOKED = true;
+
+    function getView() {
+        try {
+            var u = new URL(window.location.href);
+            return u.searchParams.get('view');
+        } catch (e) { return null; }
+    }
+
+    function dispatch() {
+        var view = getView();
+        if (!view) return;
+        if (typeof window.switchView !== 'function') {
+            setTimeout(dispatch, 200);
+            return;
+        }
+        try { window.switchView(view); } catch (e) {}
+    }
+
+    function attach() {
+        if (typeof window.enterApp !== 'function') {
+            if (window.__SHELL_BOOT_VIEW_TRIES === undefined) window.__SHELL_BOOT_VIEW_TRIES = 0;
+            if (++window.__SHELL_BOOT_VIEW_TRIES < 60) setTimeout(attach, 250);
+            return;
+        }
+        if (window.enterApp.__bootViewWrapped) return;
+        var orig = window.enterApp;
+        var wrapped = function () {
+            var r = orig.apply(this, arguments);
+            if (r && typeof r.then === 'function') r.then(function () { setTimeout(dispatch, 250); });
+            else setTimeout(dispatch, 400);
+            return r;
+        };
+        wrapped.__bootViewWrapped = true;
+        window.enterApp = wrapped;
+        // Also try immediately in case enterApp already ran
+        setTimeout(dispatch, 800);
+    }
+    attach();
+})();
+</script>
 </body>
 </html>

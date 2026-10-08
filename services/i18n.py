@@ -18,6 +18,7 @@ Adding a string:
   2. Add translations under other languages — missing keys fall back to English
 """
 
+import re
 from services.settings_service import get_language
 
 
@@ -3521,20 +3522,68 @@ def _lookup(key, lang):
     return key  # last resort — returns the key so missing entries are obvious
 
 
+# ═══════════════════════════════════════════════════════════════
+#  CATEGORY LABEL OVERRIDE
+#  Swaps "Accessories" / "Screens" in any translated string with the
+#  admin-configured labels (app_settings). Cached ~10s so we don't hit
+#  the DB on every t() call.
+# ═══════════════════════════════════════════════════════════════
+import time as _time
+
+_LABEL_CACHE = {'ts': 0.0, 'al': None, 'sl': None}
+_LABEL_TTL = 10.0
+
+
+def _get_cat_labels():
+    now = _time.time()
+    if _LABEL_CACHE['al'] is not None and (now - _LABEL_CACHE['ts']) < _LABEL_TTL:
+        return _LABEL_CACHE['al'], _LABEL_CACHE['sl']
+    al, sl = 'Accessories', 'Screens'
+    try:
+        from services.settings_service import get_app_settings
+        aps = get_app_settings() or {}
+        al = (aps.get('accessory_label') or '').strip() or 'Accessories'
+        sl = (aps.get('screen_label')    or '').strip() or 'Screens'
+    except Exception:
+        pass
+    _LABEL_CACHE.update({'ts': now, 'al': al, 'sl': sl})
+    return al, sl
+
+
+def _apply_cat_labels(s):
+    """Replace default category words (plural and singular) with admin labels.
+    Single-pass, word-boundary-anchored so custom labels containing the
+    original words are not double-substituted."""
+    if not isinstance(s, str) or not s:
+        return s
+    al, sl = _get_cat_labels()
+    if al == 'Accessories' and sl == 'Screens':
+        return s
+    def _one(m):
+        w = m.group(0)
+        if w in ('Accessories', 'Accessory'):
+            return al
+        if w in ('Screens', 'Screen'):
+            return sl
+        return w
+    return re.sub(r'\b(Accessories|Accessory|Screens|Screen)\b', _one, s)
+
+
 def t(key, lang=DEFAULT_LANG, **kwargs):
     """
-    Translate a key to the given language.
+    Translate a key to the given language, then apply any custom
+    accessory/screen category labels from app_settings.
 
     t('nav.dashboard', 'es')                     -> 'Panel'
     t('settings.low_stock.preset', 'es', n=3)    -> '3 unidades'
     """
     raw = _lookup(key, lang)
-    if not kwargs:
-        return raw
-    try:
-        return raw.format(**kwargs)
-    except (KeyError, IndexError, ValueError):
-        return raw
+    if kwargs:
+        try:
+            raw = raw.format(**kwargs)
+        except (KeyError, IndexError, ValueError):
+            pass
+    return _apply_cat_labels(raw)
 
 
 def t_for_user(key, user_id, **kwargs):

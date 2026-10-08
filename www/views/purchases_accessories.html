@@ -48,9 +48,32 @@
         </div>
         <div>
             <label class="block text-sm font-medium text-gray-700">Category</label>
-            <input type="text" id="category" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800" autocomplete="off" placeholder="e.g. Accessory, Phone" value="Accessory">
+            <input type="text" id="category" autocomplete="off"
+                   data-default-label="Accessories"
+                   data-raw-category="Accessory"
+                   value="Accessories"
+                   class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2">
             <div id="categorySuggestions" class="absolute z-10 bg-white border rounded-lg shadow-lg hidden max-h-60 overflow-y-auto w-full"></div>
         </div>
+        <script>
+        (function(){
+            try {
+                var el = document.getElementById('category');
+                if (el && window.CAT_LABELS) {
+                    el.value = window.CAT_LABELS.al;
+                    el.setAttribute('data-default-label', window.CAT_LABELS.al);
+                }
+            } catch(e) {}
+        })();
+        </script>
+        <script>
+        (function(){
+          try {
+            var el = document.querySelector('input[data-cat-display="accessory"]');
+            if (el && window.CAT_LABELS) el.value = window.CAT_LABELS.al;
+          } catch(e) {}
+        })();
+        </script>
         <div>
             <label class="block text-sm font-medium text-gray-700" data-i18n="purchases.form.qty">Quantity</label>
             <input type="number" id="quantity" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800">
@@ -1508,7 +1531,14 @@ async function submitPurchase() {
     const payload = {
         name: document.getElementById('name').value.trim(),
         brand: document.getElementById('brand').value.trim(),
-        category: document.getElementById('category').value.trim() || 'Accessory',
+        category: (function(){
+            var _el = document.getElementById('category');
+            if (!_el) return 'Accessory';
+            var _v = (_el.value || '').trim();
+            var _def = _el.getAttribute('data-default-label') || '';
+            var _raw = _el.getAttribute('data-raw-category') || 'Accessory';
+            return (!_v || _v === _def) ? _raw : _v;
+        })(),
         quantity: parseInt(document.getElementById('quantity').value),
         cost_price: parseFloat(document.getElementById('cost_price').value),
         discount: parseFloat(document.getElementById('discount').value) || 0,
@@ -1705,7 +1735,13 @@ function editPurchase(batchId) {
 
     document.getElementById('name').value = purchase.name || '';
     document.getElementById('brand').value = purchase.brand || '';
-    document.getElementById('category').value = purchase.category || 'Accessory';
+    (function(){
+        var _el = document.getElementById('category');
+        var _def = _el.getAttribute('data-default-label') || 'Accessories';
+        var _raw = _el.getAttribute('data-raw-category') || 'Accessory';
+        var _cat = purchase.category || _raw;
+        _el.value = (_cat === _raw) ? _def : _cat;
+    })();
     document.getElementById('quantity').value = purchase.quantity || '';
     document.getElementById('cost_price').value = purchase.cost_price || '';
     document.getElementById('discount').value = purchase.discount || 0;
@@ -1731,7 +1767,10 @@ window.editPurchase = editPurchase;
 function resetForm() {
     document.getElementById('name').value = '';
     document.getElementById('brand').value = '';
-    document.getElementById('category').value = 'Accessory';
+    (function(){
+        var _el = document.getElementById('category');
+        _el.value = _el.getAttribute('data-default-label') || 'Accessories';
+    })();
     document.getElementById('quantity').value = '';
     document.getElementById('cost_price').value = '';
     document.getElementById('discount').value = '';
@@ -1878,7 +1917,13 @@ async function fetchProductSuggestions(inputId, suggestionsId) {
 window.selectProductSuggestion = function(name, brand, category) {
     document.getElementById('name').value = name;
     document.getElementById('brand').value = brand;
-    document.getElementById('category').value = category || 'Accessory';
+    (function(){
+        var _el = document.getElementById('category');
+        var _def = _el.getAttribute('data-default-label') || 'Accessories';
+        var _raw = _el.getAttribute('data-raw-category') || 'Accessory';
+        var _cat = category || _raw;
+        _el.value = (_cat === _raw) ? _def : _cat;
+    })();
     document.getElementById('nameSuggestions').classList.add('hidden');
     document.getElementById('brandSuggestions').classList.add('hidden');
 };

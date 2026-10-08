@@ -7,7 +7,18 @@
 // Routing, retry, and dead-lettering are byte-for-byte identical to the
 // web version — nothing here changes how ops reach Supabase.
 
-const _SYNC_API_BASE = 'https://ox-smart-pos-release-version.onrender.com';
+// SYNC_LAZY_BASE_V1 — prefer the shell's window.RENDER_URL when present.
+// That keeps localhost/local dev working (127.0.0.1:5000) while the APK
+// continues to talk to the deployed Render origin.
+const _SYNC_PROD_BASE = 'https://ox-smart-pos-release-version.onrender.com';
+function _syncApiBase() {
+    try {
+        if (typeof window.RENDER_URL === 'string' && window.RENDER_URL) {
+            return window.RENDER_URL;
+        }
+    } catch (e) {}
+    return _SYNC_PROD_BASE;
+}
 
 function _syncAuthHeaders() {
     const h = { 'Content-Type': 'application/json' };
@@ -19,7 +30,7 @@ function _syncAuthHeaders() {
 }
 
 async function _syncFetch(path, options = {}) {
-    const url = path.startsWith('http') ? path : _SYNC_API_BASE + path;
+    const url = path.startsWith('http') ? path : _syncApiBase() + path;
     const opts = Object.assign({ credentials: 'include' }, options);
     opts.headers = Object.assign(_syncAuthHeaders(), opts.headers || {});
     return fetch(url, opts);

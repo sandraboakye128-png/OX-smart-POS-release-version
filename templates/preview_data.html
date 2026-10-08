@@ -480,6 +480,7 @@
 <script>
 (function() {
 'use strict';
+// PV_CAT_PATCHED
 window.__pvHideDebug = true;  // set false to silence filter debug logs
 console.log('[pv] build v3 (dom-scan fix) loaded');
 
@@ -551,6 +552,20 @@ let PV = {
 })();
 
 // ---- UI flow ----------------------------------------------------------
+// ── Category label resolver: maps raw 'Accessory'/'Screen' → admin label ──
+var PV_LABELS = {
+  accessory: {{ (app_settings.accessory_label if app_settings and app_settings.accessory_label else 'Accessories')|tojson }},
+  screen:    {{ (app_settings.screen_label    if app_settings and app_settings.screen_label    else 'Screens')|tojson }}
+};
+function pvLabel(cat) {
+  if (!cat) return cat;
+  var lc = String(cat).toLowerCase();
+  if (lc === 'accessory' || lc === 'accessories') return PV_LABELS.accessory;
+  if (lc === 'screen'    || lc === 'screens')    return PV_LABELS.screen;
+  return cat;
+}
+window.pvLabel = pvLabel;
+
 window.previewPickKind = function(kind) {
     PV.kind = kind;
     $('pvStep1').classList.add('hidden');
@@ -614,7 +629,7 @@ async function previewLoad() {
         });
         previewRenderHead();
         previewRenderBody();
-        $('pvTitle').textContent = (PV.kind === 'purchases' ? '📦' : '💰') + ' ' + PV.category;
+        $('pvTitle').textContent = (PV.kind === 'purchases' ? '📦' : '💰') + ' ' + pvLabel(PV.category);
         $('pvCount').textContent = `${PV.rows.length} rows`;
         $('pvStatus').textContent = '';
         // Load auto-suggest data (best-effort)
@@ -814,12 +829,18 @@ function previewRenderBody() {
             const categoryIsEditable =
                 isCategory && PV.category === 'Accessory';
 
+            // Category: show label, carry raw value in data-raw-cat
+            const _dispVal = isCategory ? pvLabel(val) : val;
+            const _rawCatAttr = (isCategory && val)
+                ? ` data-raw-cat="${escapeHtml(String(val))}"`
+                : '';
+
             // ARCHIVED ROW: hard-lock every cell — no contenteditable, no inputs
             if (_isArchived) {
-                return `<td data-key="${c.key}" data-type="${c.type}"
+                return `<td data-key="${c.key}" data-type="${c.type}"${_rawCatAttr}
                         contenteditable="false"
                         class="px-3 py-1.5 border-b text-red-900 whitespace-nowrap select-none"
-                        style="pointer-events:none !important; user-select:none;">${escapeHtml(String(val))}</td>`;
+                        style="pointer-events:none !important; user-select:none;">${escapeHtml(String(_dispVal))}</td>`;
             }
 
             if (isDate) {
@@ -836,8 +857,8 @@ function previewRenderBody() {
             const cls = (c.editable || categoryIsEditable)
                 ? 'px-3 py-1.5 border-b text-gray-800'
                 : 'px-3 py-1.5 border-b text-gray-500 bg-gray-50';
-            return `<td data-key="${c.key}" data-type="${c.type}" ${edit}
-                    class="${cls} whitespace-nowrap focus:outline-none focus:bg-amber-50">${escapeHtml(String(val))}</td>`;
+            return `<td data-key="${c.key}" data-type="${c.type}" ${edit}${_rawCatAttr}
+                    class="${cls} whitespace-nowrap focus:outline-none focus:bg-amber-50">${escapeHtml(String(_dispVal))}</td>`;
         }).join('');
         const _action = String(r.action || '').toLowerCase();
         let rowCls = '';
@@ -990,7 +1011,7 @@ window.previewRestoreRow = async function(i) {
 window.previewAddRow = function() {
     const blank = {};
     PV.columns.forEach(c => { blank[c.key] = c.type === 'int' || c.type === 'float' ? 0 : ''; });
-    blank.category = (PV.category === 'Screen') ? 'Screen' : '';
+    blank.category = (PV.category === 'Screen') ? 'Screen' : 'Accessory';
     // Pre-fill Sold By with the current user (server ignores client value
     // and uses the authenticated session user — this is just a UI hint).
     try {
@@ -1042,8 +1063,17 @@ function collectRows() {
                 return;
             }
             let v = td.textContent.trim();
-            if (type === 'int') v = parseInt(v) || 0;
-            else if (type === 'float') v = parseFloat(v) || 0;
+            if (key === 'category') {
+                var _rawAttr = td.getAttribute('data-raw-cat');
+                if (!v) {
+                    v = _rawAttr || 'Accessory';
+                } else if (_rawAttr && v === pvLabel(_rawAttr)) {
+                    v = _rawAttr;
+                }
+            } else {
+                if (type === 'int') v = parseInt(v) || 0;
+                else if (type === 'float') v = parseFloat(v) || 0;
+            }
             obj[key] = v;
         });
         out.push(obj);
@@ -1248,6 +1278,24 @@ function pvRenderSuggest(items, onPick) {
     window.__pvSuggestItems = items;
 }
 
+// Focus: if a category cell is showing the label, select all so typing replaces it
+document.addEventListener('focusin', function(e) {
+    var td = e.target.closest && e.target.closest('td[data-key="category"][contenteditable="true"]');
+    if (!td) return;
+    var raw = td.getAttribute('data-raw-cat');
+    if (!raw) return;
+    var shown = (td.textContent || '').trim();
+    if (shown === pvLabel(raw)) {
+        try {
+            var range = document.createRange();
+            range.selectNodeContents(td);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        } catch (err) {}
+    }
+});
+
 // Attach input handler on contenteditable cells
 document.addEventListener('input', function(e) {
     const td = e.target.closest && e.target.closest('td[data-key][contenteditable="true"]');
@@ -1310,9 +1358,18 @@ document.addEventListener('input', function(e) {
         items = matches.map(p => ({ main: p.brand || '—', sub: p.name, payload: p }));
         onPick = (it) => { td.textContent = it.payload.brand || ''; };
     } else if (key === 'category') {
-        const matches = cats.filter(c => !typed || c.toLowerCase().includes(typed)).slice(0, 100);
-        items = matches.map(c => ({ main: c, sub: '' }));
-        onPick = (it) => { td.textContent = it.main; };
+        // If the cell is still showing its own label, treat as empty filter
+        var _rawAttr = td.getAttribute('data-raw-cat');
+        var _effectiveTyped = typed;
+        if (_rawAttr && typed === pvLabel(_rawAttr).toLowerCase()) {
+            _effectiveTyped = '';
+        }
+        const matches = cats.filter(c => !_effectiveTyped || c.toLowerCase().includes(_effectiveTyped)).slice(0, 100);
+        items = matches.map(c => ({ main: pvLabel(c), sub: '', raw: c }));
+        onPick = (it) => {
+            td.textContent = it.main;
+            if (it.raw) td.setAttribute('data-raw-cat', it.raw);
+        };
 
     } else if (key === 'item_id') {
         // Filter by product ID prefix; if empty, show all products

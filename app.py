@@ -1,3 +1,4 @@
+import re
 from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, session
 from functools import wraps
 from services.product_service import get_all_products as get_all_products_service
@@ -182,6 +183,7 @@ def parse_date_cell(value):
 # ===================== CREATE APP =====================
 # ===================== CREATE APP =====================
 app = Flask(__name__)
+# ALL_WRITE_SITES_NOTIFY_V1
 app.secret_key = os.getenv("SECRET_KEY", "temporary-dev-key")
 
 # ✅ App version / environment — exposed to templates + /settings page
@@ -213,7 +215,7 @@ from datetime import datetime, timezone
 # In-memory token store. Survives until process restart.
 # Move to a Postgres table later if you want tokens to outlive deploys.
 _API_TOKENS = {}
-_TOKEN_TTL = timedelta(days=30)
+_TOKEN_TTL = timedelta(days=7)  # SESSION_TTL_V1 — offline shell
 
 _ALLOWED_CORS_ORIGINS = {
     'https://localhost',
@@ -307,6 +309,54 @@ def api_auth_revoke_token():
     if auth.startswith('Bearer '):
         _API_TOKENS.pop(auth[7:].strip(), None)
     return jsonify({'success': True})
+
+@app.route('/api/auth/shell-token', methods=['POST'])
+def api_auth_shell_token():
+    """SHELL_TOKEN_ENDPOINT_V1 — mint a bearer token from an existing
+    cookie session. Used by the shell's auto-login when arriving from
+    the web sidebar's "Offline" link."""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Not logged in'}), 401
+    token = secrets.token_urlsafe(32)
+    _API_TOKENS[token] = {
+        'user_id': session.get('user_id'),
+        'username': session.get('username'),
+        'role': session.get('role'),
+        'expires_at': datetime.now(timezone.utc) + _TOKEN_TTL,
+    }
+    return jsonify({
+        'success': True,
+        'token': token,
+        'user': {
+            'id': session.get('user_id'),
+            'username': session.get('username'),
+            'role': session.get('role'),
+        },
+        'expires_in': int(_TOKEN_TTL.total_seconds()),
+    })
+
+# SESSION_TTL_V1 — enforce absolute session expiry on every request.
+# Runs after bearer-token resolution so shell tokens are unaffected
+# (they carry their own expires_at in _API_TOKENS).
+@app.before_request
+def _enforce_session_expiry():
+    if 'user_id' not in session:
+        return
+    exp = session.get('expires_at')
+    if not exp:
+        return  # legacy session without the field — leave alone
+    try:
+        exp_dt = datetime.fromisoformat(exp)
+        if exp_dt.tzinfo is None:
+            exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) >= exp_dt:
+            session.clear()
+            if request.path.startswith('/api/'):
+                return jsonify({'error': 'Session expired'}), 401
+            return redirect('/login?expired=1')
+    except Exception:
+        pass
+
 
 @app.route('/sw.js')
 def service_worker():
@@ -474,6 +524,15 @@ def admin_required(f):
 # ===================== PUBLIC ROUTES =====================
 @app.route("/login")
 def login():
+    # SESSION_TTL_V1 — remember the short-session flag across the login POST.
+    # Shell's "Use App Online" opens /?web_session=1day, which redirects here.
+    try:
+        if (request.args.get('web_session') or '').lower() in ('1day', '24h', 'short'):
+            session['web_short_session'] = True
+        elif (request.args.get('web_session') or '').lower() in ('0', 'off', 'full'):
+            session.pop('web_short_session', None)
+    except Exception:
+        pass
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     return render_template("login.html")
@@ -486,8 +545,20 @@ def signup():
 
 # ===================== PROTECTED ROUTES =====================
 @app.route("/")
-@login_required
 def dashboard():
+    # SESSION_TTL_V1 — if unauthenticated, forward the short-session flag
+    # to /login so the 24h window is applied on the subsequent POST.
+    if 'user_id' not in session:
+        qs = ''
+        try:
+            ws = request.args.get('web_session')
+            if ws:
+                qs = '?web_session=' + str(ws)
+        except Exception:
+            pass
+        return redirect('/login' + qs)
+    # Dashboard is admin-only in the sidebar but accessible to any
+    # logged-in user via direct URL — keep the existing behavior.
     return render_template("dashboard.html")
 
 @app.route("/products")
@@ -669,6 +740,9 @@ def api_create_claim():
         return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/api/claims/<int:claim_id>', methods=['PUT'])
+
+# CLAIM CREATED NOTIFICATION (insertion marker)
+
 @login_required
 def api_update_claim(claim_id):
     data = request.json
@@ -750,10 +824,20 @@ def api_auth_login():
         session['username'] = user['username']
         session['role'] = user['role']
         session.permanent = True  # ✅ Make session permanent
+
+        # SESSION_TTL_V1 — absolute expiry timestamp on the session itself.
+        # Default is 7 days; the shell's "Use App Online" flow appends
+        # ?web_session=1day, which the /login route stores in session and
+        # this reads back to apply a 24-hour window instead.
+        _ttl_hours = 24 if session.get('web_short_session') else 24 * 7
+        session['expires_at'] = (datetime.now(timezone.utc)
+                                 + timedelta(hours=_ttl_hours)).isoformat()
+
         return jsonify({
             'success': True, 
             'user': user,
-            'session_token': str(uuid.uuid4())  # ✅ Optional: for tracking
+            'session_token': str(uuid.uuid4()),
+            'expires_in_hours': _ttl_hours,
         })
     else:
         return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
@@ -1059,6 +1143,9 @@ def api_admin_create_user():
         return jsonify({'success': False, 'error': 'Username already exists'}), 400
 
 @app.route('/api/admin/users/<int:user_id>', methods=['DELETE'])
+
+# USER CREATE NOTIFICATION (marker)
+
 @admin_required
 def api_admin_delete_user(user_id):
     # Block deleting yourself
@@ -1939,6 +2026,19 @@ def api_add_product():
             selling_price=float(data['selling_price'])
         )
         return jsonify({'success': True, 'batch_id': batch_id})
+
+        # PRODUCT ADD NOTIFICATION
+        try:
+            add_notification(
+                'product_added',
+                f'\U0001F4E6 Product added \u00b7 {data["name"]}',
+                f'{data.get("brand","")} \u00b7 qty {data.get("quantity",0)}',
+                {'batch_id': batch_id, 'name': data.get('name','')},
+                user_id=session.get('user_id'),
+            )
+        except Exception as _ne:
+            print(f"[product_added-notify] {_ne}")
+
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
 
@@ -2297,6 +2397,21 @@ def api_sales_complete():
         )
         
         receipt_cart = []
+        # SALE COMPLETE NOTIFICATION
+        try:
+            _items_cnt = len(cart_items)
+            _tot = result.get('total', 0)
+            add_notification(
+                'sale_completed',
+                f'\U0001F4B0 Sale #{result["sale_id"]}',
+                f'{_items_cnt} item(s) \u00b7 \u20b5{_tot:.2f} \u00b7 {payment_method}',
+                {'sale_id': result['sale_id'], 'total': float(_tot),
+                 'payment_method': payment_method},
+                user_id=session.get('user_id'),
+            )
+        except Exception as _ne:
+            print(f"[sale_completed-notify] {_ne}")
+
         for idx, item in enumerate(cart_items):
             product_batches = []
             # ✅ FIX: Get product_id from the product object
@@ -3327,6 +3442,47 @@ def api_update_app_settings():
         return jsonify({'success': False, 'error': err or 'Update failed'}), 400
     return jsonify({'success': True, 'updated': keys, 'settings': get_app_settings()})
 
+
+@app.after_request
+def _swap_cat_labels_html(response):
+    """Swap Accessories/Accessory/Screens/Screen in visible text with
+    admin-configured labels. Skips <script>, <style>, and comments."""
+    try:
+        ct = (response.content_type or "").lower()
+        if "text/html" not in ct:
+            return response
+        body = response.get_data(as_text=True)
+        if not any(w in body for w in ("Accessories","Accessory","Screens","Screen")):
+            return response
+        try:
+            from services.i18n import _get_cat_labels, _apply_cat_labels
+        except Exception:
+            return response
+        al, sl = _get_cat_labels()
+        if al == "Accessories" and sl == "Screens":
+            return response
+        preserved = []
+        def _stash(m):
+            preserved.append(m.group(0))
+            return "LCSTASH" + str(len(preserved) - 1) + "ENDSTASH"
+        body = re.sub(r"<script\b[^>]*>.*?</script>", _stash, body, flags=re.DOTALL | re.IGNORECASE)
+        body = re.sub(r"<style\b[^>]*>.*?</style>",   _stash, body, flags=re.DOTALL | re.IGNORECASE)
+        body = re.sub(r"<!--.*?-->", _stash, body, flags=re.DOTALL)
+        body = re.sub(r">([^<]*)<",
+                      lambda m: ">" + _apply_cat_labels(m.group(1)) + "<",
+                      body)
+        # Swap display-only attributes (never value=, so form data stays raw)
+        for attr in ("placeholder", "title", "aria-label"):
+            pat = re.compile(r'(?<![-\w])' + attr + r'=(["\'])(.*?)\1', flags=re.DOTALL)
+            body = pat.sub(lambda m: attr + '=' + m.group(1) + _apply_cat_labels(m.group(2)) + m.group(1), body)
+
+        body = re.sub(r"LCSTASH(\d+)ENDSTASH",
+                      lambda m: preserved[int(m.group(1))], body)
+        response.set_data(body)
+    except Exception as e:
+        try: print("[cat-label] after_request: " + str(e))
+        except Exception: pass
+    return response
 
 @app.context_processor
 def inject_app_settings():
@@ -4625,7 +4781,8 @@ def run_sales_import(job_id, file_stream, target_category, mode='append', user_i
             if remaining <= 0: break
             take = min(int(b_rem or 0), remaining)
             if take <= 0: continue
-            cur.execute("UPDATE purchase_batches SET remaining_quantity = remaining_quantity - %s WHERE id = %s",
+            cur.execute("UPDATE purchase_batches SET remaining_quantity = remaining_quantity - %s, "
+                        "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                         (take, bid))
             share = (discount_total or 0) * (take / qty) if qty else 0
             item_profit = (rate - float(b_cost or 0)) * take - share
@@ -4654,6 +4811,23 @@ def run_sales_import(job_id, file_stream, target_category, mode='append', user_i
                 cat_where = "LOWER(COALESCE(p.category, '')) = 'screen'"
             else:
                 cat_where = "LOWER(COALESCE(p.category, '')) != 'screen'"
+            # Restore batch remaining BEFORE deleting sales_items, or the
+            # batches stay permanently depleted by the rows we're wiping.
+            cur.execute(f"""
+                SELECT si.batch_id, SUM(si.quantity)
+                FROM sales_items si
+                JOIN products p ON p.id = si.product_id
+                WHERE si.batch_id IS NOT NULL AND {cat_where}
+                GROUP BY si.batch_id
+            """)
+            for _bid, _q in cur.fetchall():
+                if _bid is None or not _q:
+                    continue
+                cur.execute(
+                    "UPDATE purchase_batches SET remaining_quantity = remaining_quantity + %s, "
+                    "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (int(_q), _bid)
+                )
             cur.execute(f"""
                 DELETE FROM sales_items
                 WHERE product_id IN (SELECT id FROM products p WHERE {cat_where})
@@ -4702,25 +4876,61 @@ def run_sales_import(job_id, file_stream, target_category, mode='append', user_i
                 total = subtotal - item['discount']
 
                 if existing_sale_id:
+                    # (a) Restore the old sale's batch deductions so FIFO can
+                    #     re-run cleanly against fresh stock.
+                    cur.execute("""
+                        SELECT batch_id, SUM(quantity) FROM sales_items
+                        WHERE sale_id = %s AND batch_id IS NOT NULL
+                        GROUP BY batch_id
+                    """, (existing_sale_id,))
+                    for _bid, _q in cur.fetchall():
+                        if _bid is None or not _q:
+                            continue
+                        cur.execute(
+                            "UPDATE purchase_batches SET remaining_quantity = remaining_quantity + %s, "
+                            "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                            (int(_q), _bid)
+                        )
+                    # (b) Drop the old line items for this product.
+                    cur.execute("DELETE FROM sales_items WHERE sale_id = %s AND product_id = %s",
+                                (existing_sale_id, product_id))
+                    # (c) Update the sale header.
                     cur.execute("""
                         UPDATE sales
                         SET date = %s, subtotal = %s, discount = %s, total = %s,
                             payment_method = %s, cheque_number = %s,
-                            action = 'updated_from_excel'
+                            action = 'updated_from_import'
                         WHERE id = %s
                     """, (item['sale_date'], subtotal, item['discount'], total,
                           item['payment_method'], item['cheque_number'] or None,
                           existing_sale_id))
-                    cur.execute("DELETE FROM sales_items WHERE sale_id = %s AND product_id = %s",
-                                (existing_sale_id, product_id))
-                    item_profit = (item['selling_price'] - item['cost_price']) * item['quantity'] - item['discount']
+                    # (d) Re-FIFO against fresh stock, linked to real batches.
+                    _ded, _profit = _fifo_deduct(
+                        cur, product_id, item['quantity'],
+                        existing_sale_id, item['selling_price'], item['discount']
+                    )
+                    # (e) Shortfall — carry sheet cost_price so profit isn't lost.
+                    if _ded < item['quantity']:
+                        _short = item['quantity'] - _ded
+                        _share = (item['discount'] * (_short / item['quantity'])) if item['quantity'] else 0
+                        _sp = (item['selling_price'] - item['cost_price']) * _short - _share
+                        cur.execute("""
+                            INSERT INTO sales_items
+                            (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
+                            VALUES (%s, %s, NULL, %s, %s, %s, %s)
+                        """, (existing_sale_id, product_id, _short,
+                              item['selling_price'], item['cost_price'], _sp))
+                        _profit += _sp
+                        overall_errors.append(
+                            f"Row {item['row_idx']}: only {_ded}/{item['quantity']} units had batch stock"
+                        )
+                    cur.execute("UPDATE sales SET profit = %s WHERE id = %s", (_profit, existing_sale_id))
                     cur.execute("""
-                        INSERT INTO sales_items
-                        (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
-                        VALUES (%s, %s, NULL, %s, %s, %s, %s)
-                    """, (existing_sale_id, product_id, item['quantity'],
-                          item['selling_price'], item['cost_price'], item_profit))
-                    cur.execute("UPDATE sales SET profit = %s WHERE id = %s", (item_profit, existing_sale_id))
+                        UPDATE products SET stock = COALESCE((
+                            SELECT SUM(remaining_quantity) FROM purchase_batches
+                            WHERE product_id = products.id
+                        ), 0) WHERE id = %s
+                    """, (product_id,))
                     updated_count += 1
                     matched_count += 1
                 else:
@@ -4728,7 +4938,7 @@ def run_sales_import(job_id, file_stream, target_category, mode='append', user_i
                         INSERT INTO sales
                         (date, subtotal, discount, total, profit, reversed,
                          payment_method, cheque_number, user_id, action)
-                        VALUES (%s, %s, %s, %s, %s, 0, %s, %s, %s, 'added_from_excel')
+                        VALUES (%s, %s, %s, %s, %s, 0, %s, %s, %s, 'added_from_import')
                     """, (item['sale_date'], subtotal, item['discount'], total, 0,
                           item['payment_method'], item['cheque_number'] or None,
                           user_id))
@@ -4741,12 +4951,15 @@ def run_sales_import(job_id, file_stream, target_category, mode='append', user_i
 
                     if deducted < item['quantity']:
                         short = item['quantity'] - deducted
+                        _share = (item['discount'] * (short / item['quantity'])) if item['quantity'] else 0
+                        _sp = (item['selling_price'] - item['cost_price']) * short - _share
                         cur.execute("""
                             INSERT INTO sales_items
                             (sale_id, product_id, batch_id, quantity, selling_price, cost_price, profit)
-                            VALUES (%s, %s, NULL, %s, %s, %s, 0)
+                            VALUES (%s, %s, NULL, %s, %s, %s, %s)
                         """, (new_sale_id, product_id, short,
-                              item['selling_price'], item['cost_price']))
+                              item['selling_price'], item['cost_price'], _sp))
+                        total_profit += _sp
                         overall_errors.append(
                             f"Row {item['row_idx']}: only {deducted}/{item['quantity']} units had batch stock"
                         )
@@ -4790,6 +5003,22 @@ def run_sales_import(job_id, file_stream, target_category, mode='append', user_i
             message += f', {len(skipped_rows)} skipped'
         if warning_rows:
             message += f', {len(warning_rows)} warnings'
+
+        # SALE IMPORT NOTIFICATION
+        try:
+            _cat_label = 'Screens' if target_category == 'Screen' else 'Accessories'
+            add_notification(
+                'sale_imported',
+                f'\U0001F4E5 Sales import \u00b7 {_cat_label}',
+                f'{inserted_count} added, {updated_count} updated'
+                  + (f' \u00b7 {len(skipped_rows)} skipped' if skipped_rows else ''),
+                {'job_id': job_id, 'category': target_category, 'mode': mode,
+                 'inserted': inserted_count, 'updated': updated_count,
+                 'skipped': len(skipped_rows)},
+                user_id=user_id,
+            )
+        except Exception as _ne:
+            print(f"[sale_imported-notify] {_ne}")
 
         update_job_progress(job_id, status='done',
                             result={'imported': inserted_count + updated_count,
@@ -5150,9 +5379,7 @@ def api_import_report_pdf(job_id):
 
 # ===================== IMPORT VERIFICATION =====================
 def verify_import(job_id, file_stream, target_category):
-    if not DATABASE_URL:
-        return {'error': 'DATABASE_URL not configured'}
-
+    # VERIFY_BACKEND_AGNOSTIC — works on both SQLite and Postgres.
     try:
         wb = load_workbook(file_stream, data_only=True)
         ws = wb.active
@@ -5203,7 +5430,7 @@ def verify_import(job_id, file_stream, target_category):
     try:
         import time
         time.sleep(0.2)
-        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+        conn = get_connection()
         cursor = conn.cursor()
 
         for row_idx, row in enumerate(ws.iter_rows(min_row=header_row_idx + 1, values_only=True), start=header_row_idx + 1):

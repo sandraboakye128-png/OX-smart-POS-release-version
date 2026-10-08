@@ -1,3 +1,4 @@
+<!-- VIEW_NAV_DECL_FIX_V1 -->
 <!-- ============================================================ -->
 <!-- VIEW: Products (Accessories) — bundled, reads Dexie         -->
 <!-- Layout mirrors templates/products_accessories.html           -->
@@ -170,6 +171,8 @@
                 </div>
                 <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
                     <span id="batchCountDisplay" class="bmi-modal-count"></span>
+                    <button onclick="expandAllGroups()" class="bmi-modal-clearbtn" title="Expand all">&#9662; Expand</button>
+                    <button onclick="collapseAllGroups()" class="bmi-modal-clearbtn" title="Collapse all">&#9656; Collapse</button>
                     <button onclick="clearBatchSearch()" class="bmi-modal-clearbtn hidden" id="clearBatchSearchBtn">✕ Clear</button>
                 </div>
             </div>
@@ -355,6 +358,21 @@
         .batch-item-stats  { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
         .batch-item-prices { grid-template-columns: 1fr !important; }
     }
+
+    /* PRODUCTS_GROUPED_V1 — collapsible price groups */
+    .batch-group { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; overflow: hidden; box-sizing: border-box; width: 100%; flex-shrink: 0; }
+    .batch-group-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #f8fafc; cursor: pointer; user-select: none; min-height: 44px; box-sizing: border-box; flex-wrap: wrap; }
+    .batch-group-header:hover { background: #f1f5f9; }
+    .batch-group:not(.is-collapsed) .batch-group-header { border-bottom: 1px solid #e5e7eb; }
+    .batch-group-chevron { display: inline-block; width: 14px; text-align: center; color: #64748b; font-size: 0.85rem; flex-shrink: 0; }
+    .batch-group-title-text { color: #4f46e5; font-size: 0.9rem; font-weight: 600; flex-shrink: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .batch-group-count { display: inline-block; font-size: 0.7rem; background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 10px; font-weight: 600; flex-shrink: 0; }
+    .batch-group-spacer { flex: 1 1 auto; min-width: 4px; }
+    .batch-group-body { display: block; padding: 10px; background: #fbfdff; box-sizing: border-box; flex-shrink: 0; }
+    .batch-group-body.collapsed { display: none !important; }
+    .batch-group-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-bottom: 10px; }
+    .batch-group-list { display: flex; flex-direction: column; gap: 8px; }
+    .batch-group-list > .batch-item { flex-shrink: 0; }
 </style>
 
 <!-- ===================== SCRIPT ===================== -->
@@ -760,7 +778,11 @@ function viewBatchesWithData(productId) {
     if (!p) { alert('Product data not found.'); return; }
     currentBatches = p.batches || [];
     currentBatchModalProductName = p.name;
-    $('modalTitle').textContent = `Batches for ${p.name} (${currentBatches.length})`;
+    const groupCount = (window.groupBatchesByPrice && currentBatches.length > 0)
+        ? window.groupBatchesByPrice(currentBatches).length
+        : currentBatches.length;
+    $('modalTitle').textContent =
+        `Batches for ${p.name} (${groupCount} group${groupCount !== 1 ? 's' : ''} - ${currentBatches.length} batch${currentBatches.length !== 1 ? 'es' : ''})`;
     $('batchSearchInput').value = '';
     $('clearBatchSearchBtn').classList.add('hidden');
     renderBatchList(currentBatches);
@@ -769,73 +791,187 @@ function viewBatchesWithData(productId) {
 }
 window.viewBatchesWithData = viewBatchesWithData;
 
-function renderBatchList(batches) {
-    const container = $('batchList');
-    currentBatchSelections = [];
-    batchLookup = {};
-    if (!batches.length) {
-        container.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px 0;">No batches available.</div>';
-        return;
+// PRODUCTS_GROUPED_V1
+    if (typeof tt !== 'function') { window.tt = function (k, fb) { return fb || k; }; }
+    function groupKeyToDomId(groupKey) { return String(groupKey).replace(/[^0-9]/g, '_'); }
+
+    // SHELL_COMPAT_SHIM_V1
+// The grouped-render code was ported from the web templates, which define
+// safeMoney / tt / window.IS_ADMIN / navigateToPurchase. The shell uses
+// formatMoney instead, so we shim the web names onto the shell equivalents.
+(function () {
+    if (typeof window.safeMoney !== 'function') {
+        window.safeMoney = function (v, d) {
+            if (d === undefined) d = 2;
+            var n = parseFloat(v); if (isNaN(n)) n = 0;
+            try {
+                if (typeof window.formatMoney === 'function') return window.formatMoney(n);
+            } catch (e) {}
+            var cur = (typeof window.OX_CURRENCY !== 'undefined' && window.OX_CURRENCY)
+                   || (typeof window.CURRENCY !== 'undefined' && window.CURRENCY)
+                   || '\u20b5';
+            return cur + n.toFixed(d);
+        };
     }
-    batches.forEach(b => { batchLookup[b.batch_id] = b; });
+    if (typeof window.IS_ADMIN === 'undefined') window.IS_ADMIN = true;
+    if (typeof window.tt !== 'function') {
+        window.tt = function (k, fb) {
+            try {
+                if (typeof window.t === 'function') {
+                    var v = window.t(k);
+                    if (v && v !== k) return v;
+                }
+            } catch (e) {}
+            return fb || k;
+        };
+    }
+    if (typeof window.navigateToPurchase !== 'function') {
+        window.navigateToPurchase = function (batchId) {
+            try { window.open('purchases.html?edit_batch=' + batchId, '_blank'); } catch (e) {}
+        };
+    }
+    if (typeof window.navigateToBatchSales !== 'function') {
+        window.navigateToBatchSales = function (batchId) {
+            try { window.open('today_sales.html?batch_id=' + batchId, '_blank'); } catch (e) {}
+        };
+    }
+})();
 
-    container.innerHTML = batches.map(batch => {
-        const hasClaims = (batch.claimed_quantity || 0) > 0;
-        const claimBadge = hasClaims
-            ? `<span class="batch-claim-badge">⚠️ ${batch.claimed_quantity} Claimed</span>`
-            : '';
-        const inStock = batch.remaining_quantity > 0;
-        const statusColor = inStock ? '#16a34a' : '#dc2626';
-        const statusText  = inStock ? ('● ' + $t('products.batch.in_stock', 'In Stock')) : ('● ' + $t('products.batch.depleted', 'Depleted'));
-        const totalQty     = batch.quantity || 0;
-        const remainingQty = batch.remaining_quantity || 0;
-        const claimedQty   = batch.claimed_quantity || 0;
-        const goodQty      = Math.max(remainingQty - claimedQty, 0);
-        const soldQty      = batch.sold_quantity || 0;
-        const canViewSales = soldQty > 0;
-        const dateStr = batch.date ? new Date(batch.date).toLocaleString() : 'No date';
+function renderBatchList(batches, opts) {
+        opts = opts || {};
+        var forceExpand = opts.forceExpand === true;
+        var container = document.getElementById('batchList');
+        container.innerHTML = '';
+        currentBatchSelections = [];
+        batchLookup = {};
+        if (!batches || batches.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:32px 0;">' + tt('b_no_batches') + '</div>';
+            return;
+        }
+        batches.forEach(function (b) { batchLookup[b.batch_id] = b; });
+        if (typeof window.groupBatchesByPrice !== 'function') {
+            console.warn('groupBatchesByPrice helper not loaded');
+            var flat = '';
+            batches.forEach(function (b) { flat += renderSingleBatchHtml(b); });
+            container.innerHTML = flat;
+            attachBatchCheckboxListeners(container);
+            return;
+        }
+        var groups = window.groupBatchesByPrice(batches);
+        var html = '';
+        groups.forEach(function (group) {
+            var domId = groupKeyToDomId(group.key);
+            var anyInStock = group.batches.some(function (b) { return (b.remaining_quantity || 0) > 0; });
+            var anyFaulty = group.batches.some(function (b) { return (b.claimed_quantity || 0) > 0; });
+            var groupBadge = anyFaulty ? '<span class="batch-claim-badge">Has claims</span>' : '';
+            var collapsedClass = forceExpand ? '' : 'collapsed';
+            var chevron = forceExpand ? 'v' : '>';
+            html += '<div class="batch-group ' + (forceExpand ? '' : 'is-collapsed') + '" data-group-key="' + domId + '">'
+                + '<div class="batch-group-header" onclick="toggleBatchGroup(\'' + domId + '\')">'
+                + '<span class="batch-group-chevron" id="chev-' + domId + '">' + chevron + '</span>'
+                + '<span class="batch-group-title-text">Cost ' + safeMoney(group.cost_price) + ' / Selling ' + safeMoney(group.selling_price) + '</span>'
+                + '<span class="batch-group-count">' + group.batches.length + ' batch' + (group.batches.length !== 1 ? 'es' : '') + '</span>'
+                + groupBadge
+                + '<span class="batch-group-spacer"></span>'
+                + '<span class="batch-status-pill" style="color:' + (anyInStock ? '#16a34a' : '#dc2626') + ';">' + (anyInStock ? 'In Stock' : 'Depleted') + '</span>'
+                + '</div>'
+                + '<div class="batch-group-body ' + collapsedClass + '" id="body-' + domId + '">'
+                + '<div class="batch-group-stats">'
+                + '<div class="batch-stat"><span class="batch-stat-label">' + tt('b_total') + '</span><span class="batch-stat-value">' + group.totals.quantity + '</span></div>'
+                + '<div class="batch-stat sold"><span class="batch-stat-label">' + tt('b_sold') + '</span><span class="batch-stat-value">' + group.totals.sold + '</span></div>'
+                + '<div class="batch-stat"><span class="batch-stat-label">' + tt('b_remaining') + '</span><span class="batch-stat-value">' + group.totals.remaining + '</span></div>'
+                + '<div class="batch-stat claimed"><span class="batch-stat-label">' + tt('b_claimed') + '</span><span class="batch-stat-value">' + group.totals.claimed + '</span></div>'
+                + '<div class="batch-stat good"><span class="batch-stat-label">' + tt('b_good') + '</span><span class="batch-stat-value">' + group.totals.good + '</span></div>'
+                + '</div>'
+                + '<div class="batch-group-list">'
+                + group.batches.map(function (b) { return renderSingleBatchHtml(b); }).join('')
+                + '</div></div></div>';
+        });
+        container.innerHTML = html;
+        attachBatchCheckboxListeners(container);
+    }
 
-        return `
-            <div class="batch-item" data-batch-id="${batch.batch_id}">
-                <input type="checkbox" class="batch-item-checkbox batch-checkbox" data-batch-id="${batch.batch_id}">
-                <div class="batch-item-body">
-                    <div class="batch-item-header">
-                        <div class="batch-item-title">
-                            <strong>Batch #${batch.batch_id}</strong>
-                            ${claimBadge}
-                        </div>
-                        <div class="batch-item-actions">
-                            <span class="batch-status-pill" style="color:${statusColor};">${statusText}</span>
-                            ${hasClaims ? `<button onclick="event.stopPropagation(); viewBatchClaims(${batch.batch_id})" class="batch-btn batch-btn-claims">📋 ${$t('products.batch.claims', 'Claims')}</button>` : ''}
-                            ${IS_ADMIN ? `<button onclick="event.stopPropagation(); navigateToPurchase(${batch.batch_id})" class="batch-btn batch-btn-update">✏️ ${$t('products.batch.update', 'Update')}</button>` : ''}
-                        </div>
-                    </div>
-                    <div class="batch-item-date">${dateStr}</div>
-                    <div class="batch-item-stats">
-                        <div class="batch-stat"><span class="batch-stat-label">${$t('products.batch.total', 'Total')}</span><span class="batch-stat-value">${totalQty}</span></div>
-                        <div class="batch-stat sold" ${canViewSales ? `onclick="event.stopPropagation(); navigateToBatchSales(${batch.batch_id})" style="cursor:pointer;"` : ''}>
-                            <span class="batch-stat-label">${$t('products.batch.sold', 'Sold')}${canViewSales ? ' 🔍' : ''}</span>
-                            <span class="batch-stat-value">${soldQty}</span>
-                        </div>
-                        <div class="batch-stat"><span class="batch-stat-label">${$t('products.batch.remaining', 'Remaining')}</span><span class="batch-stat-value">${remainingQty}</span></div>
-                        <div class="batch-stat claimed"><span class="batch-stat-label">${$t('products.batch.claimed', 'Claimed')}</span><span class="batch-stat-value">${claimedQty}</span></div>
-                        <div class="batch-stat good"><span class="batch-stat-label">✅ ${$t('products.batch.good', 'Good')}</span><span class="batch-stat-value">${goodQty}</span></div>
-                    </div>
-                    <div class="batch-item-prices">
-                        ${IS_ADMIN ? `<span class="batch-price">Cost: <strong>${money(batch.cost_price)}</strong></span>` : ''}
-                        <span class="batch-price">Selling: <strong>${money(batch.selling_price)}</strong></span>
-                        ${batch.discount > 0 ? `<span class="batch-price full">Discount: <strong>${money(batch.discount)}</strong></span>` : ''}
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
+    function renderSingleBatchHtml(batch) {
+        var hasClaims = batch.claimed_quantity && batch.claimed_quantity > 0;
+        var claimBadge = hasClaims ? '<span class="batch-claim-badge">' + batch.claimed_quantity + ' Claimed</span>' : '';
+        var inStock = batch.remaining_quantity > 0;
+        var statusColor = inStock ? '#16a34a' : '#dc2626';
+        var statusText = inStock ? tt('b_in_stock') : tt('b_depleted');
+        var totalQty = batch.quantity || 0;
+        var remainingQty = batch.remaining_quantity || 0;
+        var claimedQty = batch.claimed_quantity || 0;
+        var goodQty = remainingQty - claimedQty;
+        var soldQty = (typeof batch.sold_quantity === 'number') ? batch.sold_quantity : Math.max(totalQty - remainingQty, 0);
+        var canViewSales = soldQty > 0;
+        var dateStr = batch.date ? new Date(batch.date).toLocaleString() : 'No date';
+        return '<div class="batch-item" data-batch-id="' + batch.batch_id + '">'
+            + '<input type="checkbox" class="batch-item-checkbox batch-checkbox" data-batch-id="' + batch.batch_id + '">'
+            + '<div class="batch-item-body">'
+            + '<div class="batch-item-header">'
+            + '<div class="batch-item-title"><strong>Batch #' + batch.batch_id + '</strong>' + claimBadge + '</div>'
+            + '<div class="batch-item-actions">'
+            + '<span class="batch-status-pill" style="color:' + statusColor + ';">' + statusText + '</span>'
+            + (hasClaims ? '<button onclick="event.stopPropagation(); viewBatchClaims(' + batch.batch_id + ')" class="batch-btn batch-btn-claims">Claims</button>' : '')
+            + (window.IS_ADMIN ? '<button onclick="event.stopPropagation(); navigateToPurchase(' + batch.batch_id + ", 'Accessory'" + ')" class="batch-btn batch-btn-update">Update</button>' : '')
+            + '</div></div>'
+            + '<div class="batch-item-date">' + dateStr + '</div>'
+            + '<div class="batch-item-stats">'
+            + '<div class="batch-stat"><span class="batch-stat-label">' + tt('b_total') + '</span><span class="batch-stat-value">' + totalQty + '</span></div>'
+            + '<div class="batch-stat sold ' + ('clickable') + '" ' + ('onclick="event.stopPropagation(); navigateToBatchSales(' + batch.batch_id + ", 'Accessory'" + ')"') + '><span class="batch-stat-label">' + tt('b_sold') + '</span><span class="batch-stat-value">' + soldQty + '</span></div>'
+            + '<div class="batch-stat"><span class="batch-stat-label">' + tt('b_remaining') + '</span><span class="batch-stat-value">' + remainingQty + '</span></div>'
+            + '<div class="batch-stat claimed"><span class="batch-stat-label">' + tt('b_claimed') + '</span><span class="batch-stat-value">' + claimedQty + '</span></div>'
+            + '<div class="batch-stat good"><span class="batch-stat-label">' + tt('b_good') + '</span><span class="batch-stat-value">' + Math.max(goodQty, 0) + '</span></div>'
+            + '</div>'
+            + '<div class="batch-item-prices">'
+            + (window.IS_ADMIN ? '<span class="batch-price">Cost: <strong>' + safeMoney(batch.cost_price) + '</strong></span>' : '')
+            + '<span class="batch-price">Selling: <strong>' + safeMoney(batch.selling_price) + '</strong></span>'
+            + (batch.discount > 0 ? '<span class="batch-price full">Discount: <strong>' + safeMoney(batch.discount) + '</strong></span>' : '')
+            + '</div>'
+            + (hasClaims ? '<div style="font-size:0.75rem;color:#ef4444;margin-top:6px;">' + claimedQty + ' units claimed as faulty</div>' : '')
+            + '</div></div>';
+    }
 
-    container.querySelectorAll('.batch-checkbox').forEach(cb => {
-        const bid = parseInt(cb.dataset.batchId);
-        currentBatchSelections.push({ cb, batchId: bid, batch: batchLookup[bid] || {} });
-    });
-}
+    function attachBatchCheckboxListeners(container) {
+        container.querySelectorAll('.batch-checkbox').forEach(function (cb) {
+            var batchId = parseInt(cb.dataset.batchId);
+            var batchData = batchLookup[batchId] || {};
+            currentBatchSelections.push({ cb: cb, batchId: batchId, batch: batchData });
+        });
+    }
+    function toggleBatchGroup(domId) {
+        var body = document.getElementById('body-' + domId);
+        var chev = document.getElementById('chev-' + domId);
+        if (!body) return;
+        var nowCollapsed = body.classList.toggle('collapsed');
+        if (chev) chev.textContent = nowCollapsed ? '>' : 'v';
+        var group = body.closest('.batch-group');
+        if (group) group.classList.toggle('is-collapsed', nowCollapsed);
+    }
+    function expandAllGroups() {
+        document.querySelectorAll('#batchList .batch-group-body').forEach(function (el) { el.classList.remove('collapsed'); });
+        document.querySelectorAll('#batchList .batch-group').forEach(function (el) { el.classList.remove('is-collapsed'); });
+        document.querySelectorAll('#batchList .batch-group-chevron').forEach(function (el) { el.textContent = 'v'; });
+    }
+    function collapseAllGroups() {
+        document.querySelectorAll('#batchList .batch-group-body').forEach(function (el) { el.classList.add('collapsed'); });
+        document.querySelectorAll('#batchList .batch-group').forEach(function (el) { el.classList.add('is-collapsed'); });
+        document.querySelectorAll('#batchList .batch-group-chevron').forEach(function (el) { el.textContent = '>'; });
+    }
+    function expandGroupContainingBatch(batchId) {
+        var item = document.querySelector('#batchList .batch-item[data-batch-id="' + batchId + '"]');
+        if (!item) return;
+        var body = item.closest('.batch-group-body');
+        if (!body) return;
+        if (body.classList.contains('collapsed')) {
+            body.classList.remove('collapsed');
+            var group = body.closest('.batch-group');
+            if (group) {
+                group.classList.remove('is-collapsed');
+                var chev = document.getElementById('chev-' + group.dataset.groupKey);
+                if (chev) chev.textContent = 'v';
+            }
+        }
+    }
 
 function updateBatchCount(shown, total) {
     $('batchCountDisplay').textContent = (shown === total)
@@ -1002,44 +1138,13 @@ window.viewBatchClaims = viewBatchClaims;
 function closeClaimModal() { $('claimModal').classList.add('hidden'); }
 window.closeClaimModal = closeClaimModal;
 
-// ---------- Navigate to web (opens in system browser) ----------
-function navigateToPurchase(batchId) {
-    if (!IS_ADMIN) return;
-    window.open(RENDER + `/purchases?edit_batch=${batchId}`, '_system');
-}
 
-function navigateToBatchSales(batchId) {
-    if (!batchId) return;
 
-    // Stash the batch id for the today-sales view to pick up.
-    try {
-        sessionStorage.setItem('oxPendingBatchFilter', JSON.stringify({
-            batch_id: batchId,
-            category: 'Accessory',
-            at: Date.now()
-        }));
-    } catch (e) {}
 
-    // Shell router: switchView('today-accessories') — key from VIEWS registry.
-    if (typeof window.switchView === 'function') {
-        try { window.switchView('today-accessories'); return; } catch (e) {}
-    }
-
-    // Fallback: fire an event in case the shell router changes later.
-    try {
-        window.dispatchEvent(new CustomEvent('ox:navigate', {
-            detail: { path: 'today-accessories', query: { batch_id: batchId } }
-        }));
-    } catch (e) {}
-
-    // Absolute last resort — bump sessionStorage so a manual reopen still works.
-    try { sessionStorage.setItem('oxPendingBatchFilter', JSON.stringify({
-        batch_id: batchId, category: 'Accessory', at: Date.now()
-    })); } catch (e) {}
-}
-window.navigateToPurchase   = navigateToPurchase;
-window.navigateToBatchSales = navigateToBatchSales;
-
+// VIEW_NAV_DECL_FIX_V1 — host version wins
+// window.navigateToPurchase   = navigateToPurchase;
+// VIEW_NAV_DECL_FIX_V1 — host version wins
+// window.navigateToBatchSales = navigateToBatchSales;
 // ---------- Search ----------
 function matchesSearch(value, term, mode, cs) {
     if (!value) return false;
@@ -1232,4 +1337,10 @@ loadProducts();
 setTimeout(_scheduleAutoOpen, 100);
 
 })();
+
+// SHELL_GROUP_TOGGLE_EXPORTS_V1
+window.toggleBatchGroup          = toggleBatchGroup;
+window.expandAllGroups           = expandAllGroups;
+window.collapseAllGroups         = collapseAllGroups;
+window.expandGroupContainingBatch = expandGroupContainingBatch;
 </script>

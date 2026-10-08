@@ -641,12 +641,34 @@ def get_purchase_history(batch_id):
 # ============================================================
 
 def get_sold_history(batch_id):
-    """Get all sales records for a batch with dates and quantities."""
+    """Get all sales records for a batch with dates and quantities.
+    SOLD_HISTORY_FALLBACK_V2 — tries the auth users join for usernames;
+    on failure retries without it so the modal still shows qty / price /
+    profit / date instead of "0 units"."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT 
+        # SOLD_HISTORY_ATTACH_AUTH
+        # SQLite stores users in a separate file — attach it as `auth`.
+        # Postgres has one schema, so no attach is needed.
+        try:
+            modname = (type(conn).__module__ or '').lower()
+            _is_pg = 'psycopg' in modname
+        except Exception:
+            _is_pg = False
+        _users_table = 'users'
+        if not _is_pg:
+            try:
+                from database.db import AUTH_DB_PATH
+                cursor.execute('ATTACH DATABASE ? AS auth', (AUTH_DB_PATH,))
+                _users_table = 'auth.users'
+            except Exception as _attach_err:
+                try: conn.rollback()
+                except Exception: pass
+                _users_table = 'users'
+
+        _with_join = f"""
+            SELECT
                 si.id,
                 si.quantity,
                 si.selling_price,
@@ -658,11 +680,35 @@ def get_sold_history(batch_id):
                 u.username
             FROM sales_items si
             JOIN sales s ON s.id = si.sale_id
-            LEFT JOIN users u ON s.user_id = u.id
+            LEFT JOIN {_users_table} u ON s.user_id = u.id
             WHERE si.batch_id = %s
             ORDER BY s.date DESC
-        """, (batch_id,))
-        rows = cursor.fetchall()
+        """
+        _no_join = """
+            SELECT
+                si.id,
+                si.quantity,
+                si.selling_price,
+                si.cost_price,
+                si.profit,
+                s.date as sale_date,
+                s.id as sale_id,
+                s.total as sale_total,
+                NULL as username
+            FROM sales_items si
+            JOIN sales s ON s.id = si.sale_id
+            WHERE si.batch_id = %s
+            ORDER BY s.date DESC
+        """
+        try:
+            cursor.execute(_with_join, (batch_id,))
+            rows = cursor.fetchall()
+        except Exception as _join_err:
+            print(f"get_sold_history: users join failed ({_join_err}); using fallback")
+            try: conn.rollback()
+            except Exception: pass
+            cursor.execute(_no_join, (batch_id,))
+            rows = cursor.fetchall()
         return [
             {
                 "sale_item_id": r[0],
@@ -673,7 +719,7 @@ def get_sold_history(batch_id):
                 "sale_date": r[5],
                 "sale_id": r[6],
                 "sale_total": r[7],
-                "username": r[8] if len(r) > 8 else 'Unknown'
+                "username": r[8] if len(r) > 8 and r[8] else 'Unknown'
             }
             for r in rows
         ]
@@ -682,12 +728,6 @@ def get_sold_history(batch_id):
         return []
     finally:
         conn.close()
-
-
-# ============================================================
-#  GET ALL PURCHASES (WITH ORIGINAL DATA + REAL SOLD)
-# ============================================================
-
 def get_all_purchases():
     conn = get_connection()
     try:

@@ -576,15 +576,15 @@ function tsApplySearchAndRender() {
 // ============================================================
 function getPaymentBadge(method, cheque) {
     if (method === 'cash' || !method) {
-        return '<span class="inline-flex items-center bg-green-100 text-green-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">${$t('ts.badge_cash','💵 Cash')}</span>';
+        return `<span class="inline-flex items-center bg-green-100 text-green-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">${$t('ts.badge_cash','💵 Cash')}</span>`;
     }
     if (method === 'momo') {
-        return '<span class="inline-flex items-center bg-blue-100 text-blue-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">${$t('ts.badge_momo','📱 MoMo')}</span>';
+        return `<span class="inline-flex items-center bg-blue-100 text-blue-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">${$t('ts.badge_momo','📱 MoMo')}</span>`;
     }
     if (method === 'cheque') {
         return `<span class="inline-flex items-center bg-purple-100 text-purple-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">${$t('ts.badge_cheque','📝 Cheque')} ${cheque ? '#' + escapeHtml(cheque) : ''}</span>`;
     }
-    return '<span class="inline-flex items-center bg-gray-100 text-gray-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">${$t('ts.badge_unknown','❓ Unknown')}</span>';
+    return `<span class="inline-flex items-center bg-gray-100 text-gray-800 px-1.5 py-0.5 md:px-2 md:py-1 rounded text-xs font-medium">${$t('ts.badge_unknown','❓ Unknown')}</span>`;
 }
 
 function tsRenderSales(items, searchTerm) {
@@ -1268,4 +1268,6 @@ tsLoadSales();
 window.__refreshTodaySalesView = tsLoadSales;
 
 })();
+// TS_PAYMENT_BADGE_FIX_V1
 </script>
+

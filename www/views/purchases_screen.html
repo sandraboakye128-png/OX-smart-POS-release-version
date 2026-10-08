@@ -48,9 +48,20 @@
         </div>
         <div>
             <label class="block text-sm font-medium text-gray-700">Category</label>
-            <input type="text" id="category" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800" autocomplete="off" placeholder="e.g. Screen" value="Screen" readonly>
-            <div id="categorySuggestions" class="absolute z-10 bg-white border rounded-lg shadow-lg hidden max-h-60 overflow-y-auto w-full"></div>
+            <input type="text" id="category_display" readonly tabindex="-1"
+                   data-cat-display="screen"
+                   value="Screens"
+                   class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed">
+            <input type="hidden" id="category" value="Screen">
         </div>
+        <script>
+        (function(){
+          try {
+            var el = document.querySelector('input[data-cat-display="screen"]');
+            if (el && window.CAT_LABELS) el.value = window.CAT_LABELS.sl;
+          } catch(e) {}
+        })();
+        </script>
         <div>
             <label class="block text-sm font-medium text-gray-700" data-i18n="purchases.form.qty">Quantity</label>
             <input type="number" id="quantity" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800">
