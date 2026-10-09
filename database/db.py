@@ -552,21 +552,31 @@ if USE_POSTGRES:
                     raise
 
     def return_connection(conn):
-        """Return connection to the pool, or close it if not pooled."""
+        """POOL_RETURN_FIX_V1 — always return to pool, rollback if needed."""
         global connection_pool
         if conn is None:
             return
+        # Roll back any open transaction so the connection is clean.
         try:
-            if connection_pool and hasattr(conn, '_pool'):
-                connection_pool.putconn(conn)
-            else:
-                conn.close()
-        except Exception as e:
-            print(f"Error returning connection: {e}")
+            if getattr(conn, 'closed', 0) == 0:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # Primary path: return to pool.
+        if connection_pool is not None:
             try:
-                conn.close()
+                connection_pool.putconn(conn)
+                return
             except Exception:
                 pass
+        # Fallback: close it.
+        try:
+            conn.close()
+        except Exception:
+            pass
 
     # ---------- AUTH CONNECTION (Postgres) ----------
     # On Postgres everything lives in one database, so "auth" is the same pool.

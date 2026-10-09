@@ -1296,8 +1296,13 @@ document.addEventListener('focusin', function(e) {
     }
 });
 
+// PV_TYPING_FIX_V2 — caret snapshot + debounced suggestions
+var _pvSuggestTimer = null;
+var _pvCaretSnapshot = null;
 // Attach input handler on contenteditable cells
 document.addEventListener('input', function(e) {
+    // PV_TYPING_FIX_V2 — snapshot caret for safe DOM updates
+    try { var _sel = window.getSelection(); if (_sel && _sel.rangeCount) { var _r = _sel.getRangeAt(0); _pvCaretSnapshot = { s: _r.startOffset, e: _r.endOffset, node: _r.startContainer }; } } catch (_e) {}
     const td = e.target.closest && e.target.closest('td[data-key][contenteditable="true"]');
     if (!td) return;
     try {
@@ -1416,7 +1421,11 @@ document.addEventListener('input', function(e) {
     if (items.length === 0) { pvHideSuggest(); return; }
     PV.suggestCell = td;
     pvPositionSuggest(td);
-    pvRenderSuggest(items, onPick);
+    // PV_TYPING_FIX_V3 — debounce suggestion render
+    clearTimeout(_pvSuggestTimer);
+    _pvSuggestTimer = setTimeout(function() {
+        pvRenderSuggest(items, onPick);
+    }, 250);
 });
 
 // Auto-fill from a manually typed item_id (on blur/change)

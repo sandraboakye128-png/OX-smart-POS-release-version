@@ -5,7 +5,7 @@
       data-font-family="{{ settings.font_family if settings else 'system' }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
     <title>OX Smart POS</title>
 
     <!-- ============================================================ -->
@@ -113,7 +113,7 @@
     <!-- ===== SERVICE WORKER ===== -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=14')
+            navigator.serviceWorker.register('/sw.js?v=43')
                 .then(() => console.log('✅ Service Worker registered (v11)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
@@ -157,11 +157,11 @@
         }
 
         /* === LAYOUT === */
-        .app-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+        .app-container { display: flex; height: 100vh; height: 100dvh; width: 100vw; overflow: hidden; }
         .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; }
         .sidebar-overlay.active { display: block; }
         .sidebar {
-            position: fixed; top: 0; left: 0; width: 240px; height: 100vh;
+            position: fixed; top: 0; left: 0; width: 240px; height: 100vh; height: 100dvh;
             z-index: 50; background: #1E293B;
             box-shadow: 4px 0 15px rgba(0,0,0,0.2);
             overflow-y: auto; flex-shrink: 0;
@@ -483,7 +483,7 @@
         /* === CONTENT WRAPPER === */
         .main-content-wrapper {
             flex: 1; display: flex; flex-direction: column;
-            height: 100vh; width: 100%; min-width: 0; overflow: hidden;
+            height: 100vh; height: 100dvh; width: 100%; min-width: 0; overflow: hidden;
         }
         .main-content {
             flex: 1; padding: 1rem;
@@ -1199,7 +1199,7 @@ const Notifications = (function () {
                 _timer: null,
             };
             items.unshift(notif);
-            if (!silent && type !== 'progress') ringBell();  // RING_FOR_ALL_V1
+            ringBell();  // BELL_ALL_V1 — always ring (coalesced inside ringBell)
             _refresh();
             _save();
             if (!persistent && duration > 0 && type !== 'progress') {
@@ -1235,6 +1235,12 @@ const Notifications = (function () {
             _save();
         }
         function ringBell() {
+        // BELL_ALL_V1 — coalesce bursts < 200ms into one chime
+        try {
+            var _now = Date.now();
+            if (window.__lastBellAt && _now - window.__lastBellAt < 200) return;
+            window.__lastBellAt = _now;
+        } catch (e) {}
             const bell = document.getElementById('notifBell');
             if (bell) {
                 bell.classList.remove('ring');
@@ -1932,7 +1938,7 @@ const Notifications = (function () {
           var nid = PREFIX + it.id;
           if (!existingIds[nid]) _newCount++;
         });
-        var _bulkSilent = (_newCount > 1);
+        var _bulkSilent = false;  // BELL_ALL_V1 — no more bulk silence
 
         items.forEach(function (it) {
           var nid = PREFIX + it.id;
@@ -1944,7 +1950,7 @@ const Notifications = (function () {
               title: it.title || '',
               message: it.message || '',
               persistent: true,
-              silent: _bulkSilent
+              silent: false  // BELL_ALL_V1
             });
             // Fix the timestamp to reflect the server's created_at
             try {
@@ -2161,6 +2167,39 @@ const Notifications = (function () {
     };
 })();
 /* === SHELL_AUDIO_PRIME_FIX_V1 (end) === */
+</script>
+
+<style>
+/* KEYBOARD_VIEWPORT_V1 */
+@supports (height: 100dvh) {
+    /* Modern browsers handle it natively via dvh — nothing extra needed. */
+}
+/* Fallback for old WebView: JS sets --vh from visualViewport.height. */
+html { --vh: 1vh; }
+@supports not (height: 100dvh) {
+    .app-container { height: calc(var(--vh, 1vh) * 100); }
+    .main-content-wrapper { height: calc(var(--vh, 1vh) * 100); }
+    .sidebar { height: calc(var(--vh, 1vh) * 100); }
+}
+</style>
+<script>
+(function () {
+    'use strict';
+    function setVh() {
+        try {
+            var vv = window.visualViewport;
+            var h = vv ? vv.height : window.innerHeight;
+            document.documentElement.style.setProperty('--vh', (h * 0.01) + 'px');
+        } catch (e) {}
+    }
+    setVh();
+    window.addEventListener('resize', setVh);
+    window.addEventListener('orientationchange', function () { setTimeout(setVh, 100); });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', setVh);
+        window.visualViewport.addEventListener('scroll', setVh);
+    }
+})();
 </script>
 </body>
 </html>

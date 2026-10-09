@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
     <title>OX Smart POS</title>
     <link rel="stylesheet" href="tailwind.min.css">
     <style>
@@ -59,7 +59,7 @@
         /* LANDING */
         #landingView {
             display: flex; align-items: center; justify-content: center;
-            min-height: 100vh; padding: 24px;
+            min-height: 100vh; height: 100dvh; padding: 24px;
         }
         .landing-box {
             background: var(--bg-card); border-radius: 20px;
@@ -125,7 +125,7 @@
         /* LOGIN */
         #loginView {
             display: flex; align-items: center; justify-content: center;
-            min-height: 100vh; padding: 24px;
+            min-height: 100vh; height: 100dvh; padding: 24px;
         }
         .login-box {
             position: relative;
@@ -204,7 +204,7 @@
         #loadingView {
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
-            min-height: 100vh; padding: 24px;
+            min-height: 100vh; height: 100dvh; padding: 24px;
         }
         .loading-spinner {
             width: 56px; height: 56px;
@@ -3955,6 +3955,12 @@ document.addEventListener('keydown', e => {
 
     // Ring the bell: shake icon + play chime
     function ringBell() {
+        // BELL_ALL_V1 — coalesce bursts < 200ms into one chime
+        try {
+            var _now = Date.now();
+            if (window.__lastBellAt && _now - window.__lastBellAt < 200) return;
+            window.__lastBellAt = _now;
+        } catch (e) {}
         var bell = document.getElementById('notifBell');
         if (bell) {
             bell.classList.remove('ring');
@@ -3975,8 +3981,8 @@ document.addEventListener('keydown', e => {
         var origAdd = N.add;
         N.add = function (opts) {
             var result = origAdd.apply(this, arguments);
-            var isSilent = opts && (opts.silent === true || opts.type === 'progress');
-            if (!isSilent) ringBell();
+            // BELL_ALL_V1_SHELL — always ring (throttle handles bursts)
+            ringBell();
             return result;
         };
         return true;
@@ -4328,6 +4334,16 @@ document.addEventListener('keydown', e => {
     }
     attach();
 })();
+</script>
+
+<style>/* KEYBOARD_VIEWPORT_V1 */ html { --vh: 1vh; }
+@supports not (height: 100dvh) {
+    .app-container, .main-content-wrapper, .sidebar { height: calc(var(--vh, 1vh) * 100); }
+}</style>
+<script>
+(function(){function setVh(){try{var vv=window.visualViewport;var h=vv?vv.height:window.innerHeight;document.documentElement.style.setProperty('--vh',(h*0.01)+'px');}catch(e){}}
+setVh();window.addEventListener('resize',setVh);window.addEventListener('orientationchange',function(){setTimeout(setVh,100);});
+if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh);window.visualViewport.addEventListener('scroll',setVh);}})();
 </script>
 </body>
 </html>
