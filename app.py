@@ -5867,10 +5867,13 @@ def _append_batch_badge(batch_id, code):
 def init_notifications_table():
     conn = get_connection()
     cur = conn.cursor()
+    _url = os.getenv("DATABASE_URL", "") or ""
+    _is_pg = _url.startswith("postgres")
+    _id_col = "BIGSERIAL PRIMARY KEY" if _is_pg else "INTEGER PRIMARY KEY AUTOINCREMENT"
     try:
-        cur.execute("""
+        cur.execute(f"""
             CREATE TABLE IF NOT EXISTS notifications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {_id_col},
                 user_id INTEGER,
                 kind TEXT NOT NULL,
                 title TEXT NOT NULL,
