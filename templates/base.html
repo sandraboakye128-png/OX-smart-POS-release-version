@@ -2135,8 +2135,19 @@ const Notifications = (function () {
             if (!window.__oxAudioCtx) {
                 window.__oxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
-            if (window.__oxAudioCtx.state === 'suspended') {
-                window.__oxAudioCtx.resume().catch(function () {});
+            var _ctx = window.__oxAudioCtx;
+            var doResume = function () {
+                try {
+                    if (window.__pendingChime && typeof window.__oxBellSound === 'function') {
+                        window.__pendingChime = false;
+                        setTimeout(function () { window.__oxBellSound(); }, 40);
+                    }
+                } catch (e) {}
+            };
+            if (_ctx.state === 'suspended') {
+                _ctx.resume().then(doResume).catch(function () {});
+            } else if (_ctx.state === 'running') {
+                doResume();
             }
         } catch (e) {}
     }
@@ -2146,7 +2157,12 @@ const Notifications = (function () {
     window.__oxBellSound = function () {
         try {
             var ctx = window.__oxAudioCtx;
-            if (!ctx || ctx.state !== 'running') return;
+            if (!ctx || ctx.state !== 'running') {
+                // PENDING_CHIME_V1 — remember this ring, play it after first click
+                window.__pendingChime = true;
+                return;
+            }
+            window.__pendingChime = false;
             function tone(freq, start, dur, gain) {
                 try {
                     var osc = ctx.createOscillator();

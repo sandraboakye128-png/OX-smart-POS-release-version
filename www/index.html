@@ -4098,9 +4098,9 @@ document.addEventListener('keydown', e => {
             if (!window.__oxAudioCtx) {
                 window.__oxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
-            if (window.__oxAudioCtx.state === 'suspended') {
-                window.__oxAudioCtx.resume().catch(function () {});
-            }
+            var _c = window.__oxAudioCtx;
+            var _flush = function(){ try { if (window.__pendingChime && typeof window.__oxBellSound === 'function') { window.__pendingChime = false; setTimeout(function(){ window.__oxBellSound(); }, 40); } } catch (e) {} };
+            if (_c.state === 'suspended') _c.resume().then(_flush).catch(function () {}); else if (_c.state === 'running') _flush();
         } catch (e) {}
     }
     ['click', 'touchstart', 'keydown', 'pointerdown'].forEach(function (evt) {
@@ -4168,7 +4168,11 @@ document.addEventListener('keydown', e => {
     window.__oxBellSound = function () {
         try {
             var ctx = window.__oxAudioCtx;
-            if (!ctx || ctx.state !== 'running') return;
+            if (!ctx || ctx.state !== 'running') {
+                window.__pendingChime = true;
+                return;
+            }
+            window.__pendingChime = false;
             function tone(freq, start, dur, gain) {
                 try {
                     var osc = ctx.createOscillator();
@@ -4344,6 +4348,113 @@ document.addEventListener('keydown', e => {
 (function(){function setVh(){try{var vv=window.visualViewport;var h=vv?vv.height:window.innerHeight;document.documentElement.style.setProperty('--vh',(h*0.01)+'px');}catch(e){}}
 setVh();window.addEventListener('resize',setVh);window.addEventListener('orientationchange',function(){setTimeout(setVh,100);});
 if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh);window.visualViewport.addEventListener('scroll',setVh);}})();
+</script>
+
+<!-- KB_FORCE_HEIGHT_V1 — Capacitor WebView ignores interactive-widget meta -->
+<script>
+(function () {
+    'use strict';
+    function apply() {
+        try {
+            var vv = window.visualViewport;
+            var h = vv ? vv.height : window.innerHeight;
+            // Slightly under to avoid overflow-induced scrollbars
+            var px = Math.max(200, Math.floor(h)) + 'px';
+            var els = document.querySelectorAll('.app-container, .main-content-wrapper');
+            for (var i = 0; i < els.length; i++) els[i].style.height = px;
+            // Also propagate to <html> so 100dvh consumers shrink
+            document.documentElement.style.setProperty('--kb-viewport-h', px);
+        } catch (e) {}
+    }
+    function applySoon() { setTimeout(apply, 30); }
+    window.addEventListener('resize', applySoon);
+    window.addEventListener('orientationchange', function () { setTimeout(apply, 120); });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', applySoon);
+        window.visualViewport.addEventListener('scroll', applySoon);
+    }
+    document.addEventListener('DOMContentLoaded', applySoon);
+    applySoon();
+})();
+</script>
+
+<!-- BACK_BUTTON_V1 — intercept Android hardware back -->
+<script>
+(function () {
+    'use strict';
+    function _closeTopModal() {
+        var ids = ['pvSaveModal', 'pvRecentModal', 'pvCustomSortModal', 'pvFilterMenu',
+                   'salePaymentModal', 'saleBatchModal', 'batchModal', 'claimModal',
+                   'deleteProductModal', 'reverseModal', 'viewDetailsModal',
+                   'batchDetailsModal', 'installPasswordModal'];
+        for (var i = 0; i < ids.length; i++) {
+            var el = document.getElementById(ids[i]);
+            if (el && !el.classList.contains('hidden')) {
+                el.classList.add('hidden');
+                return true;
+            }
+        }
+        return false;
+    }
+    function _tryHandler() {
+        try {
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App &&
+                typeof window.Capacitor.Plugins.App.addListener === 'function') {
+                window.Capacitor.Plugins.App.addListener('backButton', function (ev) {
+                    // 1. Close any open modal
+                    if (_closeTopModal()) return;
+                    // 2. If we're in a sub-view (not dashboard), go to dashboard
+                    try {
+                        if (typeof window.currentView !== 'undefined' && window.currentView &&
+                            window.currentView !== 'dashboard' &&
+                            typeof window.backToDashboard === 'function') {
+                            window.backToDashboard();
+                            return;
+                        }
+                    } catch (e) {}
+                    // 3. Fall back to history.back if the WebView can
+                    if (ev && ev.canGoBack) {
+                        try { window.history.back(); return; } catch (e) {}
+                    }
+                    // 4. Otherwise: do nothing (don't exit).
+                    //    To exit, user must use "Sign out" in the sidebar.
+                });
+                console.log('[back] handler installed');
+                return true;
+            }
+        } catch (e) {}
+        return false;
+    }
+    if (!_tryHandler()) {
+        var tries = 0;
+        var iv = setInterval(function () { if (_tryHandler() || ++tries > 40) clearInterval(iv); }, 250);
+    }
+})();
+</script>
+
+<!-- PENDING_CHIME_FLUSH_V1 — play the queued chime after first real gesture -->
+<script>
+(function () {
+    'use strict';
+    function flush() {
+        try {
+            var ctx = window.__oxAudioCtx;
+            if (!ctx || ctx.state !== 'running') return;
+            if (!window.__pendingChime) return;
+            window.__pendingChime = false;
+            setTimeout(function () { try { window.__oxBellSound(); } catch (e) {} }, 40);
+        } catch (e) {}
+    }
+    ['click', 'touchstart', 'keydown', 'pointerdown'].forEach(function (evt) {
+        document.addEventListener(evt, function (e) {
+            if (e && e.isTrusted === false) return;
+            flush();
+        }, { passive: true });
+    });
+    // Also flush on next frame after DOMContentLoaded in case the context
+    // is already running (e.g. user clicked before we wired this).
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(flush, 200); });
+})();
 </script>
 </body>
 </html>

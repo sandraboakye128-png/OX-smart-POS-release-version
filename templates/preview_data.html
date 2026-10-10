@@ -485,6 +485,52 @@ window.__pvHideDebug = true;  // set false to silence filter debug logs
 console.log('[pv] build v3 (dom-scan fix) loaded');
 
 const $ = id => document.getElementById(id);
+
+// PV_TYPING_FIX_V4 — block Android back-gesture-on-empty-backspace
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Backspace' && e.keyCode !== 8) return;
+    var td = e.target && e.target.closest && e.target.closest('td[contenteditable="true"], [contenteditable="true"]');
+    if (!td) {
+        // Outside a contenteditable: also block to stop back-nav on empty inputs
+        var t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) {
+            if (!t.value || t.selectionStart === 0 && t.selectionEnd === 0) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }
+        return;
+    }
+    var text = (td.textContent || '').replace(/\u200B/g, '');
+    var atStart = false;
+    try {
+        var sel = window.getSelection();
+        if (sel && sel.rangeCount) {
+            var r = sel.getRangeAt(0);
+            atStart = r.collapsed && r.startOffset === 0;
+        }
+    } catch (_e) {}
+    // Empty cell or caret at position 0 with nothing to delete → block.
+    if (!text.length || atStart) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
+
+// PV_TYPING_FIX_V4 — global guard: Backspace outside any editable field
+// must never trigger the WebView's "back" navigation.
+window.addEventListener('keydown', function(e) {
+    if (e.key !== 'Backspace' && e.keyCode !== 8) return;
+    var t = e.target;
+    if (!t) { e.preventDefault(); return; }
+    var tag = (t.tagName || '').toUpperCase();
+    var editable = t.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA';
+    if (!editable) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
+
 let PV = {
     kind: null, category: null, columns: [], rows: [],
     originalIds: new Set(),
@@ -1420,10 +1466,13 @@ document.addEventListener('input', function(e) {
 
     if (items.length === 0) { pvHideSuggest(); return; }
     PV.suggestCell = td;
-    pvPositionSuggest(td);
-    // PV_TYPING_FIX_V3 — debounce suggestion render
+    // PV_TYPING_FIX_V4 — nothing touches the DOM during typing.
+    // pvPositionSuggest used to run per keystroke; on Android WebView
+    // that resets the IME composition buffer → letters scramble. Move
+    // it inside the debounce, then render.
     clearTimeout(_pvSuggestTimer);
     _pvSuggestTimer = setTimeout(function() {
+        try { pvPositionSuggest(td); } catch (_e) {}
         pvRenderSuggest(items, onPick);
     }, 250);
 });

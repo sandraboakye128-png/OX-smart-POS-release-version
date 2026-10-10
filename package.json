@@ -20,6 +20,7 @@
   "homepage": "https://github.com/sandraboakye128-png/OX-smart-pos-web-SFGK#readme",
   "dependencies": {
     "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.2",
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0"
   },

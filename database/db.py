@@ -465,9 +465,13 @@ if USE_POSTGRES:
             connection_pool = None
 
         try:
+            # POOL_SIZE_FIX_V1 — SimpleConnectionPool creates EXACTLY minconn
+            # connections and never grows. Dashboard fires ~6 parallel API
+            # calls, so min=2 was causing constant 'pool exhausted' →
+            # init_pool rebuilds → schema re-init. Bumped to 8.
             connection_pool = pool.SimpleConnectionPool(
-                2,                     # min connections
-                30,                    # max connections
+                8,                     # min connections (created eagerly)
+                8,                     # max connections (SimpleConnectionPool does not grow)
                 DATABASE_URL,
                 keepalives=1,
                 keepalives_idle=30,
