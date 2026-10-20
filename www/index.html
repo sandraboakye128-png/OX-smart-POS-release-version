@@ -4350,23 +4350,20 @@ setVh();window.addEventListener('resize',setVh);window.addEventListener('orienta
 if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh);window.visualViewport.addEventListener('scroll',setVh);}})();
 </script>
 
-<!-- KB_FORCE_HEIGHT_V1 — Capacitor WebView ignores interactive-widget meta -->
-<script>
-(function () {
-    'use strict';
     function apply() {
         try {
             var vv = window.visualViewport;
             var h = vv ? vv.height : window.innerHeight;
-            // Slightly under to avoid overflow-induced scrollbars
             var px = Math.max(200, Math.floor(h)) + 'px';
-            var els = document.querySelectorAll('.app-container, .main-content-wrapper');
+            // V2: also pin html+body so pages without .app-container
+            // (e.g. login) shrink when the keyboard opens.
+            document.documentElement.style.height = px;
+            if (document.body) document.body.style.height = px;
+            var els = document.querySelectorAll('.app-container, .main-content-wrapper, #pvStep3.pv-sheet-fullscreen');
             for (var i = 0; i < els.length; i++) els[i].style.height = px;
-            // Also propagate to <html> so 100dvh consumers shrink
             document.documentElement.style.setProperty('--kb-viewport-h', px);
         } catch (e) {}
-    }
-    function applySoon() { setTimeout(apply, 30); }
+    }    function applySoon() { setTimeout(apply, 30); }
     window.addEventListener('resize', applySoon);
     window.addEventListener('orientationchange', function () { setTimeout(apply, 120); });
     if (window.visualViewport) {

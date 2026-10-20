@@ -98,7 +98,10 @@ body {
                  "Helvetica Neue", Arial, sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
-    min-height: 100vh;
+    /* CSS_KEYBOARD_FIX_V1 — use dvh and lock overflow */
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
 }
 
 /* ============================================================
@@ -268,6 +271,7 @@ body {
 .app-container {
     display: flex;
     height: 100vh;
+    height: 100dvh; /* CSS_KEYBOARD_FIX_V1 */
     width: 100vw;
     overflow: hidden;
 }
@@ -277,6 +281,7 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh; /* CSS_KEYBOARD_FIX_V1 */
     width: 100%;
     min-width: 0;
     overflow: hidden;

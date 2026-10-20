@@ -2217,5 +2217,72 @@ html { --vh: 1vh; }
     }
 })();
 </script>
+
+<!-- KB_FORCE_HEIGHT_V2 — pin layout to visualViewport (Capacitor WebView ignores interactive-widget) -->
+<script>
+(function () {
+    'use strict';
+    function apply() {
+        try {
+            var vv = window.visualViewport;
+            var h = vv ? vv.height : window.innerHeight;
+            var px = Math.max(200, Math.floor(h)) + 'px';
+            // V2: also pin html+body so pages without .app-container
+            // (e.g. login) shrink when the keyboard opens.
+            document.documentElement.style.height = px;
+            if (document.body) document.body.style.height = px;
+            var els = document.querySelectorAll('.app-container, .main-content-wrapper, #pvStep3.pv-sheet-fullscreen');
+            for (var i = 0; i < els.length; i++) els[i].style.height = px;
+            document.documentElement.style.setProperty('--kb-viewport-h', px);
+        } catch (e) {}
+    }
+    function applySoon() { setTimeout(apply, 30); }
+    window.addEventListener('resize', applySoon);
+    window.addEventListener('orientationchange', function () { setTimeout(apply, 120); });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', applySoon);
+        window.visualViewport.addEventListener('scroll', applySoon);
+    }
+    document.addEventListener('DOMContentLoaded', applySoon);
+    applySoon();
+})();
+</script>
+
+<!-- KB_DIAGNOSTIC_V1 — live viewport tracker for debugging keyboard gaps -->
+<div id="kbDiag" style="display:none; position:fixed; bottom:10px; left:10px; right:10px; background:rgba(0,0,0,0.85); color:#0f0; font-family:monospace; font-size:11px; padding:8px; z-index:2147483647; border-radius:6px; pointer-events:none;">
+    <div id="kbDiagContent"></div>
+</div>
+<script>
+(function(){
+    var diag = document.getElementById('kbDiag');
+    var content = document.getElementById('kbDiagContent');
+    
+    // Show only if URL has ?kbdiag=1
+    if (window.location.search.indexOf('kbdiag=1') === -1) return;
+    diag.style.display = 'block';
+
+    function update() {
+        var vv = window.visualViewport;
+        var innerH = window.innerHeight;
+        var vvH = vv ? vv.height : 0;
+        var bodyH = document.body.getBoundingClientRect().height;
+        var htmlH = document.documentElement.getBoundingClientRect().height;
+        
+        // Find the main layout container
+        var appContainer = document.querySelector('.app-container') || document.querySelector('.main-content-wrapper') || document.body;
+        var appH = appContainer.getBoundingClientRect().height;
+
+        content.innerHTML = 
+            'window.innerHeight: <b>' + innerH + '</b><br>' +
+            'visualViewport.height: <b style="color:yellow">' + vvH + '</b><br>' +
+            'body height: <b>' + Math.round(bodyH) + '</b><br>' +
+            'html height: <b>' + Math.round(htmlH) + '</b><br>' +
+            'app-container height: <b style="color:cyan">' + Math.round(appH) + '</b>';
+    }
+
+    update();
+    setInterval(update, 250); // update constantly while debugging
+})();
+</script>
 </body>
 </html>

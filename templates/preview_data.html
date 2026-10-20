@@ -1,3 +1,4 @@
+// PV_SAVE_DUPLICATE_FIX_V1
 {% extends 'base.html' %}
 {% block content %}
 
@@ -120,6 +121,15 @@
     #pvStep3.pv-sheet-fullscreen #pvSheetRotateBtn:hover {
         background: #b91c1c !important;
     }
+    /* PV_SAVE_STICKY_V1 — keep Save button visible on the right in landscape */
+    #pvStep3.pv-sheet-fullscreen #pvSaveBtn {
+        position: sticky !important;
+        right: 0 !important;
+        z-index: 10 !important;
+        box-shadow: -4px 0 8px rgba(0,0,0,0.15) !important;
+        border-left: 1px solid #d1d5db !important;
+    }
+
     /* Toolbar stays reachable in landscape: single row, h-scroll if needed */
     #pvStep3.pv-sheet-fullscreen > div:first-child {
         flex: 0 0 auto !important;
@@ -244,7 +254,7 @@
                 <span>&#x1F5D1; Hide deleted</span>
             </label>
             {% if current_user and (current_user.role == 'admin' or current_user.username|lower == 'oxbee') %}
-            <button onclick="previewSavePrompt()"
+            <button id="pvSaveBtn" onclick="previewSavePrompt()"
                     class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold">
                 💾 {{ t('preview.save') }}
             </button>
@@ -1246,6 +1256,11 @@ async function _pvDoSave(rows, mode, updateMode) {
         var data = await res.json();
         if (!data.success) throw new Error(data.error || 'Save failed');
         var s = data.stats || {};
+
+        // PV_SAVE_DUPLICATE_FIX_V1 — track new ids so they highlight yellow after reload
+        (s.inserted_ids || []).forEach(function(id) { PV.recentIds.add(String(id)); });
+        (s.updated_ids  || []).forEach(function(id) { PV.recentIds.add(String(id)); });
+
         if (status) status.innerHTML = '✅ Saved — inserted:' + (s.inserted||0) +
             ' updated:' + (s.updated||0) +
             (s.errors && s.errors.length ? ' — ' + s.errors.length + ' warnings' : '');
@@ -1288,6 +1303,7 @@ function escapeHtml(s) {
 // ============================================================
 //  AUTO-SUGGEST for name / brand / category cells
 // ============================================================
+// PV_TYPING_FIX_V5 — removed scroll/resize suggest reposition (Android IME caret scramble)
 function pvHideSuggest() {
     const box = document.getElementById('pvSuggestBox');
     if (box) box.classList.add('hidden');
@@ -1529,9 +1545,6 @@ document.addEventListener('mousedown', function(e) {
     pvHideSuggest();
 });
 
-// Reposition on scroll/resize
-window.addEventListener('scroll', () => { if (PV.suggestCell) pvPositionSuggest(PV.suggestCell); }, true);
-window.addEventListener('resize', () => { if (PV.suggestCell) pvPositionSuggest(PV.suggestCell); });
 
 // ============================================================
 //  RECENT BAR + MODAL
@@ -2000,45 +2013,6 @@ function _pvUpdateSheetRotateBtn(isFs) {
 // ============================================================
 //  SAVE — track newly returned IDs as recent
 // ============================================================
-const _origConfirmSave = window.previewConfirmSave;
-window.previewConfirmSave = async function() {
-    // Call the original — but we re-implement here to intercept stats
-    const mode = document.querySelector('input[name="pvSaveMode"]:checked').value;
-    const rows = collectRows();
-    $('pvStatus').textContent = 'Saving…';
-    try {
-        const res = await fetch(`/api/preview/${PV.kind}/${PV.category}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                rows, mode,
-                deleted_ids: Array.from(PV.deletedIds),
-                dirty_ids:   Array.from(PV.dirtyIds)
-            })
-        });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'Save failed');
-        const s = data.stats || {};
-
-        // Mark newly inserted/updated ids as recent so they highlight after reload
-        (s.inserted_ids || []).forEach(id => PV.recentIds.add(String(id)));
-        (s.updated_ids  || []).forEach(id => PV.recentIds.add(String(id)));
-
-        $('pvStatus').innerHTML = `✅ Saved — ` +
-            `inserted:${s.inserted||0} updated:${s.updated||0}` +
-            (s.errors && s.errors.length ? ` — ${s.errors.length} warnings` : '');
-        previewCloseSaveModal();
-        PV.deletedIds.clear();
-        PV.dirtyIds.clear();
-        await previewLoad();
-        pvRenderRecentBar();
-    } catch (e) {
-        $('pvStatus').innerHTML = `<span class="text-red-600">❌ ${e.message}</span>`;
-        previewCloseSaveModal();
-    }
-};
-
 })();
 </script>
 {% endblock %}
