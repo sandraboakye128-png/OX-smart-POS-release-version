@@ -4402,7 +4402,7 @@ def run_inventory_import(job_id, file_stream, target_category, mode='append'):
                         VALUES (%s, %s, %s, %s, %s, 0, 0)
                     """, (item['name'], item['brand'], item['category'],
                           item['cost_price'], item['selling_price']))
-                    cur.execute("SELECT lastval()")
+                    cur.execute("SELECT last_insert_rowid()")
                     product_id = cur.fetchone()[0]
 
                 existing_batch_id = None
@@ -4942,7 +4942,7 @@ def run_sales_import(job_id, file_stream, target_category, mode='append', user_i
                     """, (item['sale_date'], subtotal, item['discount'], total, 0,
                           item['payment_method'], item['cheque_number'] or None,
                           user_id))
-                    cur.execute("SELECT lastval()")
+                    cur.execute("SELECT last_insert_rowid()")
                     new_sale_id = cur.fetchone()[0]
 
                     deducted, total_profit = _fifo_deduct(cur, product_id, item['quantity'],
