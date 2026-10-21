@@ -2257,31 +2257,4 @@ html { --vh: 1vh; }
 })();
 </script>
 
-<!-- KB_FORCE_HEIGHT_FINAL -->
-<script>
-(function () {
-    'use strict';
-    function apply() {
-        try {
-            var vv = window.visualViewport;
-            var h = vv ? vv.height : window.innerHeight;
-            var px = Math.max(200, Math.floor(h)) + 'px';
-            document.documentElement.style.height = px;
-            if (document.body) document.body.style.height = px;
-            var els = document.querySelectorAll('.app-container, .main-content-wrapper, #pvStep3.pv-sheet-fullscreen');
-            for (var i = 0; i < els.length; i++) els[i].style.height = px;
-        } catch (e) {}
-    }
-    function applySoon() { setTimeout(apply, 30); }
-    window.addEventListener('resize', applySoon);
-    window.addEventListener('orientationchange', function () { setTimeout(apply, 120); });
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', applySoon);
-        window.visualViewport.addEventListener('scroll', applySoon);
-    }
-    document.addEventListener('DOMContentLoaded', applySoon);
-    applySoon();
-})();
-</script>
-</body>
-</html>
+

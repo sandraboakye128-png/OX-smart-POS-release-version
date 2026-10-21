@@ -526,7 +526,10 @@ def _upsert_product(cur, name, brand, category, cost, selling, canonical_categor
         INSERT INTO products (name, brand, category, cost_price, selling_price, stock, discount)
         VALUES (%s, %s, %s, %s, %s, 0, 0)
     """, (name, brand or '', canonical_category, cost, selling))
-    cur.execute("SELECT last_insert_rowid()")
+    try:
+                cur.execute("SELECT lastval()")
+            except Exception:
+                cur.execute("SELECT last_insert_rowid()")
     return cur.fetchone()[0]
 
 
@@ -594,7 +597,10 @@ def _maybe_split_for_create(cur, bid, name, brand, qty, remaining, claimed,
           codisc if codisc is not None else discount,
           '["excel_add","excel_update"]'))
     try:
-        cur.execute("SELECT last_insert_rowid()")
+        try:
+                cur.execute("SELECT lastval()")
+            except Exception:
+                cur.execute("SELECT last_insert_rowid()")
         new_bid = cur.fetchone()[0]
     except Exception:
         new_bid = None
@@ -798,6 +804,9 @@ def save_purchases(rows, category, mode, deleted_ids=None, dirty_ids=None, updat
                 """, (product_id, qty, remaining, claimed,
                       cost, selling, discount, date, source,
                       '["excel_add"]'))
+                try:
+                cur.execute("SELECT lastval()")
+            except Exception:
                 cur.execute("SELECT last_insert_rowid()")
                 new_bid = cur.fetchone()[0]
                 cur.execute("""
@@ -1014,6 +1023,9 @@ def save_sales(rows, category, mode, deleted_ids=None, user_id=None):
                     (date, subtotal, discount, total, profit, reversed, payment_method, cheque_number, user_id)
                     VALUES (%s, %s, %s, %s, %s, 0, %s, %s, %s)
                 """, (date, subtotal, discount, total, profit, payment, cheque or None, user_id))
+                try:
+                cur.execute("SELECT lastval()")
+            except Exception:
                 cur.execute("SELECT last_insert_rowid()")
                 new_sale_id = cur.fetchone()[0]
                 stats.setdefault('inserted_ids', []).append(new_sale_id)

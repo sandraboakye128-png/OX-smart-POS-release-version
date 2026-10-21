@@ -1378,11 +1378,16 @@ document.addEventListener('input', function(e) {
     } catch (e) {}
     const key = td.dataset.key;
     const typed = (td.textContent || '').trim().toLowerCase();
+    // PV_TYPING_FOCUS_FIX: Save to memory immediately, DO NOT touch the DOM
+    if (tr) {
+        const rowIdx = parseInt(tr.dataset.row, 10);
+        if (!isNaN(rowIdx) && PV.rows[rowIdx]) {
+            PV.rows[rowIdx][td.dataset.key] = td.textContent;
+        }
+    }
     if (!['name', 'brand', 'category', 'item_id'].includes(key)) { pvHideSuggest(); return; }
 
-    // Find the row index from the tr
-    const tr = td.closest('tr');
-    const rowIdx = tr ? parseInt(tr.dataset.row, 10) : -1;
+    
     // Read sibling name/brand for context
     let rowName = '', rowBrand = '';
     if (tr) {
