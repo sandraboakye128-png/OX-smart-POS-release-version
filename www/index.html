@@ -4433,35 +4433,5 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
 </script>
 
 
-<script>
-(function () {
-    // Wait for Capacitor to be ready
-    document.addEventListener('DOMContentLoaded', function() {
-        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard) {
-            var kb = window.Capacitor.Plugins.Keyboard;
-            
-            kb.addListener('keyboardWillShow', function(info) {
-                var kbHeight = info.keyboardHeight;
-                var newHeight = (window.innerHeight - kbHeight) + 'px';
-                document.documentElement.style.height = newHeight;
-                if (document.body) document.body.style.height = newHeight;
-                var containers = document.querySelectorAll('.app-container, .main-content-wrapper');
-                for (var i = 0; i < containers.length; i++) {
-                    containers[i].style.height = newHeight;
-                }
-            });
 
-            kb.addListener('keyboardWillHide', function() {
-                document.documentElement.style.height = '100vh';
-                if (document.body) document.body.style.height = '100vh';
-                var containers = document.querySelectorAll('.app-container, .main-content-wrapper');
-                for (var i = 0; i < containers.length; i++) {
-                    containers[i].style.height = '100vh';
-                }
-            });
-            console.log('Keyboard Plugin Native Listener attached');
-        }
-    });
-})();
-</script>
 
