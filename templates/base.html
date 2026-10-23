@@ -113,7 +113,7 @@
     <!-- ===== SERVICE WORKER ===== -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=53')
+            navigator.serviceWorker.register('/sw.js?v=55')
                 .then(() => console.log('✅ Service Worker registered (v48)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
@@ -708,6 +708,24 @@ window.CAT_LABELS = (function() {
   }
   return { al: al, sl: sl, alSing: sing(al), slSing: sing(sl) };
 })();
+</script>
+
+<style>
+/* APP FADE IN ANIMATION */
+body {
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+}
+body.app-loaded {
+    opacity: 1;
+}
+</style>
+<script>
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        document.body.classList.add('app-loaded');
+    }, 100);
+});
 </script>
 </head>
 <body>
@@ -2198,6 +2216,6 @@ const Notifications = (function () {
 
 
 
-<script src="/static/js/kb_fix.js?v=53" defer></script>
+<script src="/static/js/kb_fix.js?v=54" defer></script>
 </body>
 </html>

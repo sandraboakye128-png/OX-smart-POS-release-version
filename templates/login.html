@@ -119,7 +119,7 @@
                                 // Server says not logged in – clear stale session
                                 localStorage.removeItem('ox_user');
                                 localStorage.removeItem('pin_unlocked');
-                                window.location.reload();
+                                console.log("Session invalid, ignoring reload.");
                             }
                         })
                         .catch(() => {

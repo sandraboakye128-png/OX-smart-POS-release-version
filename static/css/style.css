@@ -89,18 +89,9 @@ body, body * {
     transition: none;
 }
 
-html, body { height: 100vh; height: 100dvh; overflow: hidden; }
+html, body { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-                 "Helvetica Neue", Arial, sans-serif;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    /* CSS_KEYBOARD_FIX_V1 — use dvh and lock overflow */
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
-}
+body { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 
 /* ============================================================
    SCROLLBARS
@@ -723,10 +714,7 @@ body.dark-theme .theme-option.bg-amber-50 {
    ============================================================ */
 @media print {
     .no-print { display: none !important; }
-    body {
-        background: white !important;
-        color: black !important;
-    }
+    body { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
     .card {
         box-shadow: none !important;
         border: 1px solid #ddd !important;

@@ -1038,6 +1038,24 @@
         .user-chip:active { transform: scale(0.98); }
         html[data-theme="light"] .user-chip { background: #ffffff; border-color: #d1d5db; }
     </style>
+
+<style>
+/* APP FADE IN ANIMATION */
+body {
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+}
+body.app-loaded {
+    opacity: 1;
+}
+</style>
+<script>
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        document.body.classList.add('app-loaded');
+    }, 100);
+});
+</script>
 </head>
 <body>
 
@@ -4436,6 +4454,6 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
 
 
 
-<script src="/static/js/kb_fix.js?v=53" defer></script>
+<script src="/static/js/kb_fix.js?v=54" defer></script>
 </body>
 </html>
