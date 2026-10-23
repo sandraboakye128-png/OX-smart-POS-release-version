@@ -89,9 +89,9 @@ body, body * {
     transition: none;
 }
 
-html, body { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+html, body { height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
 
-body { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+body { height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
 
 /* ============================================================
    SCROLLBARS
@@ -257,9 +257,9 @@ body { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 /* ============================================================
    MAIN LAYOUT
    ============================================================ */
-.app-container { display: flex; height: 100vh; height: 100dvh; width: 100vw; overflow: hidden; }
+.app-container { display: flex; height: 100dvh; width: 100vw; overflow: hidden; }
 
-.main-content-wrapper { flex: 1; display: flex; flex-direction: column; height: 100vh; height: 100dvh; width: 100%; min-width: 0; overflow: hidden; }
+.main-content-wrapper { flex: 1; display: flex; flex-direction: column; height: 100dvh; width: 100%; min-width: 0; overflow: hidden; }
 
 .main-content {
     flex: 1;
@@ -714,7 +714,7 @@ body.dark-theme .theme-option.bg-amber-50 {
    ============================================================ */
 @media print {
     .no-print { display: none !important; }
-    body { height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+    body { height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
     .card {
         box-shadow: none !important;
         border: 1px solid #ddd !important;
