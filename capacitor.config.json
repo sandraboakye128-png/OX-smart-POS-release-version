@@ -3,17 +3,9 @@
   "appName": "OX Smart POS",
   "webDir": "www",
   "server": {
-    "androidScheme": "https",
-    "allowNavigation": [
-      "ox-smart-pos-release-version.onrender.com"
-    ]
+    "androidScheme": "https"
   },
   "plugins": {
-    "Keyboard": {
-      "resize": "none",
-      "resizeOnFullScreen": true,
-      "style": "dark"
-    },
     "SplashScreen": {
       "launchShowDuration": 2000,
       "launchAutoHide": true,
