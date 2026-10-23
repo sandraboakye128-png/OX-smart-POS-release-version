@@ -85,7 +85,7 @@ body.dark-theme {
     transition: none;
 }
 
-html, body { height: 100%; width: 100%; margin: 0; padding: 0; overflow: hidden; }
+html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
 
 body { height: 100% !important; overflow: hidden; display: flex; flex-direction: column; }
 
@@ -253,7 +253,7 @@ body { height: 100% !important; overflow: hidden; display: flex; flex-direction:
 /* ============================================================
    MAIN LAYOUT
    ============================================================ */
-.app-container { display: flex; flex-direction: column; height: var(--vh, 100%); width: 100%; overflow: hidden; }
+.app-container { display: flex; flex-direction: column; height: 100%; width: 100%; overflow: hidden; }
 
 .main-content-wrapper { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 
