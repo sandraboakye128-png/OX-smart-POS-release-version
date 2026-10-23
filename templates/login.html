@@ -112,7 +112,7 @@
                     fetch('/api/auth/check', { credentials: 'include' })
                         .then(res => res.json())
                         .then(data => {
-                            if (data.logged_in) {
+                            if (data.logged_in) { if (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA") { console.log("Typing detected, skipping redirect"); return; }
                                 // Server says we're logged in – redirect
                                 window.location.href = '/';
                             } else {

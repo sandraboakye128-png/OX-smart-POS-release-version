@@ -4458,5 +4458,64 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
 
 
 <script src="/static/js/kb_fix.js?v=54" defer></script>
+
+<!-- BUG_TRACKER_V1 -->
+<style>
+#bug-tracer {
+    position: fixed; top: 5px; right: 5px; background: rgba(0,0,0,0.85); 
+    color: #0f0; font-size: 11px; z-index: 999999; padding: 8px; 
+    max-height: 30vh; overflow-y: auto; width: 220px; 
+    pointer-events: none; font-family: monospace; border-radius: 4px;
+    border: 1px solid #0f0;
+}
+</style>
+<div id="bug-tracer">Tracker Active...</div>
+<script>
+(function() {
+    const el = document.getElementById('bug-tracer');
+    function log(msg) {
+        if (!el) return;
+        const div = document.createElement('div');
+        div.innerText = new Date().toLocaleTimeString().split(' ')[0] + ' ' + msg;
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+    }
+
+    // Log Focus Loss
+    document.addEventListener('focusout', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            log('LOST FOCUS on ' + e.target.id);
+            setTimeout(() => {
+                log('ActiveEl: ' + (document.activeElement.tagName || 'BODY'));
+            }, 50);
+        }
+    });
+
+    // Log Resize Events
+    let lastH = window.innerHeight;
+    window.addEventListener('resize', () => {
+        const h = window.innerHeight;
+        if (h !== lastH) {
+            log(`RESIZE: ${lastH} -> ${h}`);
+            lastH = h;
+        }
+    });
+
+    // Catch Redirects / Reloads
+    window.addEventListener('beforeunload', () => {
+        log('PAGE UNLOADING/RELOADING');
+    });
+    
+    // Catch Capacitor Keyboard (APK only)
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard) {
+        window.Capacitor.Plugins.Keyboard.addListener('keyboardDidShow', (info) => {
+            log(`CAP KB SHOW: H=${info.keyboardHeight}`);
+        });
+        window.Capacitor.Plugins.Keyboard.addListener('keyboardDidHide', () => {
+            log('CAP KB HIDE');
+        });
+    }
+})();
+</script>
 </body>
 </html>
