@@ -75,11 +75,7 @@ body.dark-theme {
 }
 
 /* Scoped transition — avoids jank on notification re-renders */
-body, body * {
-    transition-property: background-color, color, border-color, box-shadow;
-    transition-duration: 0.2s;
-    transition-timing-function: ease;
-}
+
 
 /* Remove transition on elements that update frequently */
 .notif-progress-fill,
