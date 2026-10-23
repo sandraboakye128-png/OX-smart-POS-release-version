@@ -113,7 +113,7 @@
     <!-- ===== SERVICE WORKER ===== -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=59')
+            navigator.serviceWorker.register('/sw.js?v=60')
                 .then(() => console.log('✅ Service Worker registered (v48)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
@@ -1895,7 +1895,7 @@ const Notifications = (function () {
                     localStorage.removeItem('ox_user');
                     localStorage.removeItem('pin_unlocked');
                 } catch (e) {}
-                window.location.href = '/login?expired=true&_t=' + Date.now();
+                console.log('Blocked 401 reload');
             }
             return response;
         };
