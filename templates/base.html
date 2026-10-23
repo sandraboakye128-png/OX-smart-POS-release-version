@@ -5,7 +5,7 @@
       data-font-family="{{ settings.font_family if settings else 'system' }}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>OX Smart POS</title>
 
     <!-- ============================================================ -->
@@ -113,7 +113,7 @@
     <!-- ===== SERVICE WORKER ===== -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=49')
+            navigator.serviceWorker.register('/sw.js?v=53')
                 .then(() => console.log('✅ Service Worker registered (v48)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
@@ -1866,13 +1866,15 @@ const Notifications = (function () {
             const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
             const isAuthEndpoint = url.includes('/api/auth/check') || url.includes('/api/auth/login');
             if (response.status === 401 && !isAuthEndpoint) {
+                const path = window.location.pathname;
+                if (path.includes('/login') || path.includes('/signup')) {
+                    return response; // Ignore 401 on auth pages to prevent keyboard closing
+                }
                 try {
                     localStorage.removeItem('ox_user');
                     localStorage.removeItem('pin_unlocked');
                 } catch (e) {}
-                if (!window.location.pathname.includes('/login')) {
-                    window.location.href = '/login?expired=true&_t=' + Date.now();
-                }
+                window.location.href = '/login?expired=true&_t=' + Date.now();
             }
             return response;
         };
@@ -2185,78 +2187,17 @@ const Notifications = (function () {
 /* === SHELL_AUDIO_PRIME_FIX_V1 (end) === */
 </script>
 
-<style>
-/* KEYBOARD_VIEWPORT_V1 */
-@supports (height: 100dvh) {
-    /* Modern browsers handle it natively via dvh — nothing extra needed. */
-}
-/* Fallback for old WebView: JS sets --vh from visualViewport.height. */
-html { --vh: 1vh; }
-@supports not (height: 100dvh) {
-    .app-container { height: calc(var(--vh, 1vh) * 100); }
-    .main-content-wrapper { height: calc(var(--vh, 1vh) * 100); }
-    .sidebar { height: calc(var(--vh, 1vh) * 100); }
-}
-</style>
-<script>
-(function () {
-    'use strict';
-    function setVh() {
-        try {
-            var vv = window.visualViewport;
-            var h = vv ? vv.height : window.innerHeight;
-            document.documentElement.style.setProperty('--vh', (h * 0.01) + 'px');
-        } catch (e) {}
-    }
-    setVh();
-    window.addEventListener('resize', setVh);
-    window.addEventListener('orientationchange', function () { setTimeout(setVh, 100); });
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', setVh);
-        window.visualViewport.addEventListener('scroll', setVh);
-    }
-})();
-</script>
-
-
-
-<!-- KB_DIAGNOSTIC_V1 — live viewport tracker for debugging keyboard gaps -->
-<div id="kbDiag" style="display:none; position:fixed; bottom:10px; left:10px; right:10px; background:rgba(0,0,0,0.85); color:#0f0; font-family:monospace; font-size:11px; padding:8px; z-index:2147483647; border-radius:6px; pointer-events:none;">
-    <div id="kbDiagContent"></div>
-</div>
-<script>
-(function(){
-    var diag = document.getElementById('kbDiag');
-    var content = document.getElementById('kbDiagContent');
-    
-    // Show only if URL has ?kbdiag=1
-    if (window.location.search.indexOf('kbdiag=1') === -1) return;
-    diag.style.display = 'block';
-
-    function update() {
-        var vv = window.visualViewport;
-        var innerH = window.innerHeight;
-        var vvH = vv ? vv.height : 0;
-        var bodyH = document.body.getBoundingClientRect().height;
-        var htmlH = document.documentElement.getBoundingClientRect().height;
-        
-        // Find the main layout container
-        var appContainer = document.querySelector('.app-container') || document.querySelector('.main-content-wrapper') || document.body;
-        var appH = appContainer.getBoundingClientRect().height;
-
-        content.innerHTML = 
-            'window.innerHeight: <b>' + innerH + '</b><br>' +
-            'visualViewport.height: <b style="color:yellow">' + vvH + '</b><br>' +
-            'body height: <b>' + Math.round(bodyH) + '</b><br>' +
-            'html height: <b>' + Math.round(htmlH) + '</b><br>' +
-            'app-container height: <b style="color:cyan">' + Math.round(appH) + '</b>';
-    }
-
-    update();
-    setInterval(update, 250); // update constantly while debugging
-})();
-</script>
 
 
 
 
+
+
+
+
+
+
+
+<script src="/static/js/kb_fix.js?v=53" defer></script>
+</body>
+</html>
