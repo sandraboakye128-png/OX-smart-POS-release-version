@@ -4463,7 +4463,9 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
 
 
 
-<!-- BUG_TRACKER_AND_AUDIO_V4 -->
+
+
+<!-- BUG_TRACKER_AND_AUDIO_V5 -->
 <style>
 #bug-tracer {
     position: fixed; top: 5px; right: 5px; background: rgba(0,0,0,0.85); 
@@ -4472,7 +4474,18 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
     pointer-events: none; font-family: monospace; border-radius: 4px;
     border: 1px solid #0f0;
 }
+/* Fix the overlay: the wrapper must be relative */
+.pv-input-wrapper {
+    position: relative !important;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
 .pv-mic-btn {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
     background: #10b981; color: white; border: none; border-radius: 4px;
     padding: 4px 8px; cursor: pointer; font-size: 14px;
     display: inline-flex; align-items: center; justify-content: center;
@@ -4480,14 +4493,13 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
 }
 .pv-mic-btn.recording { background: #ef4444; animation: pulse 1s infinite; }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-.pv-input-wrapper { display: flex; align-items: center; width: 100%; gap: 4px; }
 </style>
 
 <div id="bug-tracer">Tracker Active...</div>
 
 <script>
 (function() {
-    // 1. BUG TRACKER
+    // 1. BUG TRACKER & KEYBOARD GUARD
     const el = document.getElementById('bug-tracer');
     function log(msg) {
         if (!el) return;
@@ -4497,14 +4509,41 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
         el.scrollTop = el.scrollHeight;
     }
 
+    // FOCUS GUARD: Stop page reloads and blurring while typing
+    let isTyping = false;
+    document.addEventListener('focusin', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') isTyping = true;
+    });
+    document.addEventListener('focusout', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') isTyping = false;
+    });
+
+    // Intercept window.location changes
+    const originalAssign = window.location.assign;
+    const originalReplace = window.location.replace;
+    window.location.assign = function(url) {
+        if (isTyping) { log('BLOCKED REDIRECT: ' + url); return; }
+        originalAssign.apply(window.location, arguments);
+    };
+    window.location.replace = function(url) {
+        if (isTyping) { log('BLOCKED REPLACE: ' + url); return; }
+        originalReplace.apply(window.location, arguments);
+    };
+    // Intercept blur on active inputs
+    const originalBlur = HTMLElement.prototype.blur;
+    HTMLElement.prototype.blur = function() {
+        if (isTyping && (this.tagName === 'INPUT' || this.tagName === 'TEXTAREA')) {
+            log('BLOCKED BLUR');
+            return;
+        }
+        originalBlur.apply(this, arguments);
+    };
+
     let lastH = window.innerHeight;
     window.addEventListener('resize', () => {
         const h = window.innerHeight;
         if (h !== lastH) { log(`RESIZE: ${lastH} -> ${h}`); lastH = h; }
     });
-    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard) {
-        window.Capacitor.Plugins.Keyboard.addListener('keyboardDidShow', (info) => log(`CAP KB: ${info.keyboardHeight}`));
-    }
 
     // 2. AUDIO RECORDER
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -4513,10 +4552,11 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
     let activeRecognition = null;
 
     function attachMic(input) {
-        // EXCLUDE EXCEL PREVIEW PAGE entirely
+        // Skip auth pages and excel preview
+        if (window.location.pathname.includes('/login') || window.location.pathname.includes('/signup')) return;
         if (input.closest('#pvStep3') || input.closest('.pv-sheet-fullscreen')) return;
-
         if (input.dataset.hasMic || input.type === 'hidden' || input.type === 'checkbox' || input.type === 'radio' || input.type === 'date' || input.type === 'datetime-local' || input.readOnly) return;
+        
         input.dataset.hasMic = 'true';
 
         const btn = document.createElement('button');
@@ -4524,12 +4564,14 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
         btn.innerHTML = '🎤';
         btn.type = 'button';
 
-        // Wrap normal inputs safely
         const wrap = document.createElement('div');
         wrap.className = 'pv-input-wrapper';
         input.parentNode.insertBefore(wrap, input);
         wrap.appendChild(input);
         wrap.appendChild(btn);
+
+        // Add padding so text doesn't hide behind the mic button
+        input.style.paddingRight = '35px';
 
         btn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -4543,8 +4585,26 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
             btn.classList.add('recording');
 
             rec.onresult = (event) => {
-                const text = event.results[0][0].transcript;
+                let text = event.results[0][0].transcript;
                 log('MIC: ' + text);
+
+                // Parse numbers (e.g. "fifty" -> "50", "$50" -> "50")
+                if (input.type === 'number' || input.name.includes('discount') || input.name.includes('quantity') || input.name.includes('price')) {
+                    const numMatch = text.match(/\d+(\.\d+)?/);
+                    if (numMatch) {
+                        text = numMatch[0]; // Extract just the number
+                    } else {
+                        // Simple word-to-number fallback for common words
+                        const words = {'fifty': '50', 'twenty': '20', 'ten': '10', 'five': '5', 'one hundred': '100'};
+                        text = words[text.toLowerCase()] || text;
+                    }
+                }
+                
+                // Parse batch search (e.g. "batch 4" -> "4")
+                if (input.placeholder && input.placeholder.toLowerCase().includes('batch')) {
+                    text = text.replace(/batch/gi, '').trim();
+                }
+
                 input.value = text;
                 input.dispatchEvent(new Event('input', { bubbles: true }));
             };
@@ -4557,7 +4617,6 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
     }
 
     function scanForInputs() {
-        // Only standard inputs (no TD contenteditable)
         document.querySelectorAll('input[type="text"], input[type="search"], input[type="number"], input[type="email"], input:not([type])').forEach(attachMic);
     }
 
