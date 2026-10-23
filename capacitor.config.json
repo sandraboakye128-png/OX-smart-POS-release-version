@@ -3,7 +3,10 @@
   "appName": "OX Smart POS",
   "webDir": "www",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "allowNavigation": [
+      "ox-smart-pos-release-version.onrender.com"
+    ]
   },
   "plugins": {
     "SplashScreen": {

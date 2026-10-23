@@ -113,7 +113,7 @@
     <!-- ===== SERVICE WORKER ===== -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=61')
+            navigator.serviceWorker.register('/sw.js?v=65')
                 .then(() => console.log('✅ Service Worker registered (v48)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
@@ -2221,7 +2221,11 @@ const Notifications = (function () {
 
 <script src="/static/js/kb_fix.js?v=54" defer></script>
 
-<!-- BUG_TRACKER_V1 -->
+
+
+
+
+<!-- BUG_TRACKER_AND_AUDIO_V4 -->
 <style>
 #bug-tracer {
     position: fixed; top: 5px; right: 5px; background: rgba(0,0,0,0.85); 
@@ -2230,10 +2234,22 @@ const Notifications = (function () {
     pointer-events: none; font-family: monospace; border-radius: 4px;
     border: 1px solid #0f0;
 }
+.pv-mic-btn {
+    background: #10b981; color: white; border: none; border-radius: 4px;
+    padding: 4px 8px; cursor: pointer; font-size: 14px;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 50;
+}
+.pv-mic-btn.recording { background: #ef4444; animation: pulse 1s infinite; }
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+.pv-input-wrapper { display: flex; align-items: center; width: 100%; gap: 4px; }
 </style>
+
 <div id="bug-tracer">Tracker Active...</div>
+
 <script>
 (function() {
+    // 1. BUG TRACKER
     const el = document.getElementById('bug-tracer');
     function log(msg) {
         if (!el) return;
@@ -2243,40 +2259,77 @@ const Notifications = (function () {
         el.scrollTop = el.scrollHeight;
     }
 
-    // Log Focus Loss
-    document.addEventListener('focusout', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-            log('LOST FOCUS on ' + e.target.id);
-            setTimeout(() => {
-                log('ActiveEl: ' + (document.activeElement.tagName || 'BODY'));
-            }, 50);
-        }
-    });
-
-    // Log Resize Events
     let lastH = window.innerHeight;
     window.addEventListener('resize', () => {
         const h = window.innerHeight;
-        if (h !== lastH) {
-            log(`RESIZE: ${lastH} -> ${h}`);
-            lastH = h;
-        }
+        if (h !== lastH) { log(`RESIZE: ${lastH} -> ${h}`); lastH = h; }
     });
-
-    // Catch Redirects / Reloads
-    window.addEventListener('beforeunload', () => {
-        log('PAGE UNLOADING/RELOADING');
-    });
-    
-    // Catch Capacitor Keyboard (APK only)
     if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard) {
-        window.Capacitor.Plugins.Keyboard.addListener('keyboardDidShow', (info) => {
-            log(`CAP KB SHOW: H=${info.keyboardHeight}`);
-        });
-        window.Capacitor.Plugins.Keyboard.addListener('keyboardDidHide', () => {
-            log('CAP KB HIDE');
+        window.Capacitor.Plugins.Keyboard.addListener('keyboardDidShow', (info) => log(`CAP KB: ${info.keyboardHeight}`));
+    }
+
+    // 2. AUDIO RECORDER
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { log('Speech API NOT supported'); return; }
+
+    let activeRecognition = null;
+
+    function attachMic(input) {
+        // EXCLUDE EXCEL PREVIEW PAGE entirely
+        if (input.closest('#pvStep3') || input.closest('.pv-sheet-fullscreen')) return;
+
+        if (input.dataset.hasMic || input.type === 'hidden' || input.type === 'checkbox' || input.type === 'radio' || input.type === 'date' || input.type === 'datetime-local' || input.readOnly) return;
+        input.dataset.hasMic = 'true';
+
+        const btn = document.createElement('button');
+        btn.className = 'pv-mic-btn';
+        btn.innerHTML = '🎤';
+        btn.type = 'button';
+
+        // Wrap normal inputs safely
+        const wrap = document.createElement('div');
+        wrap.className = 'pv-input-wrapper';
+        input.parentNode.insertBefore(wrap, input);
+        wrap.appendChild(input);
+        wrap.appendChild(btn);
+
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (activeRecognition) { activeRecognition.stop(); return; }
+
+            const rec = new SpeechRecognition();
+            rec.lang = 'en-US';
+            rec.interimResults = false;
+            
+            activeRecognition = rec;
+            btn.classList.add('recording');
+
+            rec.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                log('MIC: ' + text);
+                input.value = text;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            };
+
+            rec.onerror = (event) => { log('MIC ERR: ' + event.error); btn.classList.remove('recording'); activeRecognition = null; };
+            rec.onend = () => { btn.classList.remove('recording'); activeRecognition = null; };
+            
+            rec.start();
         });
     }
+
+    function scanForInputs() {
+        // Only standard inputs (no TD contenteditable)
+        document.querySelectorAll('input[type="text"], input[type="search"], input[type="number"], input[type="email"], input:not([type])').forEach(attachMic);
+    }
+
+    setTimeout(scanForInputs, 1000);
+    const observer = new MutationObserver((mutations) => {
+        let shouldScan = false;
+        mutations.forEach(m => { if (m.addedNodes.length > 0) shouldScan = true; });
+        if (shouldScan) setTimeout(scanForInputs, 200);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
 })();
 </script>
 </body>
