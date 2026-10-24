@@ -39,6 +39,9 @@
             <p class="text-gray-600">{{ t("auth.login_no_account") }} 
                 <a href="/signup" class="text-indigo-600 hover:underline">{{ t("auth.signup_link") }}</a>
             </p>
+            <div class="mt-4">
+                <a href="/offline/" class="text-xs text-gray-500 hover:text-indigo-600 underline">← Back to mode selection</a>
+            </div>
         </div>
     </div>
 </div>
@@ -247,7 +250,7 @@
                 
                 // ✅ Redirect with cache-buster to force fresh page load
                 loginBtn.textContent = '{{ t("auth.login_success_loading") }}';
-                console.log('Blocked redirect to web');
+                window.location.href = '/?_t=' + Date.now();
             } else {
                 alert('Login failed: ' + data.error);
                 loginBtn.disabled = false;

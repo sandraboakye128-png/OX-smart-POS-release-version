@@ -2444,7 +2444,20 @@ async function enterApp(knownOnline, opts) {
     renderMenu();
     await renderDashboard();
     refreshPendingNotifications();
-    if (online) syncInBackground();
+    if (online) {
+        syncInBackground();
+        // SHELL_DATA_WATCHDOG — warn user if data is still empty after 8s
+        setTimeout(function() {
+            if (typeof db !== 'undefined' && db && db.products) {
+                db.products.count().then(function(c) {
+                    if (c === 0) {
+                        console.warn('[SHELL] Data empty after 8s. Token/Network issue?');
+                        showToast('⚠️ Data not synced. Check internet or tap Sync Now.', { error: true });
+                    }
+                });
+            }
+        }, 8000);
+    }
 }
 
 window.enterApp = enterApp;
@@ -4512,5 +4525,33 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
 <!-- SHELL_SIDEBAR_SYNC: removed — was dead code, never ran in shell -->
 
 <script src="/static/js/mic.js" defer></script>
+
+<script>
+/* I18N_PRELOAD_V1 — always fetch the language dict so shell labels translate */
+(function(){
+  if (!window.RENDER_URL) return;
+  var lang = 'en';
+  try { lang = localStorage.getItem('ox_app_lang') || 'en'; } catch(e){}
+  fetch(window.RENDER_URL + '/api/i18n/' + encodeURIComponent(lang), { credentials: 'include', headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('ox_api_token') || '') } })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){
+      if (d && typeof d === 'object' && !d.error && Object.keys(d).length > 0) {
+        try {
+          localStorage.setItem('ox_app_i18n', JSON.stringify(d));
+          window.OX_I18N = d;
+          window.OX_LANG = lang;
+          console.log('[i18n] preloaded', Object.keys(d).length, 'keys');
+        } catch(e){}
+        // Re-render menu and dashboard if already visible
+        try {
+          if (typeof renderMenu === 'function') renderMenu();
+          if (typeof _applyStaticI18n === 'function') _applyStaticI18n();
+        } catch(e){}
+      }
+    })
+    .catch(function(){});
+})();
+</script>
+
 </body>
 </html>
