@@ -746,11 +746,11 @@ def save_purchases(rows, category, mode, deleted_ids=None, dirty_ids=None, updat
                                    datetime.now(), source, orig_date, bid_int))
                             _append_badges_inline(cur, bid_int, 'excel_update')
                             # Update product name/brand if changed
-                            if old[10] != name or old[11] != brand:
+                            if True:  # PV_CATEGORY_FIX: always update product (was: only when name/brand changed)
                                 cur.execute("""
-                                    UPDATE products SET name = %s, brand = %s
+                                    UPDATE products SET name = %s, brand = %s, category = %s
                                     WHERE id = (SELECT product_id FROM purchase_batches WHERE id = %s)
-                                """, (name, brand, bid_int))
+                                """, (name, brand, category, bid_int))
                             # Log for history modal
                             _log_batch_update(
                                 cur, bid_int,

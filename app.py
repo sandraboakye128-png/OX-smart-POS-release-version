@@ -215,7 +215,7 @@ from datetime import datetime, timezone
 # In-memory token store. Survives until process restart.
 # Move to a Postgres table later if you want tokens to outlive deploys.
 _API_TOKENS = {}
-_TOKEN_TTL = timedelta(days=7)  # SESSION_TTL_V1 — offline shell
+_TOKEN_TTL = timedelta(hours=24)  # SESSION_TTL_V1 — offline shell
 
 _ALLOWED_CORS_ORIGINS = {
     'https://localhost',
@@ -524,6 +524,8 @@ def admin_required(f):
 # ===================== PUBLIC ROUTES =====================
 @app.route("/login")
 def login():
+    if request.args.get('logged_out') == '1':
+        session.clear()
     # SESSION_TTL_V1 — remember the short-session flag across the login POST.
     # Shell's "Use App Online" opens /?web_session=1day, which redirects here.
     try:
@@ -539,6 +541,8 @@ def login():
 
 @app.route("/signup")
 def signup():
+    if request.args.get('logged_out') == '1':
+        session.clear()
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     return render_template("signup.html")
@@ -829,7 +833,7 @@ def api_auth_login():
         # Default is 7 days; the shell's "Use App Online" flow appends
         # ?web_session=1day, which the /login route stores in session and
         # this reads back to apply a 24-hour window instead.
-        _ttl_hours = 24 if session.get('web_short_session') else 24 * 7
+        _ttl_hours = 24
         session['expires_at'] = (datetime.now(timezone.utc)
                                  + timedelta(hours=_ttl_hours)).isoformat()
 

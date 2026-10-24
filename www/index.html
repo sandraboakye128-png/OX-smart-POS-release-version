@@ -3466,7 +3466,7 @@ async function switchView(name) {
         // Worker can also serve it offline.
         let html = _viewHtmlCache[v.path];
         if (!html) {
-            const res = await fetch(v.path, { cache: 'default' });
+            const res = await fetch('/' + v.path.replace(/^\/+/, ''), { cache: 'no-store' }); // SHELL_FETCH_V2
             if (!res.ok) throw new Error('HTTP ' + res.status);
             html = await res.text();
             _viewHtmlCache[v.path] = html;
@@ -4813,6 +4813,21 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
   // Hide when page finishes loading
   window.addEventListener('pageshow', window.oxHideOpening);
 })();
+
+// PENDING_SYNC_REMINDER_2H — nudge user to sync offline changes every 2 hours
+setInterval(async function() {
+    try {
+        if (typeof db === 'undefined' || !db || !db.pending_ops) return;
+        const pending = await db.pending_ops.where('synced').equals(0).count();
+        if (pending > 0) {
+            if (typeof showToast === 'function') {
+                showToast('⚠️ ' + pending + ' unsynced items. Connect & tap Sync Now.', { duration: 5000 });
+            } else {
+                console.warn('[2H-REMINDER] pending_ops=', pending);
+            }
+        }
+    } catch (e) { console.warn('[2H-REMINDER] err', e); }
+}, 2 * 60 * 60 * 1000);
 </script>
 
 </body>

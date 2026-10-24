@@ -14,7 +14,7 @@
 // ============================================================
 
 // ⚠️ INCREMENT ON EVERY SW LOGIC CHANGE
-const CACHE_NAME = 'oxsmart-v80';
+const CACHE_NAME = 'oxsmart-v81';
 
 const PRECACHE_ASSETS = [
   '/static/css/style.css',
@@ -76,6 +76,8 @@ self.addEventListener('activate', event => {
 
 // ===== FETCH =====
 self.addEventListener('fetch', event => {
+  // SW_BYPASS_VIEWS_V1 — never intercept shell view HTML
+  try { const _u = new URL(event.request.url); if (_u.pathname.indexOf('/views/') !== -1) { return; } } catch(e) {}
   const req = event.request;
   const url = new URL(req.url);
 

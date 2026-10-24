@@ -255,7 +255,7 @@
                     role: data.user.role,
                     id: data.user.id,
                     loginTime: Date.now(),
-                    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000
+                    expiresAt: Date.now() + 24 * 60 * 60 * 1000
                 };
                 localStorage.setItem('ox_user', JSON.stringify(session));
                 console.log('✅ New session stored for:', data.user.username);
