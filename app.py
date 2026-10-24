@@ -4392,9 +4392,9 @@ def run_inventory_import(job_id, file_stream, target_category, mode='append'):
                 if prow:
                     product_id = prow[0]
                     cur.execute("""
-                        UPDATE products SET cost_price = %s, selling_price = %s
+                        UPDATE products SET cost_price = %s, selling_price = %s, category = %s
                         WHERE id = %s
-                    """, (item['cost_price'], item['selling_price'], product_id))
+                    """, (item['cost_price'], item['selling_price'], item['category'], product_id))
                 else:
                     cur.execute("""
                         INSERT INTO products

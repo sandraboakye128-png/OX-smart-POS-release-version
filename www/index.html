@@ -4465,7 +4465,11 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
 
 
 
-<!-- BUG_TRACKER_AND_AUDIO_V5 -->
+
+
+
+
+<!-- BUG_TRACKER_AND_AUDIO_V7 -->
 <style>
 #bug-tracer {
     position: fixed; top: 5px; right: 5px; background: rgba(0,0,0,0.85); 
@@ -4474,22 +4478,12 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
     pointer-events: none; font-family: monospace; border-radius: 4px;
     border: 1px solid #0f0;
 }
-/* Fix the overlay: the wrapper must be relative */
-.pv-input-wrapper {
-    position: relative !important;
-    display: flex;
-    align-items: center;
-    width: 100%;
-}
 .pv-mic-btn {
-    position: absolute;
-    right: 6px;
-    top: 50%;
-    transform: translateY(-50%);
     background: #10b981; color: white; border: none; border-radius: 4px;
     padding: 4px 8px; cursor: pointer; font-size: 14px;
     display: inline-flex; align-items: center; justify-content: center;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 50;
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
 }
 .pv-mic-btn.recording { background: #ef4444; animation: pulse 1s infinite; }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -4499,7 +4493,6 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
 
 <script>
 (function() {
-    // 1. BUG TRACKER & KEYBOARD GUARD
     const el = document.getElementById('bug-tracer');
     function log(msg) {
         if (!el) return;
@@ -4509,54 +4502,41 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
         el.scrollTop = el.scrollHeight;
     }
 
-    // FOCUS GUARD: Stop page reloads and blurring while typing
+    // Block focus loss
     let isTyping = false;
     document.addEventListener('focusin', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') isTyping = true;
     });
     document.addEventListener('focusout', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') isTyping = false;
-    });
-
-    // Intercept window.location changes
-    const originalAssign = window.location.assign;
-    const originalReplace = window.location.replace;
-    window.location.assign = function(url) {
-        if (isTyping) { log('BLOCKED REDIRECT: ' + url); return; }
-        originalAssign.apply(window.location, arguments);
-    };
-    window.location.replace = function(url) {
-        if (isTyping) { log('BLOCKED REPLACE: ' + url); return; }
-        originalReplace.apply(window.location, arguments);
-    };
-    // Intercept blur on active inputs
-    const originalBlur = HTMLElement.prototype.blur;
-    HTMLElement.prototype.blur = function() {
-        if (isTyping && (this.tagName === 'INPUT' || this.tagName === 'TEXTAREA')) {
-            log('BLOCKED BLUR');
-            return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            setTimeout(() => { isTyping = false; }, 200);
         }
-        originalBlur.apply(this, arguments);
-    };
-
-    let lastH = window.innerHeight;
-    window.addEventListener('resize', () => {
-        const h = window.innerHeight;
-        if (h !== lastH) { log(`RESIZE: ${lastH} -> ${h}`); lastH = h; }
     });
 
-    // 2. AUDIO RECORDER
+    window.addEventListener('beforeunload', function (e) {
+        if (isTyping && (window.location.pathname.includes('login') || window.location.pathname.includes('signup'))) {
+            log('BLOCKED UNLOAD');
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) { log('Speech API NOT supported'); return; }
+    if (!SpeechRecognition) return;
 
     let activeRecognition = null;
 
     function attachMic(input) {
-        // Skip auth pages and excel preview
-        if (window.location.pathname.includes('/login') || window.location.pathname.includes('/signup')) return;
-        if (input.closest('#pvStep3') || input.closest('.pv-sheet-fullscreen')) return;
-        if (input.dataset.hasMic || input.type === 'hidden' || input.type === 'checkbox' || input.type === 'radio' || input.type === 'date' || input.type === 'datetime-local' || input.readOnly) return;
+        // 1. Skip login/signup
+        if (window.location.pathname.includes('login') || window.location.pathname.includes('signup')) return;
         
+        // 2. Skip sidebar/nav completely
+        if (input.closest('aside') || input.closest('nav') || input.closest('.sidebar') || input.closest('.fixed')) return;
+        
+        // 3. Skip invisible or already processed inputs
+        if (input.dataset.hasMic || input.type === 'hidden' || input.type === 'checkbox' || input.type === 'radio' || input.type === 'date' || input.type === 'datetime-local' || input.readOnly) return;
+        if (input.offsetParent === null) return;
+
         input.dataset.hasMic = 'true';
 
         const btn = document.createElement('button');
@@ -4564,13 +4544,12 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
         btn.innerHTML = '🎤';
         btn.type = 'button';
 
-        const wrap = document.createElement('div');
-        wrap.className = 'pv-input-wrapper';
-        input.parentNode.insertBefore(wrap, input);
-        wrap.appendChild(input);
-        wrap.appendChild(btn);
-
-        // Add padding so text doesn't hide behind the mic button
+        // Append button directly to parent and position absolutely
+        const parent = input.parentNode;
+        parent.style.position = 'relative';
+        parent.appendChild(btn);
+        
+        // Add padding so text doesn't hide behind the mic
         input.style.paddingRight = '35px';
 
         btn.addEventListener('click', (e) => {
@@ -4588,19 +4567,16 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
                 let text = event.results[0][0].transcript;
                 log('MIC: ' + text);
 
-                // Parse numbers (e.g. "fifty" -> "50", "$50" -> "50")
-                if (input.type === 'number' || input.name.includes('discount') || input.name.includes('quantity') || input.name.includes('price')) {
+                if (input.type === 'number' || (input.name && (input.name.includes('discount') || input.name.includes('quantity') || input.name.includes('price')))) {
                     const numMatch = text.match(/\d+(\.\d+)?/);
                     if (numMatch) {
-                        text = numMatch[0]; // Extract just the number
+                        text = numMatch[0];
                     } else {
-                        // Simple word-to-number fallback for common words
                         const words = {'fifty': '50', 'twenty': '20', 'ten': '10', 'five': '5', 'one hundred': '100'};
                         text = words[text.toLowerCase()] || text;
                     }
                 }
                 
-                // Parse batch search (e.g. "batch 4" -> "4")
                 if (input.placeholder && input.placeholder.toLowerCase().includes('batch')) {
                     text = text.replace(/batch/gi, '').trim();
                 }
@@ -4628,6 +4604,47 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
     });
     observer.observe(document.body, { childList: true, subtree: true });
 })();
+</script>
+
+<!-- SHELL_SIDEBAR_SYNC -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait for shell to load
+    setTimeout(() => {
+        var sidebar = document.querySelector('aside') || document.querySelector('nav') || document.querySelector('.sidebar');
+        if (!sidebar) return;
+        
+        // Check if we have a list
+        var list = sidebar.querySelector('ul');
+        if (!list) return;
+
+        var links = [
+            {href: '/preview-data', icon: 'fa-table', label: 'Excel Preview', online: true},
+            {href: '/claims', icon: 'fa-clipboard-list', label: 'Claims', online: true},
+            {href: '/logs', icon: 'fa-history', label: 'User Logs', online: true},
+            {href: '/admin/users', icon: 'fa-users', label: 'Users', online: true},
+            {href: '/archive', icon: 'fa-archive', label: 'Archive', online: false}
+        ];
+
+        links.forEach(l => {
+            if (list.querySelector('a[href="' + l.href + '"]')) return; // Already exists
+            
+            var li = document.createElement('li');
+            var extraIcon = l.online ? ' <span class="text-[10px] bg-blue-100 text-blue-800 px-1 rounded ml-1">🌐 Online</span>' : '';
+            li.innerHTML = '<a href="' + l.href + '" class="flex items-center gap-2 p-2 hover:bg-gray-700 rounded transition ' + (l.online ? 'online-only-link' : '') + '"><i class="fas ' + l.icon + ' w-4"></i> ' + l.label + extraIcon + '</a>';
+            
+            if (l.online) {
+                li.querySelector('a').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // Open the Render URL directly in the WebView
+                    var baseUrl = 'https://ox-smart-pos-release-version.onrender.com';
+                    window.location.href = baseUrl + l.href;
+                });
+            }
+            list.appendChild(li);
+        });
+    }, 500);
+});
 </script>
 </body>
 </html>
