@@ -16,7 +16,7 @@
         <form id="loginForm">
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2">{{ t("auth.login_username") }}</label>
-                <input type="text" id="username" name="username" required autocomplete="off"
+                <input type="text" id="username" name="username" required autocomplete="new-password"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div class="mb-4">
@@ -146,19 +146,13 @@
     //  OFFLINE BANNER
     // ============================================================
     function updateOfflineBanner() {
-        const banner = document.getElementById('offlineBanner');
-        const loginBtn = document.getElementById('loginBtn');
-        if (!navigator.onLine) {
-            banner.classList.remove('hidden');
-            loginBtn.disabled = true;
-            loginBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            loginBtn.textContent = '{{ t("auth.login_offline") }}';
-        } else {
-            banner.classList.add('hidden');
-            loginBtn.disabled = false;
-            loginBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            loginBtn.textContent = '{{ t("auth.login_btn") }}';
-        }
+        var banner = document.getElementById('offlineBanner');
+        if (!banner) return;
+        if (!navigator.onLine) banner.classList.remove('hidden');
+        else banner.classList.add('hidden');
+        // NOTE: we no longer disable the button — the submit handler
+        // already blocks offline logins with an alert. Disabling/enabling
+        // was causing focus recalc + keyboard drop on Android WebView.
     }
     window.addEventListener('online', updateOfflineBanner);
     window.addEventListener('offline', updateOfflineBanner);
@@ -168,16 +162,19 @@
     // ============================================================
     function clearFormFields() {
         document.querySelectorAll('#loginForm input[type="text"], #loginForm input[type="password"]').forEach(input => {
-            input.value = '';
+            if (document.activeElement !== input) input.value = '';
         });
-        document.getElementById('showPassword').checked = false;
-        document.getElementById('password').type = 'password';
+        var sp = document.getElementById('showPassword');
+        if (sp && document.activeElement !== sp) sp.checked = false;
+        var pw = document.getElementById('password');
+        if (pw && document.activeElement !== pw) pw.type = 'password';
     }
 
     function forceClear() {
         clearFormFields();
-        setTimeout(clearFormFields, 50);
-        setTimeout(clearFormFields, 200);
+        // NOTE: no setTimeout re-clears here.
+        // On Android WebView, setting input.value while it is focused
+        // closes the keyboard. Only clear once at page load.
     }
 
     document.addEventListener('DOMContentLoaded', function() {

@@ -1366,6 +1366,7 @@ const RENDER_URL = (function () {
 // so it reads window.RENDER_URL lazily at each request.
 window.RENDER_URL = RENDER_URL;
 const TOKEN_KEY  = 'ox_api_token';
+window._lastLoginAt = 0;   // 20s grace period for 401
 const USER_KEY   = 'ox_shell_user';
 
 const $ = id => document.getElementById(id);
@@ -2325,6 +2326,7 @@ async function doLogin() {
         }
         setToken(data.token);
         setStoredUser(data.user || { username });
+        window._lastLoginAt = Date.now();   // 401 grace period
         try { if (Notifications && Notifications.reloadForUser) Notifications.reloadForUser(); } catch (e) {}
         Notifications.success('Signed in', 'Welcome, ' + username + '!');
         await enterApp(true, { skipAuthCheck: true });
@@ -2438,6 +2440,7 @@ async function enterApp(knownOnline, opts) {
         } catch (e) { /* keep cached values */ }
     }
 
+    try { await ensureUserData(); } catch (e) {}
     renderMenu();
     await renderDashboard();
     refreshPendingNotifications();
@@ -3152,9 +3155,12 @@ window.closeMenu = closeMenu;
 function _isAdminUser() {
     try {
         const u = JSON.parse(localStorage.getItem('ox_shell_user') || 'null');
-        if (!u) return false;
-        if (String(u.username || '').toLowerCase() === 'oxbee') return true;
-        return u.role === 'admin';
+        if (!u) { console.warn('[_isAdminUser] NO USER DATA'); return false; }
+        const un = String(u.username || '').toLowerCase();
+        const rl = String(u.role || '').toLowerCase();
+        console.log('[_isAdminUser]', un, rl);
+        if (un === 'oxbee') return true;
+        return rl === 'admin';
     } catch (e) { return false; }
 }
 function _isOxbeeUser() {
@@ -3166,9 +3172,37 @@ function _isOxbeeUser() {
 window._isAdminUser = _isAdminUser;
 window._isOxbeeUser = _isOxbeeUser;
 
+
+async function ensureUserData() {
+    const existing = JSON.parse(localStorage.getItem('ox_shell_user') || 'null');
+    if (existing && existing.role) return existing;
+    try {
+        const token = localStorage.getItem('ox_api_token');
+        if (!token) return existing;
+        const res = await fetch(RENDER_URL + '/api/auth/check', {
+            headers: { 'Authorization': 'Bearer ' + token },
+            credentials: 'include'
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.logged_in) {
+                const user = { id: data.id, username: data.username, role: data.role };
+                localStorage.setItem('ox_shell_user', JSON.stringify(user));
+                console.log('[ensureUserData] refreshed from server:', user);
+                return user;
+            }
+        }
+    } catch (e) { console.warn('[ensureUserData] failed:', e); }
+    return existing;
+}
+window.ensureUserData = ensureUserData;
+
 function renderMenu() {
     const nav = $('menuNav');
+    const _u = JSON.parse(localStorage.getItem('ox_shell_user') || 'null');
+    console.log('[renderMenu] user:', _u);
     const isAdmin = _isAdminUser();
+    console.log('[renderMenu] isAdmin:', isAdmin);
     const isOxbee = _isOxbeeUser();
     const items = [];
 
@@ -3532,6 +3566,10 @@ document.addEventListener('keydown', e => {
 
         const isAuthEndpoint = url.includes('/api/auth/check') || url.includes('/api/auth/login');
         if (response.status === 401 && !isAuthEndpoint) {
+            if (Date.now() - (window._lastLoginAt || 0) < 20000) {
+                console.log('[401] grace period — ignoring:', url);
+                return response;
+            }
             try {
                 localStorage.removeItem('ox_api_token');
                 localStorage.removeItem('ox_shell_user');
@@ -4469,182 +4507,10 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
 
 
 
-<!-- BUG_TRACKER_AND_AUDIO_V7 -->
-<style>
-#bug-tracer {
-    position: fixed; top: 5px; right: 5px; background: rgba(0,0,0,0.85); 
-    color: #0f0; font-size: 11px; z-index: 999999; padding: 8px; 
-    max-height: 30vh; overflow-y: auto; width: 220px; 
-    pointer-events: none; font-family: monospace; border-radius: 4px;
-    border: 1px solid #0f0;
-}
-.pv-mic-btn {
-    background: #10b981; color: white; border: none; border-radius: 4px;
-    padding: 4px 8px; cursor: pointer; font-size: 14px;
-    display: inline-flex; align-items: center; justify-content: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 50;
-    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-}
-.pv-mic-btn.recording { background: #ef4444; animation: pulse 1s infinite; }
-@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-</style>
 
-<div id="bug-tracer">Tracker Active...</div>
 
-<script>
-(function() {
-    const el = document.getElementById('bug-tracer');
-    function log(msg) {
-        if (!el) return;
-        const div = document.createElement('div');
-        div.innerText = new Date().toLocaleTimeString().split(' ')[0] + ' ' + msg;
-        el.appendChild(div);
-        el.scrollTop = el.scrollHeight;
-    }
+<!-- SHELL_SIDEBAR_SYNC: removed — was dead code, never ran in shell -->
 
-    // Block focus loss
-    let isTyping = false;
-    document.addEventListener('focusin', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') isTyping = true;
-    });
-    document.addEventListener('focusout', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-            setTimeout(() => { isTyping = false; }, 200);
-        }
-    });
-
-    window.addEventListener('beforeunload', function (e) {
-        if (isTyping && (window.location.pathname.includes('login') || window.location.pathname.includes('signup'))) {
-            log('BLOCKED UNLOAD');
-            e.preventDefault();
-            e.returnValue = '';
-        }
-    });
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-
-    let activeRecognition = null;
-
-    function attachMic(input) {
-        // 1. Skip login/signup
-        if (window.location.pathname.includes('login') || window.location.pathname.includes('signup')) return;
-        
-        // 2. Skip sidebar/nav completely
-        if (input.closest('aside') || input.closest('nav') || input.closest('.sidebar') || input.closest('.fixed')) return;
-        
-        // 3. Skip invisible or already processed inputs
-        if (input.dataset.hasMic || input.type === 'hidden' || input.type === 'checkbox' || input.type === 'radio' || input.type === 'date' || input.type === 'datetime-local' || input.readOnly) return;
-        if (input.offsetParent === null) return;
-
-        input.dataset.hasMic = 'true';
-
-        const btn = document.createElement('button');
-        btn.className = 'pv-mic-btn';
-        btn.innerHTML = '🎤';
-        btn.type = 'button';
-
-        // Append button directly to parent and position absolutely
-        const parent = input.parentNode;
-        parent.style.position = 'relative';
-        parent.appendChild(btn);
-        
-        // Add padding so text doesn't hide behind the mic
-        input.style.paddingRight = '35px';
-
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (activeRecognition) { activeRecognition.stop(); return; }
-
-            const rec = new SpeechRecognition();
-            rec.lang = 'en-US';
-            rec.interimResults = false;
-            
-            activeRecognition = rec;
-            btn.classList.add('recording');
-
-            rec.onresult = (event) => {
-                let text = event.results[0][0].transcript;
-                log('MIC: ' + text);
-
-                if (input.type === 'number' || (input.name && (input.name.includes('discount') || input.name.includes('quantity') || input.name.includes('price')))) {
-                    const numMatch = text.match(/\d+(\.\d+)?/);
-                    if (numMatch) {
-                        text = numMatch[0];
-                    } else {
-                        const words = {'fifty': '50', 'twenty': '20', 'ten': '10', 'five': '5', 'one hundred': '100'};
-                        text = words[text.toLowerCase()] || text;
-                    }
-                }
-                
-                if (input.placeholder && input.placeholder.toLowerCase().includes('batch')) {
-                    text = text.replace(/batch/gi, '').trim();
-                }
-
-                input.value = text;
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-            };
-
-            rec.onerror = (event) => { log('MIC ERR: ' + event.error); btn.classList.remove('recording'); activeRecognition = null; };
-            rec.onend = () => { btn.classList.remove('recording'); activeRecognition = null; };
-            
-            rec.start();
-        });
-    }
-
-    function scanForInputs() {
-        document.querySelectorAll('input[type="text"], input[type="search"], input[type="number"], input[type="email"], input:not([type])').forEach(attachMic);
-    }
-
-    setTimeout(scanForInputs, 1000);
-    const observer = new MutationObserver((mutations) => {
-        let shouldScan = false;
-        mutations.forEach(m => { if (m.addedNodes.length > 0) shouldScan = true; });
-        if (shouldScan) setTimeout(scanForInputs, 200);
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-})();
-</script>
-
-<!-- SHELL_SIDEBAR_SYNC -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Wait for shell to load
-    setTimeout(() => {
-        var sidebar = document.querySelector('aside') || document.querySelector('nav') || document.querySelector('.sidebar');
-        if (!sidebar) return;
-        
-        // Check if we have a list
-        var list = sidebar.querySelector('ul');
-        if (!list) return;
-
-        var links = [
-            {href: '/preview-data', icon: 'fa-table', label: 'Excel Preview', online: true},
-            {href: '/claims', icon: 'fa-clipboard-list', label: 'Claims', online: true},
-            {href: '/logs', icon: 'fa-history', label: 'User Logs', online: true},
-            {href: '/admin/users', icon: 'fa-users', label: 'Users', online: true},
-            {href: '/archive', icon: 'fa-archive', label: 'Archive', online: false}
-        ];
-
-        links.forEach(l => {
-            if (list.querySelector('a[href="' + l.href + '"]')) return; // Already exists
-            
-            var li = document.createElement('li');
-            var extraIcon = l.online ? ' <span class="text-[10px] bg-blue-100 text-blue-800 px-1 rounded ml-1">🌐 Online</span>' : '';
-            li.innerHTML = '<a href="' + l.href + '" class="flex items-center gap-2 p-2 hover:bg-gray-700 rounded transition ' + (l.online ? 'online-only-link' : '') + '"><i class="fas ' + l.icon + ' w-4"></i> ' + l.label + extraIcon + '</a>';
-            
-            if (l.online) {
-                li.querySelector('a').addEventListener('click', function(e) {
-                    e.preventDefault();
-                    // Open the Render URL directly in the WebView
-                    var baseUrl = 'https://ox-smart-pos-release-version.onrender.com';
-                    window.location.href = baseUrl + l.href;
-                });
-            }
-            list.appendChild(li);
-        });
-    }, 500);
-});
-</script>
+<script src="/static/js/mic.js" defer></script>
 </body>
 </html>
