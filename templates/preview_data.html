@@ -129,6 +129,11 @@
         border-left: 1px solid #d1d5db !important;
     }
 
+    /* PV_SUGGEST_FIX_V6 — keep suggest dropdown above fullscreen sheet */
+    #pvStep3.pv-sheet-fullscreen #pvSuggestBox {
+        position: fixed !important;
+        z-index: 2147483647 !important;
+    }
     /* Toolbar stays reachable in landscape: single row, h-scroll if needed */
     #pvStep3.pv-sheet-fullscreen > div:first-child {
         flex: 0 0 auto !important;
@@ -1313,9 +1318,28 @@ function pvPositionSuggest(td) {
     const box = document.getElementById('pvSuggestBox');
     if (!box || !td) return;
     const r = td.getBoundingClientRect();
-    box.style.left = Math.max(8, r.left) + 'px';
-    box.style.top = (r.bottom + 4) + 'px';
-    box.style.width = Math.max(240, Math.min(400, r.width + 120)) + 'px';
+    const boxW = Math.max(240, Math.min(400, r.width + 120));
+    const maxH = 240;
+    const vv = window.visualViewport;
+    const vpW = vv ? vv.width  : window.innerWidth;
+    const vpH = vv ? vv.height : window.innerHeight;
+    const vpOffsetTop  = vv ? vv.offsetTop  : 0;
+    const vpOffsetLeft = vv ? vv.offsetLeft : 0;
+    let left = r.left - vpOffsetLeft;
+    let top  = r.bottom - vpOffsetTop + 4;
+    if (left + boxW > vpW - 8) left = vpW - boxW - 8;
+    if (left < 8) left = 8;
+    const spaceBelow = vpH - (r.bottom - vpOffsetTop);
+    if (spaceBelow < maxH) {
+        const aboveTop = (r.top - vpOffsetTop) - maxH - 4;
+        if (aboveTop >= 8) top = aboveTop;
+        else top = Math.max(8, vpH - maxH - 8);
+    }
+    box.style.left  = left + 'px';
+    box.style.top   = top  + 'px';
+    box.style.width = boxW + 'px';
+    box.style.position = 'fixed';
+    box.style.zIndex   = '2147483647';
 }
 
 function pvRenderSuggest(items, onPick) {
@@ -1378,6 +1402,7 @@ document.addEventListener('input', function(e) {
     } catch (e) {}
     const key = td.dataset.key;
     const typed = (td.textContent || '').trim().toLowerCase();
+    var tr = td.closest('tr'); /* PV_SUGGEST_FIX_V7 */
     // PV_TYPING_FOCUS_FIX: Save to memory immediately, DO NOT touch the DOM
     if (tr) {
         const rowIdx = parseInt(tr.dataset.row, 10);

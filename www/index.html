@@ -2425,33 +2425,95 @@ async function enterApp(knownOnline, opts) {
     try { await db.products.count(); }
     catch (e) { console.warn('Dexie count failed:', e); }
 
-    loadingView.classList.add('hidden');
-    appView.classList.remove('hidden');
-
     renderUserChip();
 
+    // ---- FIRST-LOGIN BLOCKING SYNC ----
+    // If Dexie has no data, we MUST sync before showing dashboard
+    // (otherwise dashboard renders empty for a long time).
+    let _isFirstLogin = false;
+    try {
+        const _existing = await db.products.count();
+        _isFirstLogin = (_existing === 0);
+        console.log('[enterApp] existing products:', _existing, 'firstLogin:', _isFirstLogin);
+        if (window.__oxBtLog) window.__oxBtLog('evt', 'enterApp: existing=' + _existing + ' firstLogin=' + _isFirstLogin);
+    } catch (e) {
+        console.warn('[enterApp] db count failed:', e);
+    }
+
+    if (online && _isFirstLogin) {
+        // Show blocking "Syncing your data…" overlay
+        loadingView.classList.add('hidden');
+        appView.classList.add('hidden');
+        const syncView = document.createElement('div');
+        syncView.id = 'ox-first-sync';
+        syncView.style.cssText = 'position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:#e2e8f0;gap:16px;padding:24px;text-align:center;';
+        syncView.innerHTML = '<div style="width:56px;height:56px;border:4px solid #334155;border-top-color:#00CFCF;border-radius:50%;animation:oxSpin 0.8s linear infinite;"></div>'
+            + '<div style="font-size:0.95rem;font-weight:600;">Downloading your data…</div>'
+            + '<div style="font-size:0.75rem;color:#94a3b8;">First login syncs everything from online.</div>'
+            + '<button id="ox-first-sync-retry" style="margin-top:12px;background:#ef4444;color:#fff;border:0;border-radius:8px;padding:8px 20px;font-size:0.8rem;font-weight:700;cursor:pointer;display:none;">Retry Sync</button>';
+        if (!document.getElementById('oxSpinStyles')) {
+            var s = document.createElement('style');
+            s.id = 'oxSpinStyles';
+            s.textContent = '@keyframes oxSpin { to { transform: rotate(360deg); } }';
+            document.head.appendChild(s);
+        }
+        document.body.appendChild(syncView);
+
+        try {
+            if (window.__oxBtLog) window.__oxBtLog('evt', 'FIRST-SYNC: start');
+            await fullSync();
+            if (window.__oxBtLog) window.__oxBtLog('ok', 'FIRST-SYNC: complete');
+            const after = await db.products.count().catch(() => 0);
+            if (window.__oxBtLog) window.__oxBtLog('ok', 'FIRST-SYNC: loaded ' + after + ' products');
+            if (after === 0) throw new Error('Sync returned 0 products');
+            syncView.remove();
+        } catch (e) {
+            console.error('[FIRST-SYNC] failed:', e);
+            if (window.__oxBtLog) window.__oxBtLog('err', 'FIRST-SYNC: ' + (e.message || 'fail'));
+            const btn = document.getElementById('ox-first-sync-retry');
+            if (btn) {
+                btn.style.display = 'inline-block';
+                btn.onclick = function() {
+                    syncView.remove();
+                    enterApp(true, { skipAuthCheck: true });
+                };
+            }
+            return;  // STOP: don't show dashboard with no data
+        }
+    } else if (online) {
+        // Subsequent logins: show dashboard immediately + background sync
+        loadingView.classList.add('hidden');
+        appView.classList.remove('hidden');
+    } else {
+        // Offline (no internet): rely on Dexie cache
+        loadingView.classList.add('hidden');
+        appView.classList.remove('hidden');
+    }
+
     // Fetch fresh settings + i18n (also caches for offline).
-    // Do this BEFORE rendering menu / dashboard so labels and currency
-    // are already correct on first paint.
     if (online) {
         try {
             const s = await fetchAndCacheSettings();
             if (s) applyShellSettings(s);
-        } catch (e) { /* keep cached values */ }
+            if (window.__oxBtLog) window.__oxBtLog('ok', 'settings loaded');
+        } catch (e) {
+            if (window.__oxBtLog) window.__oxBtLog('err', 'settings: ' + e.message);
+        }
     }
 
     try { await ensureUserData(); } catch (e) {}
     renderMenu();
     await renderDashboard();
     refreshPendingNotifications();
-    if (online) {
+    if (window.__oxBtData) window.__oxBtData();
+
+    if (online && !_isFirstLogin) {
         syncInBackground();
-        // SHELL_DATA_WATCHDOG — warn user if data is still empty after 8s
         setTimeout(function() {
             if (typeof db !== 'undefined' && db && db.products) {
                 db.products.count().then(function(c) {
                     if (c === 0) {
-                        console.warn('[SHELL] Data empty after 8s. Token/Network issue?');
+                        console.warn('[SHELL] Data empty after 8s.');
                         showToast('⚠️ Data not synced. Check internet or tap Sync Now.', { error: true });
                     }
                 });
@@ -3362,7 +3424,8 @@ function menuItemHtml(key) {
 
 async function switchView(name) {
     closeMenu();
-    if (name === currentView) return;
+    if (typeof window.oxShowOpening === 'function') window.oxShowOpening();
+    if (name === currentView) { if (typeof window.oxHideOpening === 'function') window.oxHideOpening(); return; }
     const v = VIEWS[name];
     if (!v) { showToast('Unknown view', { error: true }); return; }
 
@@ -3376,6 +3439,7 @@ async function switchView(name) {
     if (v.onlineOnly) {
         showToast('🌐 Opening in full app…');
         setTimeout(() => openFullApp(), 200);
+        if (typeof window.oxHideOpening === 'function') window.oxHideOpening();
         return;
     }
 
@@ -3386,6 +3450,7 @@ async function switchView(name) {
         currentView = 'dashboard';
         renderMenu();
         await renderDashboard();
+        if (typeof window.oxHideOpening === 'function') window.oxHideOpening();
         return;
     }
 
@@ -3445,8 +3510,10 @@ async function switchView(name) {
         window.scrollTo({ top: 0, behavior: 'instant' });
 
         _dispatchPendingAutoOpenBatch(name);
+        if (window.oxHideOpening) window.oxHideOpening();
     } catch (e) {
         console.error('View load failed:', e);
+        if (typeof window.oxHideOpening === 'function') window.oxHideOpening();
         $('viewDynamic').innerHTML = '<div class="empty">Could not load view.<br>' + escapeHtml(e.message) + '</div>';
         showToast('Failed to load ' + v.title, { error: true });
     }
@@ -4550,6 +4617,201 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
       }
     })
     .catch(function(){});
+})();
+</script>
+
+
+<!-- BUG_TRACKER_V2 -->
+<style>
+#ox-bt {
+  position: fixed; top: 60px; right: 8px; width: 230px;
+  max-height: 45vh; overflow-y: auto;
+  background: rgba(0,0,0,0.85); color: #0f0;
+  font-family: monospace; font-size: 10px; line-height: 1.35;
+  padding: 6px 8px; border-radius: 8px;
+  z-index: 999999; pointer-events: auto;
+  border: 1px solid #0f0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+#ox-bt.collapsed { max-height: 28px; overflow: hidden; }
+#ox-bt .ox-bt-hdr {
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; font-weight: bold; margin-bottom: 4px;
+  padding-bottom: 4px; border-bottom: 1px solid #0f0;
+  user-select: none;
+}
+#ox-bt.collapsed .ox-bt-hdr { margin-bottom: 0; border-bottom: 0; padding-bottom: 0; }
+#ox-bt .ox-bt-hdr span { flex: 1; }
+#ox-bt .ox-bt-hdr button {
+  background: transparent; border: 0; color: #0f0;
+  font-size: 12px; cursor: pointer; padding: 0 4px;
+}
+#ox-bt .ox-ln { word-break: break-word; margin-bottom: 1px; }
+#ox-bt .ox-ln.err { color: #f87171; }
+#ox-bt .ox-ln.warn { color: #fbbf24; }
+#ox-bt .ox-ln.ok { color: #67e8f9; }
+#ox-bt .ox-ln.evt { color: #a5b4fc; }
+#ox-bt .ox-ln.focus { color: #f0abfc; }
+#ox-bt .ox-ln.blur { color: #fdba74; }
+</style>
+<div id="ox-bt" class="collapsed">
+  <div class="ox-bt-hdr" onclick="document.getElementById('ox-bt').classList.toggle('collapsed')">
+    <span>🐞 Tracker</span>
+    <button type="button" onclick="event.stopPropagation(); window.__oxBtClear && window.__oxBtClear();">✕</button>
+  </div>
+  <div id="ox-bt-lines"></div>
+</div>
+<script>
+(function(){
+  if (window.__OX_BT_V2) return;
+  window.__OX_BT_V2 = true;
+  var box = document.getElementById('ox-bt-lines');
+  if (!box) return;
+  function add(cls, msg) {
+    var d = document.createElement('div');
+    d.className = 'ox-ln ' + (cls || '');
+    var t = new Date();
+    d.textContent = String(t.getHours()).padStart(2,'0') + ':' +
+                    String(t.getMinutes()).padStart(2,'0') + ':' +
+                    String(t.getSeconds()).padStart(2,'0') + ' ' + msg;
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+    while (box.children.length > 60) box.removeChild(box.firstChild);
+  }
+  window.__oxBtLog = add;
+  window.__oxBtClear = function(){ box.innerHTML = ''; };
+
+  // ---- 1. FOCUS / BLUR tracking (keyboard close diagnosis) ----
+  document.addEventListener('focusin', function(e){
+    var t = e.target;
+    if (!t) return;
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') {
+      add('focus', 'FOCUS ' + (t.id || t.name || t.tagName));
+    }
+  }, true);
+  document.addEventListener('focusout', function(e){
+    var t = e.target;
+    if (!t) return;
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') {
+      var next = document.activeElement;
+      var nid = next ? (next.id || next.tagName) : 'null';
+      add('blur', 'BLUR ' + (t.id || t.name || t.tagName) + ' → ' + nid);
+    }
+  }, true);
+
+  // ---- 2. FETCH tracking ----
+  var _fetch = window.fetch;
+  window.fetch = function(input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '?';
+    var method = (init && init.method) || 'GET';
+    var short = url.replace(/^https?:\/\/[^/]+/, '').slice(0, 42);
+    var start = Date.now();
+    add('evt', '→ ' + method + ' ' + short);
+    return _fetch.apply(this, arguments).then(function(res){
+      var ms = Date.now() - start;
+      var cls = res.status >= 400 ? 'err' : (res.status >= 300 ? 'warn' : 'ok');
+      add(cls, '← ' + res.status + ' ' + short + ' (' + ms + 'ms)');
+      return res;
+    }).catch(function(err){
+      add('err', '✗ ' + short + ' ' + (err.message || 'net'));
+      throw err;
+    });
+  };
+
+  // ---- 3. WINDOW unload / reload ----
+  window.addEventListener('beforeunload', function(){
+    add('warn', 'PAGE UNLOADING');
+  });
+
+  // ---- 4. Session state helper ----
+  window.__oxBtSession = function() {
+    try {
+      var tok = !!localStorage.getItem('ox_api_token');
+      var usr = !!localStorage.getItem('ox_user') || !!localStorage.getItem('ox_shell_user');
+      add('evt', 'session: token=' + tok + ' user=' + usr);
+    } catch(e){ add('err', 'session read failed'); }
+  };
+
+  // ---- 5. Data counts helper ----
+  window.__oxBtData = function() {
+    if (typeof db === 'undefined' || !db) { add('err', 'no db'); return; }
+    Promise.all([
+      db.products.count().catch(()=>0),
+      db.batches.count().catch(()=>0),
+      db.sales.count().catch(()=>0)
+    ]).then(function(c){
+      add('ok', 'data: P=' + c[0] + ' B=' + c[1] + ' S=' + c[2]);
+    });
+  };
+
+  add('ok', 'tracker ready');
+})();
+</script>
+
+
+<style>
+#ox-opening-toast {
+  position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95); color: #00CFCF;
+  padding: 14px 24px; border-radius: 12px;
+  display: none; align-items: center; gap: 12px;
+  font-weight: 600; font-size: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,207,207,0.3);
+  z-index: 2147483647; pointer-events: none;
+  backdrop-filter: blur(4px);
+  animation: oxFadeIn 0.2s ease-out;
+}
+#ox-opening-toast.show { display: flex; }
+.ox-spinner {
+  width: 18px; height: 18px;
+  border: 3px solid rgba(0, 207, 207, 0.3);
+  border-top-color: #00CFCF;
+  border-radius: 50%;
+  animation: oxSpin 0.6s linear infinite;
+}
+@keyframes oxSpin { to { transform: rotate(360deg); } }
+@keyframes oxFadeIn { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+</style>
+<div id="ox-opening-toast">
+  <div class="ox-spinner"></div>
+  <span>Opening... Please wait</span>
+</div>
+<script>
+(function(){
+  if (window.__OX_OPENING) return;
+  window.__OX_OPENING = true;
+  window.oxShowOpening = function() {
+    var t = document.getElementById('ox-opening-toast');
+    if (t) t.classList.add('show');
+    // Fail-safe: hide after 10 seconds in case of network freeze
+    if (window.__oxOpeningTimer) clearTimeout(window.__oxOpeningTimer);
+    window.__oxOpeningTimer = setTimeout(window.oxHideOpening, 10000);
+  };
+  window.oxHideOpening = function() {
+    var t = document.getElementById('ox-opening-toast');
+    if (t) t.classList.remove('show');
+    if (window.__oxOpeningTimer) clearTimeout(window.__oxOpeningTimer);
+  };
+
+  // Hook standard <a> clicks (Online mode)
+  document.addEventListener('click', function(e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a) return;
+    var href = a.getAttribute('href') || '';
+    if (!href || href.charAt(0) !== '/' || href.charAt(1) === '/') return;
+    if (a.target && a.target !== '_self') return;
+    if (a.hasAttribute('download')) return;
+    if (a.href === window.location.href) return;
+    window.oxShowOpening();
+  }, true);
+
+  // Hook form submissions (login/signup)
+  document.addEventListener('submit', function(e) {
+    window.oxShowOpening();
+  }, true);
+  
+  // Hide when page finishes loading
+  window.addEventListener('pageshow', window.oxHideOpening);
 })();
 </script>
 

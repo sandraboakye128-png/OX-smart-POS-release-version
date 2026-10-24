@@ -48,15 +48,30 @@
             <p class="text-gray-600">{{ t("auth.signup_already") }} 
                 <a href="/login" class="text-indigo-600 hover:underline">{{ t("auth.login_link") }}</a>
             </p>
-        </div>
-    </div>
-
             <div class="mt-4">
                 <a href="/offline/" class="text-xs text-gray-500 hover:text-indigo-600 underline">&larr; Back to mode selection</a>
             </div>
+        </div>
+    </div>
+
+            
 </div>
 
 <script>
+    // ----- SKIP IF JUST LOGGED OUT -----
+    (function() {
+        try {
+            var _qs = new URLSearchParams(window.location.search);
+            if (_qs.get('logged_out') === '1') {
+                localStorage.removeItem('ox_user');
+                localStorage.removeItem('ox_api_token');
+                localStorage.removeItem('ox_shell_user');
+                localStorage.removeItem('pin_unlocked');
+                console.log('[signup] fresh logout — cleared');
+            }
+        } catch (e) {}
+    })();
+
     // ----- OFFLINE BANNER -----
     function updateOfflineBanner() {
         const banner = document.getElementById('offlineBanner');

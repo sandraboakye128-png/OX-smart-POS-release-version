@@ -1355,6 +1355,34 @@ async function storePurchasesInDexie(apiPurchases) {
         }
     }
 
+
+function _shellBadges(p) {
+  var _bList = [];
+  try {
+    if (Array.isArray(p.badges)) _bList = p.badges.slice();
+    else if (typeof p.badges === 'string' && p.badges) _bList = JSON.parse(p.badges) || [];
+  } catch(e) { _bList = []; }
+  if (!_bList.length) {
+    var _a = (p.action || '').toLowerCase();
+    if (_a === 'added_from_excel') _bList = ['excel_add'];
+    else if (_a === 'updated_from_excel') _bList = ['excel_update'];
+    else if (_a === 'added_from_import') _bList = ['import_add'];
+    else if (_a === 'updated_from_import') _bList = ['import_update'];
+  }
+  var _MAP = {
+  excel_add:     ['✨ Added from Excel',    'background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;'],
+  import_add:    ['📥 Added from Import',   'background:#ccfbf1;color:#115e59;border:1px solid #5eead4;'],
+  excel_update:  ['✏️ Updated from Excel',  'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;'],
+  import_update: ['🔄 Updated from Import', 'background:#e0e7ff;color:#3730a3;border:1px solid #a5b4fc;'],
+  page_update:   ['🖊 Updated Here',        'background:#fef3c7;color:#78350f;border:1px solid #fcd34d;']
+};
+  return _bList.map(function(code) {
+    var m = _MAP[code];
+    if (!m) return '';
+    return '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:6px;white-space:nowrap;' + m[1] + '">' + m[0] + '</span>';
+  }).join('');
+}
+
 function renderList(purchases) {
         // Apply current sort choice before rendering
         try {
@@ -1416,8 +1444,10 @@ function renderList(purchases) {
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
                     <div class="flex-1 w-full">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <h3 class="font-bold text-lg text-gray-800">${escapeHtml(p.name)} (${escapeHtml(p.brand)}) ${(() => { let b = []; try { b = Array.isArray(p.badges) ? p.badges : JSON.parse(p.badges || "[]"); } catch(e) {} const map = {excel_add:"✨ Added from Excel", import_add:"📥 Added from Import", excel_update:"✏️ Updated from Excel", import_update:"🔄 Updated from Import", page_update:"🖊 Updated Here"}; return b.map(x => map[x] ? `<span class="text-xs bg-gray-100 border px-2 py-0.5 rounded ml-2">${map[x]}</span>` : "").join(""); })()}</h3>
-                            ${claimedQty > 0 ? `<span class="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">⚠️ ${claimedQty} Claimed (${formatMoney(claimedCost)})</span>` : ''}
+                            
+                            
+                        <h3 class="font-bold text-lg text-gray-800">${escapeHtml(p.name)} (${escapeHtml(p.brand)}) ${_shellBadges(p)}</h3>
+                        ${claimedQty > 0 ? `<span class="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">⚠️ ${claimedQty} Claimed (${formatMoney(claimedCost)})</span>` : ''}
                             ${soldBadge}
                             ${updatedBadge}
                         </div>

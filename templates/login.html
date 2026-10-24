@@ -104,6 +104,18 @@
     //  SMART SESSION CHECK – redirect if valid, otherwise clear stale
     // ============================================================
     (function() {
+        // Skip session check if we just logged out (prevents stale session ghost)
+        try {
+            var _qs = new URLSearchParams(window.location.search);
+            if (_qs.get('logged_out') === '1') {
+                localStorage.removeItem('ox_user');
+                localStorage.removeItem('ox_api_token');
+                localStorage.removeItem('ox_shell_user');
+                localStorage.removeItem('pin_unlocked');
+                console.log('[login] fresh logout — session check skipped');
+                return;
+            }
+        } catch (e) {}
         const storedUser = localStorage.getItem('ox_user');
         if (storedUser) {
             try {

@@ -113,7 +113,7 @@
     <!-- ===== SERVICE WORKER ===== -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=76')
+            navigator.serviceWorker.register('/sw.js?v=80')
                 .then(() => console.log('✅ Service Worker registered (v48)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
@@ -716,7 +716,7 @@ window.CAT_LABELS = (function() {
 /* APP FADE IN ANIMATION */
 body {
     opacity: 0;
-    transition: opacity 0.8s ease-in-out;
+    transition: opacity 0.15s ease-out;
 }
 body.app-loaded {
     opacity: 1;
@@ -725,9 +725,7 @@ body.app-loaded {
 <script>
 // Wait for window load, then fade in
 window.addEventListener('load', function() {
-    setTimeout(function() {
-        document.body.classList.add('app-loaded');
-    }, 100);
+    document.body.classList.add('app-loaded');
 });
 </script>
 </head>
@@ -1697,8 +1695,15 @@ const Notifications = (function () {
     //  LOGOUT
     // ============================================================
     async function logout() {
-        clearSession();
-        try { sessionStorage.clear(); } catch (e) {}
+        if (!confirm('Sign out now?')) return;
+        // FULL LOCAL WIPE first (before async)
+        try {
+            localStorage.removeItem('ox_api_token');
+            localStorage.removeItem('ox_user');
+            localStorage.removeItem('ox_shell_user');
+            localStorage.removeItem('pin_unlocked');
+            sessionStorage.clear();
+        } catch (e) {}
         try { Notifications.purge(); } catch (e) {}
         const dbNames = [
             'OxSmartOfflineDB', 'OfflineSalesDB', 'SalesDB',
@@ -1711,10 +1716,22 @@ const Notifications = (function () {
                 await Promise.all(cacheNames.map(name => caches.delete(name)));
             } catch (e) {}
         }
+        // Revoke bearer token server-side (prevents re-auth)
         if (navigator.onLine) {
-            try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); } catch (e) {}
+            try {
+                await fetch('/api/auth/revoke-token', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Authorization': 'Bearer ' + '' }
+                });
+            } catch (e) {}
+            try {
+                await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+            } catch (e) {}
         }
-        window.location.href = '/login?_t=' + Date.now();
+        // Force navigation — replace so Back button can't restore dashboard
+        try { window.location.replace('/login?logged_out=1&_t=' + Date.now()); }
+        catch (e) { window.location.href = '/login?logged_out=1&_t=' + Date.now(); }
     }
     window.logout = logout;
 
@@ -2283,6 +2300,180 @@ window.OX_LOGOUT_CLEAR = function() {
     }
     return _blur.apply(this, arguments);
   };
+})();
+</script>
+
+
+
+
+
+<!-- BUG_TRACKER_V2 -->
+<style>
+#ox-bt {
+  position: fixed; top: 60px; right: 8px; width: 230px;
+  max-height: 45vh; overflow-y: auto;
+  background: rgba(0,0,0,0.85); color: #0f0;
+  font-family: monospace; font-size: 10px; line-height: 1.35;
+  padding: 6px 8px; border-radius: 8px;
+  z-index: 999999; pointer-events: auto;
+  border: 1px solid #0f0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+#ox-bt.collapsed { max-height: 28px; overflow: hidden; }
+#ox-bt .ox-bt-hdr {
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; font-weight: bold; margin-bottom: 4px;
+  padding-bottom: 4px; border-bottom: 1px solid #0f0;
+  user-select: none;
+}
+#ox-bt.collapsed .ox-bt-hdr { margin-bottom: 0; border-bottom: 0; padding-bottom: 0; }
+#ox-bt .ox-bt-hdr span { flex: 1; }
+#ox-bt .ox-bt-hdr button {
+  background: transparent; border: 0; color: #0f0;
+  font-size: 12px; cursor: pointer; padding: 0 4px;
+}
+#ox-bt .ox-ln { word-break: break-word; margin-bottom: 1px; }
+#ox-bt .ox-ln.err { color: #f87171; }
+#ox-bt .ox-ln.warn { color: #fbbf24; }
+#ox-bt .ox-ln.ok { color: #67e8f9; }
+#ox-bt .ox-ln.evt { color: #a5b4fc; }
+#ox-bt .ox-ln.focus { color: #f0abfc; }
+#ox-bt .ox-ln.blur { color: #fdba74; }
+</style>
+<div id="ox-bt" class="collapsed">
+  <div class="ox-bt-hdr" onclick="document.getElementById('ox-bt').classList.toggle('collapsed')">
+    <span>🐞 Tracker</span>
+    <button type="button" onclick="event.stopPropagation(); window.__oxBtClear && window.__oxBtClear();">✕</button>
+  </div>
+  <div id="ox-bt-lines"></div>
+</div>
+<script>
+(function(){
+  if (window.__OX_BT_V2) return;
+  window.__OX_BT_V2 = true;
+  var box = document.getElementById('ox-bt-lines');
+  if (!box) return;
+  function add(cls, msg) {
+    var d = document.createElement('div');
+    d.className = 'ox-ln ' + (cls || '');
+    var t = new Date();
+    d.textContent = String(t.getHours()).padStart(2,'0') + ':' +
+                    String(t.getMinutes()).padStart(2,'0') + ':' +
+                    String(t.getSeconds()).padStart(2,'0') + ' ' + msg;
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+    while (box.children.length > 60) box.removeChild(box.firstChild);
+  }
+  window.__oxBtLog = add;
+  window.__oxBtClear = function(){ box.innerHTML = ''; };
+
+  document.addEventListener('focusin', function(e){
+    var t = e.target;
+    if (!t) return;
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') {
+      add('focus', 'FOCUS ' + (t.id || t.name || t.tagName));
+    }
+  }, true);
+  document.addEventListener('focusout', function(e){
+    var t = e.target;
+    if (!t) return;
+    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') {
+      var next = document.activeElement;
+      var nid = next ? (next.id || next.tagName) : 'null';
+      add('blur', 'BLUR ' + (t.id || t.name || t.tagName) + ' → ' + nid);
+    }
+  }, true);
+
+  var _fetch = window.fetch;
+  window.fetch = function(input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '?';
+    var method = (init && init.method) || 'GET';
+    var short = url.replace(/^https?:\/\/[^/]+/, '').slice(0, 42);
+    var start = Date.now();
+    add('evt', '→ ' + method + ' ' + short);
+    return _fetch.apply(this, arguments).then(function(res){
+      var ms = Date.now() - start;
+      var cls = res.status >= 400 ? 'err' : (res.status >= 300 ? 'warn' : 'ok');
+      add(cls, '← ' + res.status + ' ' + short + ' (' + ms + 'ms)');
+      return res;
+    }).catch(function(err){
+      add('err', '✗ ' + short + ' ' + (err.message || 'net'));
+      throw err;
+    });
+  };
+
+  window.addEventListener('beforeunload', function(){
+    add('warn', 'PAGE UNLOADING');
+  });
+
+  add('ok', 'tracker ready');
+})();
+</script>
+
+
+<style>
+#ox-opening-toast {
+  position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95); color: #00CFCF;
+  padding: 14px 24px; border-radius: 12px;
+  display: none; align-items: center; gap: 12px;
+  font-weight: 600; font-size: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,207,207,0.3);
+  z-index: 2147483647; pointer-events: none;
+  backdrop-filter: blur(4px);
+  animation: oxFadeIn 0.2s ease-out;
+}
+#ox-opening-toast.show { display: flex; }
+.ox-spinner {
+  width: 18px; height: 18px;
+  border: 3px solid rgba(0, 207, 207, 0.3);
+  border-top-color: #00CFCF;
+  border-radius: 50%;
+  animation: oxSpin 0.6s linear infinite;
+}
+@keyframes oxSpin { to { transform: rotate(360deg); } }
+@keyframes oxFadeIn { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+</style>
+<div id="ox-opening-toast">
+  <div class="ox-spinner"></div>
+  <span>Opening... Please wait</span>
+</div>
+<script>
+(function(){
+  if (window.__OX_OPENING) return;
+  window.__OX_OPENING = true;
+  window.oxShowOpening = function() {
+    var t = document.getElementById('ox-opening-toast');
+    if (t) t.classList.add('show');
+    // Fail-safe: hide after 10 seconds in case of network freeze
+    if (window.__oxOpeningTimer) clearTimeout(window.__oxOpeningTimer);
+    window.__oxOpeningTimer = setTimeout(window.oxHideOpening, 10000);
+  };
+  window.oxHideOpening = function() {
+    var t = document.getElementById('ox-opening-toast');
+    if (t) t.classList.remove('show');
+    if (window.__oxOpeningTimer) clearTimeout(window.__oxOpeningTimer);
+  };
+
+  // Hook standard <a> clicks (Online mode)
+  document.addEventListener('click', function(e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a) return;
+    var href = a.getAttribute('href') || '';
+    if (!href || href.charAt(0) !== '/' || href.charAt(1) === '/') return;
+    if (a.target && a.target !== '_self') return;
+    if (a.hasAttribute('download')) return;
+    if (a.href === window.location.href) return;
+    window.oxShowOpening();
+  }, true);
+
+  // Hook form submissions (login/signup)
+  document.addEventListener('submit', function(e) {
+    window.oxShowOpening();
+  }, true);
+  
+  // Hide when page finishes loading
+  window.addEventListener('pageshow', window.oxHideOpening);
 })();
 </script>
 
