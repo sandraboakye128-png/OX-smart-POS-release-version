@@ -524,21 +524,7 @@
         return { admin: isAdmin, oxbee: isOxbee, username: username };
     }
 
-    function _devFields(showEditable) {
-        if (!showEditable) {
-            return '' +
-                '<div>' +
-                    '<label class="block text-xs font-medium text-gray-700 mb-1">Developer name</label>' +
-                    '<input type="text" id="appReceiptDevName" readonly class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-500" tabindex="-1">' +
-                '</div>' +
-                '<div>' +
-                    '<label class="block text-xs font-medium text-gray-700 mb-1">Developer contact</label>' +
-                    '<input type="text" id="appReceiptDevContact" readonly class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-500" tabindex="-1">' +
-                '</div>';
-        }
-        return _field('appReceiptDevName', 'Developer name', 'text', 'HUMMINGBIRD DIGITAL SOLUTIONS') +
-               _field('appReceiptDevContact', 'Developer contact', 'text', '0533052562 / 0201404188');
-    }
+    
 
     function _buildSections() {
         var R = _role();
@@ -581,7 +567,6 @@
                 _field('appReceiptComplement', 'Tagline / complement','text', 'HOME OF COMPUTER, PHONES, AND ACCESSORIES') +
                 _field('appReceiptPhone',      'Phone',              'text', '0246418380') +
                 _field('appReceiptEmail',      'Email',              'text', 'shop@example.com') +
-                _devFields(R.oxbee) +
                 _field('appReceiptThankYou',   'Thank-you line',     'text', 'Thank you for shopping with us!') +
                 _field('appReceiptFooter',     'Footer note',        'text', 'Come again anytime') +
             '</div>' +
@@ -659,8 +644,6 @@
         v('appReceiptComplement', data.receipt_complement);
         v('appReceiptPhone', data.receipt_phone);
         v('appReceiptEmail', data.receipt_email);
-        v('appReceiptDevName', data.receipt_dev_name);
-        v('appReceiptDevContact', data.receipt_dev_contact);
         v('appReceiptThankYou', data.receipt_thank_you);
         v('appReceiptFooter', data.receipt_footer);
     }
@@ -682,11 +665,7 @@
             receipt_thank_you:   document.getElementById('appReceiptThankYou').value.trim(),
             receipt_footer:      document.getElementById('appReceiptFooter').value.trim(),
         };
-        // Only oxbee can modify developer fields
-        if (R.oxbee) {
-            out.receipt_dev_name    = document.getElementById('appReceiptDevName').value.trim();
-            out.receipt_dev_contact = document.getElementById('appReceiptDevContact').value.trim();
-        }
+        
         return out;
     }
 

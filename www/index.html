@@ -3466,7 +3466,7 @@ async function switchView(name) {
         // Worker can also serve it offline.
         let html = _viewHtmlCache[v.path];
         if (!html) {
-            const res = await fetch('/' + v.path.replace(/^\/+/, ''), { cache: 'no-store' }); // SHELL_FETCH_V2
+            const res = await fetch(v.path, { cache: 'no-store' }); // SHELL_FETCH_V3_LOCAL
             if (!res.ok) throw new Error('HTTP ' + res.status);
             html = await res.text();
             _viewHtmlCache[v.path] = html;
@@ -4575,7 +4575,7 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
 
 
 
-<script src="/static/js/kb_fix.js?v=54" defer></script>
+<!-- KB_FIX_DISABLED_V1 -->
 
 
 
@@ -4828,6 +4828,15 @@ setInterval(async function() {
         }
     } catch (e) { console.warn('[2H-REMINDER] err', e); }
 }, 2 * 60 * 60 * 1000);
+</script>
+
+
+<script>
+// DEBUG_TRACKER_GATE
+if (window.location.search.includes('debug=1')) {
+    var tr = document.getElementById('bug-tracer');
+    if (tr) tr.style.display = 'block';
+}
 </script>
 
 </body>

@@ -447,8 +447,8 @@ function clApplyFilters() {
 //  RENDER
 // ============================================================
 function clStatusBadge(status) {
-    if (status === 'resolved') return '<span class="cl-badge status-resolved">${$t('claims.badge_resolved','✅ Resolved')}</span>';
-    return '<span class="cl-badge status-active">${$t('claims.badge_active','⚠️ Active')}</span>';
+    if (status === 'resolved') return `<span class="cl-badge status-resolved">${$t('claims.badge_resolved','✅ Resolved')}</span>`;
+    return `<span class="cl-badge status-active">${$t('claims.badge_active','⚠️ Active')}</span>`;
 }
 function clIssueBadge(issue) {
     const slug = String(issue || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -1118,31 +1118,43 @@ window.__syncPendingClaimsView = clSyncPendingClaims;
 // ============================================================
 //  INIT
 // ============================================================
-clLoadClaims();
-
-$('clSearchInput').addEventListener('input', clApplyFilters);
-$('clStatusFilter').addEventListener('change', clApplyFilters);
-$('clRefreshBtn').addEventListener('click', () => { clLoadClaims(); toast('🔄 Refreshed'); });
-$('clNewBtn').addEventListener('click', clOpenClaimModal);
-$('clSaveClaimBtn').addEventListener('click', clSaveClaim);
-
-$('clProductSearch').addEventListener('input', function() {
-    clearTimeout(searchTimeout);
-    const kw = this.value.trim();
-    searchTimeout = setTimeout(() => clSearchProducts(kw), 250);
-});
-
-$('clQuantity').addEventListener('input', clUpdateStockImpact);
-
-window.addEventListener('online', function() {
-    clSyncPendingClaims();
+function clInit() {
+    if (!$('clSearchInput')) {
+        // DOM not ready yet (shell injects HTML dynamically) — retry in 50ms
+        return setTimeout(clInit, 50);
+    }
+    
     clLoadClaims();
-});
 
-// Attempt sync on load if online
-if (navigator.onLine) {
-    setTimeout(clSyncPendingClaims, 1000);
+    $('clSearchInput').addEventListener('input', clApplyFilters);
+    $('clStatusFilter').addEventListener('change', clApplyFilters);
+    $('clRefreshBtn').addEventListener('click', () => { clLoadClaims(); toast('🔄 Refreshed'); });
+    $('clNewBtn').addEventListener('click', clOpenClaimModal);
+    $('clSaveClaimBtn').addEventListener('click', clSaveClaim);
+
+    $('clProductSearch').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const kw = this.value.trim();
+        searchTimeout = setTimeout(() => clSearchProducts(kw), 250);
+    });
+
+    $('clQuantity').addEventListener('input', clUpdateStockImpact);
+
+    window.addEventListener('online', function() {
+        clSyncPendingClaims();
+        clLoadClaims();
+    });
+
+    // Attempt sync on load if online
+    if (navigator.onLine) {
+        setTimeout(clSyncPendingClaims, 1000);
+    }
 }
 
-})();
+// Start the init process
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', clInit);
+} else {
+    clInit();
+}
 </script>

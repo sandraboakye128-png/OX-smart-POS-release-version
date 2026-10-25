@@ -18,6 +18,10 @@
       "showSpinner": false,
       "splashFullScreen": true,
       "splashImmersive": true
+    },
+    "Keyboard": {
+      "resize": "body",
+      "style": "dark"
     }
   }
 }

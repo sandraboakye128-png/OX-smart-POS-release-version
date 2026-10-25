@@ -78,12 +78,12 @@
         const signupBtn = document.getElementById('signupBtn');
         if (!navigator.onLine) {
             banner.classList.remove('hidden');
-            signupBtn.disabled = true;
+            /* KB_FIX_17 */
             signupBtn.classList.add('opacity-50', 'cursor-not-allowed');
             signupBtn.textContent = '{{ t("auth.register_offline") }}';
         } else {
             banner.classList.add('hidden');
-            signupBtn.disabled = false;
+            /* KB_FIX_17 */
             signupBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             signupBtn.textContent = '{{ t("auth.register") }}';
         }
@@ -94,7 +94,7 @@
     // ----- CLEAR FORM FIELDS -----
     function clearFormFields() {
         document.querySelectorAll('#signupForm input[type="text"], #signupForm input[type="password"]').forEach(input => {
-            input.value = '';
+            if (document.activeElement !== input) input.value = '';
         });
         document.getElementById('showPassword').checked = false;
         document.getElementById('password').type = 'password';
@@ -104,8 +104,8 @@
     // Force clear multiple times to beat browser autofill
     function forceClear() {
         clearFormFields();
-        setTimeout(clearFormFields, 50);
-        setTimeout(clearFormFields, 200);
+        /* KB_FIX_17: setTimeout nuke removed — was wiping focused inputs */
+        /* KB_FIX_17: setTimeout nuke removed — was wiping focused inputs */
     }
 
     // Clear on page load
@@ -128,7 +128,11 @@
     const showPasswordCheckbox = document.getElementById('showPassword');
     const passwordField = document.getElementById('password');
     showPasswordCheckbox.addEventListener('change', () => {
+        /* KB_FIX_17: preserve focus + caret around type swap */
+        var _wasFocused = (document.activeElement === passwordField);
+        var _caretPos = passwordField.selectionStart;
         passwordField.type = showPasswordCheckbox.checked ? 'text' : 'password';
+        if (_wasFocused) { passwordField.focus(); try { passwordField.setSelectionRange(_caretPos, _caretPos); } catch(e) {} }
     });
 
     // ----- CHECK ADMIN COUNT -----

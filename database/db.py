@@ -469,9 +469,9 @@ if USE_POSTGRES:
             # connections and never grows. Dashboard fires ~6 parallel API
             # calls, so min=2 was causing constant 'pool exhausted' →
             # init_pool rebuilds → schema re-init. Bumped to 8.
-            connection_pool = pool.SimpleConnectionPool(
-                8,                     # min connections (created eagerly)
-                8,                     # max connections (SimpleConnectionPool does not grow)
+            connection_pool = pool.ThreadedConnectionPool(
+                5,                     # min connections (created eagerly)
+                20, # max connections
                 DATABASE_URL,
                 keepalives=1,
                 keepalives_idle=30,

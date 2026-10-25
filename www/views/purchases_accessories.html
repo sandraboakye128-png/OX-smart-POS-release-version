@@ -1,3 +1,14 @@
+<style id="summary-color-fix">
+    #summaryContent, #summaryContent * {
+        color: #f3f4f6 !important; /* Light text for dark background */
+    }
+    #summaryContent .text-teal-400, #summaryContent .text-teal-500 {
+        color: #5eead4 !important; /* Keep teal for highlights */
+    }
+    #summaryContent .text-gray-400, #summaryContent .text-gray-500 {
+        color: #d1d5db !important; /* Lighter gray */
+    }
+</style>
 <!-- ============================================================ -->
 <!-- VIEW: Purchases (Accessories) — bundled, reads Dexie        -->
 <!-- Layout mirrors templates/purchases.html (accessories)        -->
@@ -1380,7 +1391,7 @@ function _shellBadges(p) {
     var m = _MAP[code];
     if (!m) return '';
     return '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:6px;white-space:nowrap;' + m[1] + '">' + m[0] + '</span>';
-  }).join('');
+  }).join(' ');
 }
 
 function renderList(purchases) {
@@ -1446,7 +1457,7 @@ function renderList(purchases) {
                         <div class="flex items-center gap-2 flex-wrap">
                             
                             
-                        <h3 class="font-bold text-lg text-gray-800">${escapeHtml(p.name)} (${escapeHtml(p.brand)}) ${_shellBadges(p)}</h3>
+                        <h3 class="font-bold text-lg text-gray-800">${escapeHtml(p.name)} (${escapeHtml(p.brand)})</h3>
                         ${claimedQty > 0 ? `<span class="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">⚠️ ${claimedQty} Claimed (${formatMoney(claimedCost)})</span>` : ''}
                             ${soldBadge}
                             ${updatedBadge}
