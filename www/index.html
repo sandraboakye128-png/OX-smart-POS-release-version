@@ -1335,7 +1335,47 @@ window.addEventListener('load', function() {
             <div class="menu-header-sub" id="menuUserSub">—</div>
         </div>
     </div>
-    <nav id="menuNav"></nav>
+    <nav id="menuNav">
+<!-- DEBUG_REFRESH_BTN_V1 -->
+<a href="#" id="forceRefreshBtn" onclick="forceSystemRefresh(event)" 
+   class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg transition-colors mt-2 border-t border-gray-100 hidden">
+    <span class="text-lg">🔄</span>
+    <span>Refresh System</span>
+</a>
+<script>
+function forceSystemRefresh(e) {
+    e.preventDefault();
+    if (!confirm("Clear cache and force reload the system to fetch latest data?")) return;
+    
+    // 1. Clear caches
+    if ('caches' in window) {
+        caches.keys().then(function(names) {
+            for (var name of names) caches.delete(name);
+        });
+    }
+    
+    // 2. Clear service worker if possible
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for (var registration of registrations) registration.unregister();
+        });
+    }
+    
+    // 3. Hard reload with cache buster
+    setTimeout(function() {
+        window.location.href = window.location.pathname + '?_t=' + Date.now();
+    }, 300);
+}
+// Show button only if debug=1
+if (window.location.search.includes('debug=1')) {
+    document.addEventListener('DOMContentLoaded', function() {
+        var btn = document.getElementById('forceRefreshBtn');
+        if (btn) btn.classList.remove('hidden');
+    });
+}
+</script>
+
+</nav>
     <div class="menu-footer-signout">
         <button class="btn-signout" onclick="doLogout()" style="width:100%;" data-i18n="shell.menu.signout">Sign out</button>
     </div>
@@ -4837,6 +4877,176 @@ if (window.location.search.includes('debug=1')) {
     var tr = document.getElementById('bug-tracer');
     if (tr) tr.style.display = 'block';
 }
+</script>
+
+
+
+
+
+<!-- DEBUG_TRACKER_DRAG_V2 -->
+<style>
+    #bug-tracer {
+        position: fixed !important;
+        top: 100px; right: 24px;
+        width: 50px !important;
+        height: 50px !important;
+        border-radius: 50% !important;
+        background: #1f2937 !important;
+        color: white !important;
+        display: none; 
+        align-items: center;
+        justify-content: center;
+        z-index: 999999 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        overflow: hidden;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        box-sizing: border-box !important;
+        transition: width 0.2s, height 0.2s, border-radius 0.2s, transform 0.2s;
+    }
+    
+    /* Docked States */
+    #bug-tracer.docked-left {
+        left: -25px !important; right: auto !important;
+        border-radius: 0 50% 50% 0 !important;
+    }
+    #bug-tracer.docked-right {
+        right: -25px !important; left: auto !important;
+        border-radius: 50% 0 0 50% !important;
+    }
+    
+    /* Expanded State */
+    #bug-tracer.expanded {
+        width: 320px !important; height: 400px !important;
+        border-radius: 12px !important;
+        left: 50% !important; top: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        align-items: flex-start; justify-content: flex-start;
+        cursor: default;
+    }
+    #bug-tracer.expanded .tracer-icon { display: none !important; }
+    #bug-tracer.expanded .tracer-content { display: block !important; }
+    
+    /* Inner Elements */
+    #bug-tracer .tracer-icon {
+        font-size: 24px; pointer-events: none;
+        display: flex; align-items: center; justify-content: center;
+        width: 100%; height: 100%;
+    }
+    #bug-tracer .tracer-content {
+        display: none; width: 100%; height: 100%;
+        overflow-y: auto; font-size: 11px; font-family: monospace;
+        padding: 8px; box-sizing: border-box;
+    }
+</style>
+
+<script>
+(function() {
+    if (!window.location.search.includes('debug=1')) return;
+    
+    setTimeout(function() {
+        var tracer = document.getElementById('bug-tracer');
+        if (!tracer || tracer.dataset.dragInit === 'v2') return;
+        tracer.dataset.dragInit = 'v2';
+        
+        tracer.style.display = 'flex';
+        // Save original HTML and wrap it
+        var originalHTML = tracer.innerHTML;
+        tracer.innerHTML = '<div class="tracer-icon">🐞</div><div class="tracer-content">' + originalHTML + '</div>';
+        
+        var isDragging = false, hasMoved = false, isDocked = false;
+        var startX, startY, startLeft, startTop;
+        var clickCount = 0, clickTimer = null;
+
+        function startDrag(e) {
+            if (isDocked || tracer.classList.contains('expanded')) return;
+            isDragging = true;
+            hasMoved = false;
+            var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            startX = clientX; startY = clientY;
+            var rect = tracer.getBoundingClientRect();
+            startLeft = rect.left; startTop = rect.top;
+            tracer.style.transition = 'none';
+        }
+
+        function doDrag(e) {
+            if (!isDragging) return;
+            var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            var dx = clientX - startX, dy = clientY - startY;
+            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved = true;
+            
+            if (hasMoved) {
+                var newLeft = Math.max(0, Math.min(window.innerWidth - 50, startLeft + dx));
+                var newTop = Math.max(0, Math.min(window.innerHeight - 50, startTop + dy));
+                tracer.style.left = newLeft + 'px';
+                tracer.style.top = newTop + 'px';
+                tracer.style.right = 'auto';
+            }
+        }
+
+        function endDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            tracer.style.transition = 'width 0.2s, height 0.2s, border-radius 0.2s, transform 0.2s';
+        }
+
+        function handleInteraction() {
+            if (isDocked) {
+                // Undock logic
+                tracer.classList.remove('docked-left', 'docked-right');
+                isDocked = false;
+                var x = parseFloat(tracer.style.left) || (window.innerWidth - 74);
+                if (x < 0) tracer.style.left = '24px';
+                if (x > window.innerWidth - 50) tracer.style.left = (window.innerWidth - 74) + 'px';
+                return;
+            }
+
+            if (hasMoved) {
+                hasMoved = false;
+                return;
+            }
+
+            clickCount++;
+            if (clickCount === 1) {
+                clickTimer = setTimeout(function() {
+                    tracer.classList.toggle('expanded');
+                    clickCount = 0;
+                }, 250);
+            } else if (clickCount === 2) {
+                clearTimeout(clickTimer);
+                clickCount = 0;
+                dockToEdge();
+            }
+        }
+
+        function dockToEdge() {
+            tracer.classList.remove('expanded');
+            var rect = tracer.getBoundingClientRect();
+            // Determine closest edge
+            if (rect.left < window.innerWidth / 2) {
+                tracer.classList.add('docked-left');
+            } else {
+                tracer.classList.add('docked-right');
+            }
+            isDocked = true;
+        }
+
+        tracer.addEventListener('mousedown', startDrag);
+        document.addEventListener('mousemove', doDrag);
+        document.addEventListener('mouseup', endDrag);
+        tracer.addEventListener('touchstart', startDrag, { passive: true });
+        document.addEventListener('touchmove', doDrag, { passive: true });
+        document.addEventListener('touchend', endDrag);
+        
+        tracer.addEventListener('click', handleInteraction);
+        
+        var content = tracer.querySelector('.tracer-content');
+        if (content) content.addEventListener('click', function(e) { e.stopPropagation(); });
+    }, 1000);
+})();
 </script>
 
 </body>
