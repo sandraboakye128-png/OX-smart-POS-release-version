@@ -75,8 +75,8 @@
     <!-- Pie Chart -->
     <div class="bg-white rounded-xl shadow-md p-3 md:p-4">
         <h2 class="text-base md:text-xl font-semibold mb-2 md:mb-3">{{ t('dashboard.pie.title') }}</h2>
-        <div id="pieChartContainer" class="w-full max-w-[300px] md:max-w-full mx-auto">
-            <canvas id="pieChart" class="w-full h-auto"></canvas>
+        <div id="pieChartContainer" class="w-full mx-auto" style="height: 280px; max-height: 280px; position: relative;">
+            <canvas id="pieChart" style="width: 100% !important; height: 100% !important;"></canvas>
         </div>
         <div id="pieChartOfflineMsg" class="text-gray-500 text-center text-sm hidden">{{ t('dashboard.pie.offline') }}</div>
     </div>
@@ -95,7 +95,7 @@
                 <span id="calendarMonthYear" class="font-semibold text-sm md:text-base"></span>
                 <button id="nextMonthBtn" class="bg-gray-200 hover:bg-gray-300 px-2 py-0.5 md:px-3 md:py-1 rounded text-xs md:text-sm">&rarr;</button>
             </div>
-            <table class="w-full text-center border-collapse">
+            <table class="w-full text-center border-collapse" id="calTable">
                 <thead>
                     <tr>
                         <th class="text-[8px] md:text-xs text-gray-500 py-0.5 md:py-1">Su</th>
@@ -198,9 +198,11 @@
             });
         }
         function updateClock() {
+            const clockEl = document.getElementById('clock');
+            if (!clockEl) return;   // CLOCK_GUARD_V1 — stop timer if element is gone
             const now = new Date();
             const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            document.getElementById('clock').innerText = timeStr;
+            clockEl.innerText = timeStr;
             setTimeout(updateClock, 1000);
         }
         updateClock();
@@ -383,15 +385,17 @@
             }
 
             // KPI cards
+            // SAFE_TEXT_V1 — never crash the promise if a DOM element is missing
+            function _setText(id, val) {
+                const el = document.getElementById(id);
+                if (el) el.innerText = val;
+            }
             if (summary) {
-                document.getElementById('salesValue').innerText    = formatMoney(summary.sales || 0);
-                if (IS_ADMIN) {
-                    const pv = document.getElementById('profitValue');
-                    if (pv) pv.innerText = formatMoney(summary.profit || 0);
-                }
-                document.getElementById('productsValue').innerText = summary.total_products || 0;
-                document.getElementById('batchesValue').innerText  = summary.total_batches || 0;
-                document.getElementById('lowStockValue').innerText = lowStock ? lowStock.length : 0;
+                _setText('salesValue',    formatMoney(summary.sales || 0));
+                if (IS_ADMIN) _setText('profitValue', formatMoney(summary.profit || 0));
+                _setText('productsValue', summary.total_products || 0);
+                _setText('batchesValue',  summary.total_batches || 0);
+                _setText('lowStockValue', lowStock ? lowStock.length : 0);
             }
 
             // Top products
@@ -434,13 +438,13 @@
                     pieChart = new Chart(ctx, {
                         type: 'pie',
                         data: { labels: top8Labels, datasets: [{ data: top8Values, backgroundColor: generateColors(top8Labels.length) }] },
-                        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
                     });
                 } else {
                     pieChart = new Chart(ctx, {
                         type: 'pie',
                         data: { labels: labels, datasets: [{ data: values, backgroundColor: generateColors(labels.length) }] },
-                        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
                     });
                 }
             } else {

@@ -2494,6 +2494,9 @@ async function enterApp(knownOnline, opts) {
             if (window.__oxBtLog) window.__oxBtLog('ok', 'FIRST-SYNC: loaded ' + after + ' products');
             if (after === 0) throw new Error('Sync returned 0 products');
             syncView.remove();
+            // BLANK_PAGE_FIX: un-hide the app so dashboard actually shows
+            loadingView.classList.add('hidden');
+            appView.classList.remove('hidden');
         } catch (e) {
             console.error('[FIRST-SYNC] failed:', e);
             if (window.__oxBtLog) window.__oxBtLog('err', 'FIRST-SYNC: ' + (e.message || 'fail'));
@@ -3208,7 +3211,10 @@ window.syncNow = syncNow;
 
 function syncInBackground() {
     fullSync().then(() => {
-        renderDashboard();
+        // RENDER_GUARD_V1 — only re-render dashboard if we're on it
+        if (currentView === 'dashboard') {
+            renderDashboard();
+        }
         refreshPendingNotifications();
         Notifications.success('Auto-synced', 'Background sync finished');
     }).catch(e => console.warn('Background sync failed:', e));
@@ -3217,7 +3223,10 @@ function syncInBackground() {
 function maybeSyncOnReconnect() {
     if (getToken() && !appView.classList.contains('hidden')) {
         fullSync().then(() => {
-            renderDashboard();
+            // RENDER_GUARD_V1 — only re-render dashboard if we're on it
+            if (currentView === 'dashboard') {
+                renderDashboard();
+            }
             refreshPendingNotifications();
         }).catch(() => {});
     }
@@ -3360,7 +3369,7 @@ function renderMenu() {
     // Utility section — Calculator + Refresh System (offline shell)
     items.push('<div class="menu-section-label">Utilities</div>');
     items.push(
-        '<div class="menu-item" onclick="document.getElementById(\'calc-modal\').style.display=\'flex\'; closeMenu();">' +
+        '<div class="menu-item" onclick="window.openShellCalc && window.openShellCalc();">' +
             '<span class="icon">🧮</span><span class="label">Calculator</span>' +
         '</div>'
     );
@@ -4771,11 +4780,7 @@ setInterval(async function() {
 
 
 <script>
-// DEBUG_TRACKER_GATE
-if (window.location.search.includes('debug=1')) {
-    var tr = document.getElementById('bug-tracer');
-    if (tr) tr.style.display = 'block';
-}
+// DEBUG_TRACKER_GATE — removed (V3 tracker is always visible)
 </script>
 
 
@@ -4939,7 +4944,10 @@ async function sendAIMessage() {
         
         try {
             if (typeof db !== 'undefined' && db) {
-                if (lower.includes('stock') || lower.includes('products')) {
+                if (lower.includes('batch') || lower.includes('batches')) {
+                    const count = await db.batches.count();
+                    reply = `Currently, you have **${count}** batches in your inventory.`;
+                } else if (lower.includes('stock') || lower.includes('products')) {
                     const count = await db.products.count();
                     reply = `Currently, you have **${count}** products registered in your system.`;
                 } else if (lower.includes('sales') || lower.includes('profit')) {
@@ -5118,6 +5126,99 @@ async function sendAIMessage() {
 
   add('ok', '✓ Tracker V3 armed — watching for JS errors');
   add('ok', 'Script blocks running normally');
+})();
+</script>
+
+
+<script>
+// DRAG_HANDLERS_V1 — long-press/drag AI + Tracker buttons to any corner
+(function() {
+  if (window.__OX_DRAG_INIT) return;
+  window.__OX_DRAG_INIT = true;
+
+  function makeDraggable(el) {
+    if (!el || el.dataset.draggable) return;
+    el.dataset.draggable = '1';
+    el.style.touchAction = 'none';
+    el.style.cursor = 'grab';
+
+    let dragging = false, moved = false;
+    let startX = 0, startY = 0, startL = 0, startT = 0;
+
+    function pt(e) { return e.touches ? e.touches[0] : e; }
+
+    function onDown(e) {
+      const p = pt(e);
+      if (!p) return;
+      dragging = true; moved = false;
+      startX = p.clientX; startY = p.clientY;
+      const r = el.getBoundingClientRect();
+      startL = r.left; startT = r.top;
+      el.style.transition = 'none';
+      el.style.cursor = 'grabbing';
+    }
+
+    function onMove(e) {
+      if (!dragging) return;
+      const p = pt(e);
+      if (!p) return;
+      const dx = p.clientX - startX;
+      const dy = p.clientY - startY;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
+      if (!moved) return;
+      if (e.cancelable) e.preventDefault();
+
+      const W = window.innerWidth, H = window.innerHeight;
+      const w = el.offsetWidth, h = el.offsetHeight;
+      const nl = Math.max(4, Math.min(W - w - 4, startL + dx));
+      const nt = Math.max(4, Math.min(H - h - 4, startT + dy));
+      el.style.left = nl + 'px';
+      el.style.top = nt + 'px';
+      el.style.right = 'auto';
+      el.style.bottom = 'auto';
+    }
+
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      el.style.cursor = 'grab';
+      el.style.transition = '';
+      if (moved) {
+        const r = el.getBoundingClientRect();
+        const W = window.innerWidth;
+        const snapL = (r.left + r.width / 2 < W / 2) ? 8 : (W - r.width - 8);
+        el.style.transition = 'left 0.2s ease';
+        el.style.left = snapL + 'px';
+        setTimeout(function() { el.style.transition = ''; }, 250);
+      }
+    }
+
+    el.addEventListener('mousedown', onDown);
+    document.addEventListener('mousemove', onMove, {passive: false});
+    document.addEventListener('mouseup', onUp);
+    el.addEventListener('touchstart', onDown, {passive: true});
+    document.addEventListener('touchmove', onMove, {passive: false});
+    document.addEventListener('touchend', onUp);
+
+    // Block the click when user dragged (so it doesn't also trigger toggle)
+    el.addEventListener('click', function(e) {
+      if (moved) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        moved = false;
+      }
+    }, true);
+  }
+
+  function init() {
+    makeDraggable(document.getElementById('ai-assistant-btn'));
+    makeDraggable(document.getElementById('ox-tracker-btn'));
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else { setTimeout(init, 100); }
+  setTimeout(init, 800);
+  setTimeout(init, 1500);
 })();
 </script>
 
