@@ -187,7 +187,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "temporary-dev-key")
 
 # ✅ App version / environment — exposed to templates + /settings page
-app.config['APP_VERSION'] = os.getenv('APP_VERSION', '9.1')
+app.config['APP_VERSION'] = os.getenv('APP_VERSION', '9.3')
 # Pre-compute production flag now; will be re-affirmed below when
 # IS_PRODUCTION is resolved. Default is 'development'.
 app.config['APP_ENV'] = 'production' if (os.getenv("FLASK_ENV") == "production" or os.getenv("RENDER")) else 'development'
@@ -5894,12 +5894,31 @@ def init_notifications_table():
         # Python-side cutoff so this works on both SQLite and Postgres.
         try:
             from datetime import datetime as _dt, timedelta as _td
-            cutoff = (_dt.now() - _td(days=7)).isoformat(sep=' ')
-            cur.execute(
-                "DELETE FROM notifications "
-                "WHERE dismissed_at IS NOT NULL OR created_at < %s",
-                (cutoff,)
-            )
+            _is_pg_gc = False
+            try:
+                modname = (type(conn).__module__ or '').lower()
+                _is_pg_gc = 'psycopg' in modname
+            except Exception: pass
+            if _is_pg_gc:
+                cur.execute("SELECT pg_try_advisory_lock(20260101)")
+                _got_lock = cur.fetchone()
+                _got_lock = bool(_got_lock and _got_lock[0])
+            else:
+                _got_lock = True
+            if _got_lock:
+                try:
+                    cutoff = (_dt.now() - _td(days=7)).isoformat(sep=' ')
+                    cur.execute(
+                        "DELETE FROM notifications "
+                        "WHERE dismissed_at IS NOT NULL OR created_at < %s",
+                        (cutoff,)
+                    )
+                finally:
+                    if _is_pg_gc:
+                        try: cur.execute("SELECT pg_advisory_unlock(20260101)")
+                        except Exception: pass
+            else:
+                print('[notif-gc] skipped — another worker holds the lock')
         except Exception as _e:
             try: conn.rollback()
             except Exception: pass

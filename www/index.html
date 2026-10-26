@@ -1374,6 +1374,36 @@ function forceSystemRefresh(e) {
     }, 300);
 }
 
+
+// ============================================================
+//  BUNDLED SHELL
+// ============================================================
+const RENDER_URL = (function () {
+    const origin = window.location.origin;
+    const APK_ORIGINS = ['https://localhost', 'capacitor://localhost'];
+    if (APK_ORIGINS.indexOf(origin) !== -1) {
+        return 'https://ox-smart-pos-release-version.onrender.com';
+    }
+    return origin;
+})();
+window.RENDER_URL = RENDER_URL;
+const TOKEN_KEY  = 'ox_api_token';
+window._lastLoginAt = 0;
+const USER_KEY   = 'ox_shell_user';
+
+const $ = id => document.getElementById(id);
+
+function _currentUserId() {
+    try {
+        const u = JSON.parse(localStorage.getItem('ox_shell_user') || 'null');
+        if (!u) return 'anon';
+        if (u.id != null) return String(u.id);
+        if (u.user_id != null) return String(u.user_id);
+        if (u.username) return String(u.username).toLowerCase();
+        return 'anon';
+    } catch (e) { return 'anon'; }
+}
+
 window._currentUserId = _currentUserId;
 
 // ============================================================
