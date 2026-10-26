@@ -113,7 +113,7 @@
     <!-- ===== SERVICE WORKER ===== -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=93')
+            navigator.serviceWorker.register('/sw.js?v=94')
                 .then(() => console.log('✅ Service Worker registered (v48)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
@@ -943,7 +943,8 @@ function forceSystemRefresh(e) {
         window.location.href = window.location.pathname + '?_t=' + Date.now();
     }, 300);
 }
-"
+                {% if current_user %}
+                <a href="{{ ('/admin/users/' ~ session.user_id ~ '/edit') if _is_admin_user else '/settings' }}"
                    class="user-chip"
                    title="{{ 'Edit my profile' if _is_admin_user else 'Open settings' }}">
                     <i class="fas fa-user-circle"></i>
@@ -2553,6 +2554,62 @@ async function sendAIMessage() {
 }
 </script>
 
+
+
+<!-- ERROR_TRACKER_V3_FORCE_VISIBLE -->
+<style>
+#ox-tracker-min {
+  position: fixed !important;
+  top: 100px !important; right: 12px !important;
+  width: 300px !important;
+  max-height: 55vh !important; overflow-y: auto !important;
+  background: rgba(0,0,0,0.95) !important;
+  color: #0f0 !important;
+  font-family: monospace !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+  padding: 8px 10px !important;
+  border-radius: 10px !important;
+  z-index: 2147483647 !important;
+  border: 2px solid #0f0 !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6) !important;
+  display: none !important;
+}
+#ox-tracker-min.show { display: block !important; }
+#ox-tracker-min .hdr {
+  display: flex !important; justify-content: space-between !important;
+  cursor: pointer !important; font-weight: bold !important;
+  padding-bottom: 4px !important;
+  border-bottom: 1px solid #0f0 !important;
+  margin-bottom: 4px !important;
+}
+#ox-tracker-min .ln { word-break: break-word !important; margin-bottom: 2px !important; }
+#ox-tracker-min .ln.err { color: #f87171 !important; font-weight: bold !important; }
+#ox-tracker-min .ln.warn { color: #fbbf24 !important; }
+#ox-tracker-min .ln.ok { color: #67e8f9 !important; }
+
+#ox-tracker-btn {
+  position: fixed !important;
+  top: 100px !important; right: 16px !important;
+  width: 56px !important; height: 56px !important;
+  border-radius: 50% !important;
+  background: #dc2626 !important;
+  color: white !important;
+  border: 3px solid #ffffff !important;
+  cursor: pointer !important;
+  font-size: 24px !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 4px 16px rgba(220,38,38,0.8) !important;
+  animation: ox-tracker-pulse 1.8s ease-in-out infinite !important;
+}
+@keyframes ox-tracker-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 4px 16px rgba(220,38,38,0.8); }
+  50%      { transform: scale(1.08); box-shadow: 0 4px 24px rgba(220,38,38,1); }
+}
+</style>
 
 <!-- ERROR_TRACKER_V3 (minimal, always-on for diagnosis) -->
 <style>

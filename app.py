@@ -187,7 +187,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "temporary-dev-key")
 
 # ✅ App version / environment — exposed to templates + /settings page
-app.config['APP_VERSION'] = os.getenv('APP_VERSION', '9.3')
+app.config['APP_VERSION'] = '9.4'  # HARDCODED for build v9.4
 # Pre-compute production flag now; will be re-affirmed below when
 # IS_PRODUCTION is resolved. Default is 'development'.
 app.config['APP_ENV'] = 'production' if (os.getenv("FLASK_ENV") == "production" or os.getenv("RENDER")) else 'development'
@@ -3487,6 +3487,10 @@ def _swap_cat_labels_html(response):
         try: print("[cat-label] after_request: " + str(e))
         except Exception: pass
     return response
+
+@app.context_processor
+def inject_app_version():
+    return {'app_version': app.config.get('APP_VERSION', '9.4')}
 
 @app.context_processor
 def inject_app_settings():
