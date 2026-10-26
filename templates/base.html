@@ -113,7 +113,7 @@
     <!-- ===== SERVICE WORKER ===== -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=9')
+            navigator.serviceWorker.register('/sw.js?v=91')
                 .then(() => console.log('✅ Service Worker registered (v48)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
@@ -906,7 +906,8 @@ window.addEventListener('load', function() {
             </div>
 
             <div class="pt-4 pb-2">
-                <button onclick="logout()" class="w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2 text-sm">
+                <button onclick="document.getElementById('calc-modal').style.display='flex'; event.preventDefault();" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2 text-sm mb-2">🧮 Calculator</button>
+<button onclick="logout()" class="w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold py-2 rounded-lg transition flex items-center justify-center gap-2 text-sm">
                     <i class="fas fa-sign-out-alt"></i> {{ t('nav.logout') }}
                 </button>
             </div>
@@ -914,7 +915,7 @@ window.addEventListener('load', function() {
         
 <!-- DEBUG_REFRESH_BTN_V1 -->
 <a href="#" id="forceRefreshBtn" onclick="forceSystemRefresh(event)" 
-   class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg transition-colors mt-2 border-t border-gray-100 hidden">
+   class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-lg transition-colors mt-2 border-t border-gray-100">
     <span class="text-lg">🔄</span>
     <span>Refresh System</span>
 </a>
@@ -942,62 +943,7 @@ function forceSystemRefresh(e) {
         window.location.href = window.location.pathname + '?_t=' + Date.now();
     }, 300);
 }
-// Show button only if debug=1
-if (window.location.search.includes('debug=1')) {
-    document.addEventListener('DOMContentLoaded', function() {
-        var btn = document.getElementById('forceRefreshBtn');
-        if (btn) btn.classList.remove('hidden');
-    });
-}
-</script>
-
-</nav>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div class="main-content-wrapper">
-
-        <!-- ===== TOP BAR ===== -->
-        <div class="topbar">
-            {% if current_user %}
-            <button onclick="toggleSidebar()" class="hamburger-btn" aria-label="Toggle sidebar">
-                <i class="fas fa-bars text-2xl"></i>
-            </button>
-            {% endif %}
-
-            <div class="topbar-brand">
-                <h1>OX Smart POS</h1>
-            </div>
-
-            <div class="topbar-actions">
-                <!-- Notifications -->
-                <div class="notif-wrapper">
-                    <button class="notif-bell" id="notifBell" aria-label="Notifications" onclick="toggleNotifications(event)">
-                        <i class="fas fa-bell"></i>
-                        <span class="notif-badge" id="notifBadge">0</span>
-                    </button>
-                    <div class="notif-dropdown" id="notifDropdown" role="menu">
-                        <div class="notif-header">
-                            <div class="notif-header-title">
-                                <i class="fas fa-bell text-cyan-500"></i>
-                                Notifications
-                                <span class="count" id="notifCount">0</span>
-                            </div>
-                            <button class="notif-clear" onclick="Notifications.clearAll()">Clear all</button>
-                        </div>
-                        <div class="notif-list" id="notifList">
-                            <div class="notif-empty">
-                                <i class="fas fa-bell-slash"></i>
-                                <div>No notifications yet</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- User chip -->
-                {% if current_user %}
-                {% set _is_admin_user = (current_user.role == 'admin' or current_user.username.lower() == 'oxbee') %}
-                <a href="{{ ('/admin/users/' ~ session.user_id ~ '/edit') if _is_admin_user else '/settings' }}"
+"
                    class="user-chip"
                    title="{{ 'Edit my profile' if _is_admin_user else 'Open settings' }}">
                     <i class="fas fa-user-circle"></i>
@@ -2347,108 +2293,7 @@ window.OX_LOGOUT_CLEAR = function() {
 
 
 
-<!-- BUG_TRACKER_V2 -->
-<style>
-#ox-bt {
-  position: fixed; top: 60px; right: 8px; width: 230px;
-  max-height: 45vh; overflow-y: auto;
-  background: rgba(0,0,0,0.85); color: #0f0;
-  font-family: monospace; font-size: 10px; line-height: 1.35;
-  padding: 6px 8px; border-radius: 8px;
-  z-index: 999999; pointer-events: auto;
-  border: 1px solid #0f0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-#ox-bt.collapsed { max-height: 28px; overflow: hidden; }
-#ox-bt .ox-bt-hdr {
-  display: flex; justify-content: space-between; align-items: center;
-  cursor: pointer; font-weight: bold; margin-bottom: 4px;
-  padding-bottom: 4px; border-bottom: 1px solid #0f0;
-  user-select: none;
-}
-#ox-bt.collapsed .ox-bt-hdr { margin-bottom: 0; border-bottom: 0; padding-bottom: 0; }
-#ox-bt .ox-bt-hdr span { flex: 1; }
-#ox-bt .ox-bt-hdr button {
-  background: transparent; border: 0; color: #0f0;
-  font-size: 12px; cursor: pointer; padding: 0 4px;
-}
-#ox-bt .ox-ln { word-break: break-word; margin-bottom: 1px; }
-#ox-bt .ox-ln.err { color: #f87171; }
-#ox-bt .ox-ln.warn { color: #fbbf24; }
-#ox-bt .ox-ln.ok { color: #67e8f9; }
-#ox-bt .ox-ln.evt { color: #a5b4fc; }
-#ox-bt .ox-ln.focus { color: #f0abfc; }
-#ox-bt .ox-ln.blur { color: #fdba74; }
-</style>
-<div id="ox-bt" class="collapsed">
-  <div class="ox-bt-hdr" onclick="document.getElementById('ox-bt').classList.toggle('collapsed')">
-    <span>🐞 Tracker</span>
-    <button type="button" onclick="event.stopPropagation(); window.__oxBtClear && window.__oxBtClear();">✕</button>
-  </div>
-  <div id="ox-bt-lines"></div>
-</div>
-<script>
-(function(){
-  if (window.__OX_BT_V2) return;
-  window.__OX_BT_V2 = true;
-  var box = document.getElementById('ox-bt-lines');
-  if (!box) return;
-  function add(cls, msg) {
-    var d = document.createElement('div');
-    d.className = 'ox-ln ' + (cls || '');
-    var t = new Date();
-    d.textContent = String(t.getHours()).padStart(2,'0') + ':' +
-                    String(t.getMinutes()).padStart(2,'0') + ':' +
-                    String(t.getSeconds()).padStart(2,'0') + ' ' + msg;
-    box.appendChild(d);
-    box.scrollTop = box.scrollHeight;
-    while (box.children.length > 60) box.removeChild(box.firstChild);
-  }
-  window.__oxBtLog = add;
-  window.__oxBtClear = function(){ box.innerHTML = ''; };
 
-  document.addEventListener('focusin', function(e){
-    var t = e.target;
-    if (!t) return;
-    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') {
-      add('focus', 'FOCUS ' + (t.id || t.name || t.tagName));
-    }
-  }, true);
-  document.addEventListener('focusout', function(e){
-    var t = e.target;
-    if (!t) return;
-    if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') {
-      var next = document.activeElement;
-      var nid = next ? (next.id || next.tagName) : 'null';
-      add('blur', 'BLUR ' + (t.id || t.name || t.tagName) + ' → ' + nid);
-    }
-  }, true);
-
-  var _fetch = window.fetch;
-  window.fetch = function(input, init) {
-    var url = typeof input === 'string' ? input : (input && input.url) || '?';
-    var method = (init && init.method) || 'GET';
-    var short = url.replace(/^https?:\/\/[^/]+/, '').slice(0, 42);
-    var start = Date.now();
-    add('evt', '→ ' + method + ' ' + short);
-    return _fetch.apply(this, arguments).then(function(res){
-      var ms = Date.now() - start;
-      var cls = res.status >= 400 ? 'err' : (res.status >= 300 ? 'warn' : 'ok');
-      add(cls, '← ' + res.status + ' ' + short + ' (' + ms + 'ms)');
-      return res;
-    }).catch(function(err){
-      add('err', '✗ ' + short + ' ' + (err.message || 'net'));
-      throw err;
-    });
-  };
-
-  window.addEventListener('beforeunload', function(){
-    add('warn', 'PAGE UNLOADING');
-  });
-
-  add('ok', 'tracker ready');
-})();
-</script>
 
 
 <style>
@@ -2530,170 +2375,182 @@ if (window.location.search.includes('debug=1')) {
 
 
 
-<!-- DEBUG_TRACKER_DRAG_V2 -->
+
+
+
+<!-- MEGA_UI_V1 -->
 <style>
-    #bug-tracer {
-        position: fixed !important;
-        top: 100px; right: 24px;
-        width: 50px !important;
-        height: 50px !important;
-        border-radius: 50% !important;
-        background: #1f2937 !important;
-        color: white !important;
-        display: none; 
-        align-items: center;
-        justify-content: center;
-        z-index: 999999 !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        overflow: hidden;
-        padding: 0 !important;
-        margin: 0 !important;
-        border: none !important;
-        box-sizing: border-box !important;
-        transition: width 0.2s, height 0.2s, border-radius 0.2s, transform 0.2s;
-    }
-    
-    /* Docked States */
-    #bug-tracer.docked-left {
-        left: -25px !important; right: auto !important;
-        border-radius: 0 50% 50% 0 !important;
-    }
-    #bug-tracer.docked-right {
-        right: -25px !important; left: auto !important;
-        border-radius: 50% 0 0 50% !important;
-    }
-    
-    /* Expanded State */
-    #bug-tracer.expanded {
-        width: 320px !important; height: 400px !important;
-        border-radius: 12px !important;
-        left: 50% !important; top: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        align-items: flex-start; justify-content: flex-start;
-        cursor: default;
-    }
-    #bug-tracer.expanded .tracer-icon { display: none !important; }
-    #bug-tracer.expanded .tracer-content { display: block !important; }
-    
-    /* Inner Elements */
-    #bug-tracer .tracer-icon {
-        font-size: 24px; pointer-events: none;
+    /* Floating AI Button */
+    #ai-assistant-btn {
+        position: fixed; bottom: 24px; right: 84px;
+        width: 56px; height: 56px; border-radius: 50%;
+        background: #4f46e5; color: white;
         display: flex; align-items: center; justify-content: center;
-        width: 100%; height: 100%;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+        cursor: pointer; z-index: 999998; font-size: 28px;
     }
-    #bug-tracer .tracer-content {
-        display: none; width: 100%; height: 100%;
-        overflow-y: auto; font-size: 11px; font-family: monospace;
-        padding: 8px; box-sizing: border-box;
+    /* Chat Window */
+    #ai-chat-window {
+        position: fixed; bottom: 90px; right: 24px;
+        width: 350px; height: 500px; background: white;
+        border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        display: none; flex-direction: column; z-index: 999999;
+        border: 1px solid #e5e7eb; overflow: hidden;
     }
+    #ai-chat-header {
+        background: #4f46e5; color: white; padding: 12px;
+        display: flex; justify-content: space-between; align-items: center;
+        font-weight: bold;
+    }
+    #ai-chat-history-btn { cursor: pointer; font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; }
+    #ai-chat-body { flex: 1; padding: 12px; overflow-y: auto; background: #f9fafb; display: flex; flex-direction: column; }
+    #ai-chat-input-area { display: flex; padding: 12px; background: white; border-top: 1px solid #e5e7eb; }
+    #ai-chat-input { flex: 1; border: 1px solid #d1d5db; border-radius: 20px; padding: 8px 12px; outline: none; }
+    #ai-chat-send { background: #4f46e5; color: white; border: none; border-radius: 50%; width: 36px; height: 36px; margin-left: 8px; cursor: pointer; }
+    .ai-msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 85%; line-height: 1.4; }
+    .ai-msg.bot { background: #e0e7ff; color: #3730a3; align-self: flex-start; border-bottom-left-radius: 0; }
+    .ai-msg.user { background: #4f46e5; color: white; align-self: flex-end; margin-left: auto; border-bottom-right-radius: 0; }
+    /* Calculator */
+    #calc-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 999999; }
+    #calc-box { background: white; padding: 20px; border-radius: 12px; width: 300px; }
+    #calc-screen { width: 100%; height: 50px; text-align: right; font-size: 24px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; padding: 5px; background: #f8f9fa; }
+    .calc-btn { width: 22%; height: 50px; margin: 1%; font-size: 18px; border: none; border-radius: 6px; background: #e5e7eb; cursor: pointer; }
+    .calc-btn.op { background: #fcd34d; }
 </style>
 
+<!-- Floating AI Button -->
+<div id="ai-assistant-btn" onclick="toggleAIChat()">🤖</div>
+
+<!-- AI Chat Window -->
+<div id="ai-chat-window">
+    <div id="ai-chat-header">
+        <span>🤖 Smart Assistant</span>
+        <span id="ai-chat-history-btn" onclick="toggleChatHistory()">History</span>
+        <span style="cursor:pointer;" onclick="toggleAIChat()">✕</span>
+    </div>
+    <div id="ai-chat-history-list" class="hidden" style="padding: 10px; background: #f3f4f6; border-bottom: 1px solid #ddd; max-height: 150px; overflow-y: auto;"></div>
+    <div id="ai-chat-body">
+        <div class="ai-msg bot">Hello! 👋 I am your Smart Assistant. I can check stock, analyze sales, or guide you. Try asking "how many products do I have?"</div>
+    </div>
+    <div id="ai-chat-input-area">
+        <input type="text" id="ai-chat-input" placeholder="Ask about your data..." onkeypress="if(event.key==='Enter') sendAIMessage()">
+        <button id="ai-chat-send" onclick="sendAIMessage()">➤</button>
+    </div>
+</div>
+
+<!-- Calculator Modal -->
+<div id="calc-modal">
+    <div id="calc-box">
+        <input type="text" id="calc-screen" readonly>
+        <div style="display: flex; flex-wrap: wrap;">
+            <button class="calc-btn" onclick="calcPress('7')">7</button>
+            <button class="calc-btn" onclick="calcPress('8')">8</button>
+            <button class="calc-btn" onclick="calcPress('9')">9</button>
+            <button class="calc-btn op" onclick="calcPress('/')">÷</button>
+            <button class="calc-btn" onclick="calcPress('4')">4</button>
+            <button class="calc-btn" onclick="calcPress('5')">5</button>
+            <button class="calc-btn" onclick="calcPress('6')">6</button>
+            <button class="calc-btn op" onclick="calcPress('*')">×</button>
+            <button class="calc-btn" onclick="calcPress('1')">1</button>
+            <button class="calc-btn" onclick="calcPress('2')">2</button>
+            <button class="calc-btn" onclick="calcPress('3')">3</button>
+            <button class="calc-btn op" onclick="calcPress('-')">-</button>
+            <button class="calc-btn" onclick="calcPress('0')">0</button>
+            <button class="calc-btn" onclick="calcPress('.')">.</button>
+            <button class="calc-btn op" onclick="calcPress('=')">=</button>
+            <button class="calc-btn op" onclick="calcPress('+')">+</button>
+            <button class="calc-btn" style="width: 98%; background:#fca5a5;" onclick="calcPress('C')">Clear</button>
+        </div>
+        <button onclick="document.getElementById('calc-modal').style.display='none'" style="width:100%; margin-top:10px; padding:10px; background:#374151; color:white; border-radius:6px;">Close</button>
+    </div>
+</div>
+
 <script>
-(function() {
-    if (!window.location.search.includes('debug=1')) return;
+// --- CALCULATOR LOGIC ---
+function calcPress(val) {
+    var screen = document.getElementById('calc-screen');
+    if (val === 'C') { screen.value = ''; return; }
+    if (val === '=') { try { screen.value = eval(screen.value); } catch(e) { screen.value = 'Error'; } return; }
+    screen.value += val;
+}
+
+// --- AI CHAT LOGIC ---
+let chatHistory = JSON.parse(localStorage.getItem('ox_ai_history') || '[]');
+let currentChatId = Date.now();
+
+function toggleAIChat() {
+    var w = document.getElementById('ai-chat-window');
+    w.style.display = w.style.display === 'flex' ? 'none' : 'flex';
+    if (w.style.display === 'flex') loadChat(currentChatId);
+}
+
+function toggleChatHistory() {
+    var list = document.getElementById('ai-chat-history-list');
+    if (list.classList.contains('hidden')) {
+        if (chatHistory.length === 0) {
+            list.innerHTML = '<div style="padding:5px;color:#666;font-size:12px;">No previous chats.</div>';
+        } else {
+            list.innerHTML = chatHistory.map(c => `<div style="cursor:pointer; padding:5px; border-bottom:1px solid #ddd; font-size:13px;" onclick="loadChat(${c.id})">${c.title}</div>`).join('');
+        }
+        list.classList.remove('hidden');
+    } else {
+        list.classList.add('hidden');
+    }
+}
+
+function loadChat(id) {
+    currentChatId = id;
+    document.getElementById('ai-chat-history-list').classList.add('hidden');
+    var chat = chatHistory.find(c => c.id === id) || { id: id, title: 'New Chat', messages: [] };
+    var body = document.getElementById('ai-chat-body');
+    if (chat.messages.length === 0) {
+        body.innerHTML = `<div class="ai-msg bot">Hello! 👋 I am your Smart Assistant. I can check stock, analyze sales, or guide you. Try asking "how many products do I have?"</div>`;
+    } else {
+        body.innerHTML = chat.messages.map(m => `<div class="ai-msg ${m.role}">${m.text}</div>`).join('');
+    }
+    body.scrollTop = body.scrollHeight;
+}
+
+async function sendAIMessage() {
+    var input = document.getElementById('ai-chat-input');
+    var text = input.value.trim();
+    if (!text) return;
+    input.value = '';
     
-    setTimeout(function() {
-        var tracer = document.getElementById('bug-tracer');
-        if (!tracer || tracer.dataset.dragInit === 'v2') return;
-        tracer.dataset.dragInit = 'v2';
+    var body = document.getElementById('ai-chat-body');
+    body.innerHTML += `<div class="ai-msg user">${text}</div>`;
+    body.scrollTop = body.scrollHeight;
+
+    let chat = chatHistory.find(c => c.id === currentChatId);
+    if (!chat) { chat = { id: currentChatId, title: text.substring(0, 20), messages: [] }; chatHistory.push(chat); }
+    chat.messages.push({ role: 'user', text: text });
+    localStorage.setItem('ox_ai_history', JSON.stringify(chatHistory));
+
+    setTimeout(async () => {
+        let reply = "I'm your Smart POS Assistant. I can check stock, analyze sales, or guide you.";
+        let lower = text.toLowerCase();
         
-        tracer.style.display = 'flex';
-        // Save original HTML and wrap it
-        var originalHTML = tracer.innerHTML;
-        tracer.innerHTML = '<div class="tracer-icon">🐞</div><div class="tracer-content">' + originalHTML + '</div>';
-        
-        var isDragging = false, hasMoved = false, isDocked = false;
-        var startX, startY, startLeft, startTop;
-        var clickCount = 0, clickTimer = null;
-
-        function startDrag(e) {
-            if (isDocked || tracer.classList.contains('expanded')) return;
-            isDragging = true;
-            hasMoved = false;
-            var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            var clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            startX = clientX; startY = clientY;
-            var rect = tracer.getBoundingClientRect();
-            startLeft = rect.left; startTop = rect.top;
-            tracer.style.transition = 'none';
-        }
-
-        function doDrag(e) {
-            if (!isDragging) return;
-            var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            var clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            var dx = clientX - startX, dy = clientY - startY;
-            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved = true;
-            
-            if (hasMoved) {
-                var newLeft = Math.max(0, Math.min(window.innerWidth - 50, startLeft + dx));
-                var newTop = Math.max(0, Math.min(window.innerHeight - 50, startTop + dy));
-                tracer.style.left = newLeft + 'px';
-                tracer.style.top = newTop + 'px';
-                tracer.style.right = 'auto';
+        try {
+            if (typeof db !== 'undefined' && db) {
+                if (lower.includes('stock') || lower.includes('products')) {
+                    const count = await db.products.count();
+                    reply = `Currently, you have **${count}** products registered in your system.`;
+                } else if (lower.includes('sales') || lower.includes('profit')) {
+                    const sales = await db.sales.toArray();
+                    const total = sales.reduce((s, x) => s + (x.total || 0), 0);
+                    reply = `You have recorded **${sales.length}** sales, totaling **₵${total.toFixed(2)}**.`;
+                } else if (lower.includes('hello') || lower.includes('hi')) {
+                    reply = "Hello! 👋 How can I help you manage your store today?";
+                }
             }
-        }
+        } catch (e) { console.error(e); }
 
-        function endDrag() {
-            if (!isDragging) return;
-            isDragging = false;
-            tracer.style.transition = 'width 0.2s, height 0.2s, border-radius 0.2s, transform 0.2s';
-        }
-
-        function handleInteraction() {
-            if (isDocked) {
-                // Undock logic
-                tracer.classList.remove('docked-left', 'docked-right');
-                isDocked = false;
-                var x = parseFloat(tracer.style.left) || (window.innerWidth - 74);
-                if (x < 0) tracer.style.left = '24px';
-                if (x > window.innerWidth - 50) tracer.style.left = (window.innerWidth - 74) + 'px';
-                return;
-            }
-
-            if (hasMoved) {
-                hasMoved = false;
-                return;
-            }
-
-            clickCount++;
-            if (clickCount === 1) {
-                clickTimer = setTimeout(function() {
-                    tracer.classList.toggle('expanded');
-                    clickCount = 0;
-                }, 250);
-            } else if (clickCount === 2) {
-                clearTimeout(clickTimer);
-                clickCount = 0;
-                dockToEdge();
-            }
-        }
-
-        function dockToEdge() {
-            tracer.classList.remove('expanded');
-            var rect = tracer.getBoundingClientRect();
-            // Determine closest edge
-            if (rect.left < window.innerWidth / 2) {
-                tracer.classList.add('docked-left');
-            } else {
-                tracer.classList.add('docked-right');
-            }
-            isDocked = true;
-        }
-
-        tracer.addEventListener('mousedown', startDrag);
-        document.addEventListener('mousemove', doDrag);
-        document.addEventListener('mouseup', endDrag);
-        tracer.addEventListener('touchstart', startDrag, { passive: true });
-        document.addEventListener('touchmove', doDrag, { passive: true });
-        document.addEventListener('touchend', endDrag);
-        
-        tracer.addEventListener('click', handleInteraction);
-        
-        var content = tracer.querySelector('.tracer-content');
-        if (content) content.addEventListener('click', function(e) { e.stopPropagation(); });
-    }, 1000);
-})();
+        body.innerHTML += `<div class="ai-msg bot">${reply}</div>`;
+        body.scrollTop = body.scrollHeight;
+        chat.messages.push({ role: 'bot', text: reply });
+        localStorage.setItem('ox_ai_history', JSON.stringify(chatHistory));
+    }, 800);
+}
 </script>
 
 </body>

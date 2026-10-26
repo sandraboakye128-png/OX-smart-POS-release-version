@@ -517,9 +517,9 @@ def _upsert_product(cur, name, brand, category, cost, selling, canonical_categor
         # Preserve existing category — don't overwrite 'accessories' with 'Accessory'
         cur.execute("""
             UPDATE products
-            SET cost_price = %s, selling_price = %s
+            SET cost_price = %s, selling_price = %s, category = %s
             WHERE id = %s
-        """, (cost, selling, row[0]))
+        """, (cost, selling, category, row[0]))
         return row[0]
 
     cur.execute("""
@@ -683,6 +683,7 @@ def save_purchases(rows, category, mode, deleted_ids=None, dirty_ids=None, updat
                     stats['errors'].append(f"Row {i+1}: empty name, skipped")
                     continue
                 brand = (row.get('brand') or '').strip()
+                row_category = (row.get('category') or canonical or category or '').strip()  # PV_CAT_FIX
                 qty = int(row.get('quantity') or 0)
                 remaining = int(row.get('remaining_quantity') or qty)
                 claimed = int(row.get('claimed_quantity') or 0)
@@ -750,7 +751,7 @@ def save_purchases(rows, category, mode, deleted_ids=None, dirty_ids=None, updat
                                 cur.execute("""
                                     UPDATE products SET name = %s, brand = %s, category = %s
                                     WHERE id = (SELECT product_id FROM purchase_batches WHERE id = %s)
-                                """, (name, brand, category, bid_int))
+                                """, (name, brand, row_category, bid_int))
                             # Log for history modal
                             _log_batch_update(
                                 cur, bid_int,
@@ -793,7 +794,7 @@ def save_purchases(rows, category, mode, deleted_ids=None, dirty_ids=None, updat
                         continue
 
                 # ---- Insert new batch ----
-                product_id = _upsert_product(cur, name, brand, category, cost, selling, canonical)
+                product_id = _upsert_product(cur, name, brand, row_category, cost, selling, canonical)
                 cur.execute("""
                     INSERT INTO purchase_batches
                     (product_id, quantity, remaining_quantity, claimed_quantity,

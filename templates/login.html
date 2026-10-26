@@ -21,7 +21,7 @@
             </div>
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2">{{ t("auth.login_password") }}</label>
-                <input type="password" id="password" name="password" required autocomplete="new-password"
+                <input type="text" id="password" name="password" required autocomplete="new-password" class="masked-password"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div class="mb-6">
@@ -182,7 +182,11 @@
         var sp = document.getElementById('showPassword');
         if (sp && document.activeElement !== sp) sp.checked = false;
         var pw = document.getElementById('password');
-        if (pw && document.activeElement !== pw) pw.type = 'password';
+        if (pw && document.activeElement !== pw) {
+            pw.classList.add('masked-password');
+            var sp = document.getElementById('showPassword');
+            if (sp) sp.checked = false;
+        }
     }
 
     function forceClear() {
@@ -209,8 +213,13 @@
     // ============================================================
     const showPasswordCheckbox = document.getElementById('showPassword');
     const passwordField = document.getElementById('password');
+    // KB_FIX: Toggle CSS class instead of input type to prevent keyboard drop
     showPasswordCheckbox.addEventListener('change', () => {
-        passwordField.type = showPasswordCheckbox.checked ? 'text' : 'password';
+        if (showPasswordCheckbox.checked) {
+            passwordField.classList.remove('masked-password');
+        } else {
+            passwordField.classList.add('masked-password');
+        }
     });
     
     // ============================================================
@@ -276,4 +285,7 @@
         }
     });
 </script>
+<style>
+.masked-password { -webkit-text-security: disc; }
+</style>
 {% endblock %}

@@ -21,7 +21,7 @@
             </div>
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2">{{ t("auth.signup_password") }}</label>
-                <input type="password" id="password" name="password" required autocomplete="new-password"
+                <input type="text" id="password" name="password" required autocomplete="new-password" class="masked-password"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <p class="text-xs text-gray-500 mt-1">{{ t("auth.signup_pwd_hint") }}</p>
             </div>
@@ -128,11 +128,11 @@
     const showPasswordCheckbox = document.getElementById('showPassword');
     const passwordField = document.getElementById('password');
     showPasswordCheckbox.addEventListener('change', () => {
-        /* KB_FIX_17: preserve focus + caret around type swap */
-        var _wasFocused = (document.activeElement === passwordField);
-        var _caretPos = passwordField.selectionStart;
-        passwordField.type = showPasswordCheckbox.checked ? 'text' : 'password';
-        if (_wasFocused) { passwordField.focus(); try { passwordField.setSelectionRange(_caretPos, _caretPos); } catch(e) {} }
+        if (showPasswordCheckbox.checked) {
+            passwordField.classList.remove('masked-password');
+        } else {
+            passwordField.classList.add('masked-password');
+        }
     });
 
     // ----- CHECK ADMIN COUNT -----
@@ -235,4 +235,7 @@
         }
     });
 </script>
+<style>
+.masked-password { -webkit-text-security: disc; }
+</style>
 {% endblock %}

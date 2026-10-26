@@ -17,19 +17,10 @@
         transform: rotate(90deg);
         transform-origin: center center;
     }
-    .pv-row-new td { background: #fde68a !important; }
-    .pv-row-import-added td {
-        background: #a7f3d0 !important;
-        border-bottom: 1px solid #10b981 !important;
-    }
-    .pv-row-import-updated td {
-        background: #c4b5fd !important;
-        border-bottom: 1px solid #8b5cf6 !important;
-    }
-    .pv-row-not-in-db td {
-        background: #fee2e2 !important;
-        border-bottom: 1px solid #fca5a5 !important;
-    }
+    /* color moved to pv-vivid-rows */
+    /* color moved to pv-vivid-rows */
+    /* color moved to pv-vivid-rows */
+    /* color moved to pv-vivid-rows */
     @media (max-width: 480px) {
         #pvRotateBtn { padding: 4px 6px !important; }
     }
@@ -156,11 +147,16 @@
     }
 </style>
 <style id="pv-vivid-rows">
-    tr.pv-row-new td                    { background: #fde68a !important; }
-    tr.pv-row-import-added td           { background: #86efac !important; border-bottom: 1px solid #16a34a !important; }
-    tr.pv-row-import-updated td         { background: #c4b5fd !important; border-bottom: 1px solid #7c3aed !important; }
-    tr.pv-row-not-in-db td              { background: #fca5a5 !important; border-bottom: 1px solid #dc2626 !important; color: #7f1d1d !important; opacity: 0.85; }
+    /* PV_COLORS_V2 — distinct Excel vs Import colors */
+    tr.pv-row-new td                    { background: #fde68a !important; } /* Yellow: new this session */
+    tr.pv-row-excel-added td            { background: #a7f3d0 !important; border-bottom: 1px solid #10b981 !important; } /* Green: Excel add */
+    tr.pv-row-excel-updated td          { background: #fed7aa !important; border-bottom: 1px solid #f97316 !important; } /* Orange: Excel update */
+    tr.pv-row-import-added td           { background: #bfdbfe !important; border-bottom: 1px solid #3b82f6 !important; } /* Blue: Import add */
+    tr.pv-row-import-updated td         { background: #c4b5fd !important; border-bottom: 1px solid #8b5cf6 !important; } /* Purple: Import update */
+    tr.pv-row-not-in-db td              { background: #fca5a5 !important; border-bottom: 1px solid #dc2626 !important; color: #7f1d1d !important; opacity: 0.85; } /* Red: archived */
     tr.pv-row-new td.pv-rownum,
+    tr.pv-row-excel-added td.pv-rownum,
+    tr.pv-row-excel-updated td.pv-rownum,
     tr.pv-row-import-added td.pv-rownum,
     tr.pv-row-import-updated td.pv-rownum,
     tr.pv-row-not-in-db td.pv-rownum    { background: #f3f4f6 !important; color: #6b7280 !important; opacity: 1; }
@@ -348,8 +344,8 @@
     </div>
 </div>
 
-        <div id="pvSheetWrapper" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="overflow-auto" style="max-height: 65vh;">
+        <div id="pvSheetWrapper" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden" style="display:flex; flex-direction:column; flex:1 1 auto; min-height:0;">
+            <div id="pvScrollContainer" class="overflow-auto" style="max-height:65vh; padding-bottom:20vh; -webkit-overflow-scrolling:touch;">
                 <table id="pvTable" class="min-w-full text-xs md:text-sm" style="border-collapse: collapse;">
                     <thead class="bg-gray-100 sticky top-0 z-10">
                         <tr id="pvColLetters" class="pv-letters-row"></tr>
@@ -378,22 +374,12 @@
             </div>
             <div id="pvRecentLegend" class="pt-2 border-t border-amber-300">
                 <div class="flex flex-wrap items-center gap-3 text-[11px] text-gray-600">
-                    <span class="flex items-center gap-1">
-                        <span style="display:inline-block;width:14px;height:14px;background:#fef9c3;border:1px solid #ca8a04;border-radius:3px;"></span>
-                        Added this session
-                    </span>
-                    <span class="flex items-center gap-1">
-                        <span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border:1px solid #16a34a;border-radius:3px;"></span>
-                        Added via import
-                    </span>
-                    <span class="flex items-center gap-1">
-                        <span style="display:inline-block;width:14px;height:14px;background:#e9d5ff;border:1px solid #9333ea;border-radius:3px;"></span>
-                        Updated via import
-                    </span>
-                    <span class="flex items-center gap-1">
-                        <span style="display:inline-block;width:14px;height:14px;background:#fee2e2;border:1px solid #ef4444;border-radius:3px;"></span>
-                        Not in DB anymore
-                    </span>
+                    <span class="flex items-center gap-1"><span style="display:inline-block;width:14px;height:14px;background:#fde68a;border:1px solid #ca8a04;border-radius:3px;"></span>Added this session</span>
+                    <span class="flex items-center gap-1"><span style="display:inline-block;width:14px;height:14px;background:#a7f3d0;border:1px solid #10b981;border-radius:3px;"></span>Added via Excel</span>
+                    <span class="flex items-center gap-1"><span style="display:inline-block;width:14px;height:14px;background:#fed7aa;border:1px solid #f97316;border-radius:3px;"></span>Updated via Excel</span>
+                    <span class="flex items-center gap-1"><span style="display:inline-block;width:14px;height:14px;background:#bfdbfe;border:1px solid #3b82f6;border-radius:3px;"></span>Added via Import</span>
+                    <span class="flex items-center gap-1"><span style="display:inline-block;width:14px;height:14px;background:#c4b5fd;border:1px solid #8b5cf6;border-radius:3px;"></span>Updated via Import</span>
+                    <span class="flex items-center gap-1"><span style="display:inline-block;width:14px;height:14px;background:#fca5a5;border:1px solid #ef4444;border-radius:3px;"></span>Not in DB anymore</span>
                 </div>
             </div>
         </div>
@@ -927,8 +913,12 @@ function previewRenderBody() {
         } else if (isNew) {
             rowCls = 'pv-row-new';
         } else if (_action === 'added_from_excel') {
-            rowCls = 'pv-row-import-added';
+            rowCls = 'pv-row-excel-added';
         } else if (_action === 'updated_from_excel') {
+            rowCls = 'pv-row-excel-updated';
+        } else if (_action === 'added_from_import') {
+            rowCls = 'pv-row-import-added';
+        } else if (_action === 'updated_from_import') {
             rowCls = 'pv-row-import-updated';
         }
         return `${divider}<tr data-row="${i}" class="${rowCls}">
@@ -2043,5 +2033,33 @@ function _pvUpdateSheetRotateBtn(isFs) {
 //  SAVE — track newly returned IDs as recent
 // ============================================================
 })();
+
+// PV_KEYBOARD_SCROLL_FIX: Adjust max-height dynamically when keyboard opens
+(function() {
+    function adjustPvHeight() {
+        var el = document.getElementById('pvScrollContainer');
+        if (!el) return;
+        var vv = window.visualViewport;
+        if (!vv) return;
+        // Subtract the top bar / toolbar height (approx 180px) and the keyboard height
+        var availableHeight = vv.height - 180; 
+        if (availableHeight > 200) {
+            el.style.maxHeight = availableHeight + 'px';
+        } else {
+            el.style.maxHeight = '65vh';
+        }
+    }
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', adjustPvHeight);
+        window.visualViewport.addEventListener('scroll', adjustPvHeight);
+    }
+    // Also trigger on focus of any editable cell to ensure the container resizes before the keyboard fully opens
+    document.addEventListener('focusin', function(e) {
+        if (e.target.closest && e.target.closest('td[contenteditable="true"]')) {
+            setTimeout(adjustPvHeight, 300);
+        }
+    });
+})();
+
 </script>
 {% endblock %}
