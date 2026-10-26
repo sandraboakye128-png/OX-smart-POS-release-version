@@ -1345,6 +1345,10 @@ window.addEventListener('load', function() {
     <span class="text-lg">🔄</span>
     <span>Refresh System</span>
 </a>
+<script src="dexie.min.js"></script>
+<script src="db.js"></script>
+<script src="sync.js"></script>
+
 <script>
 function forceSystemRefresh(e) {
     e.preventDefault();
@@ -4509,10 +4513,6 @@ document.addEventListener('keydown', e => {
 setVh();window.addEventListener('resize',setVh);window.addEventListener('orientationchange',function(){setTimeout(setVh,100);});
 if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh);window.visualViewport.addEventListener('scroll',setVh);}})();
 </script>
-
-    
-</script>
-
 <!-- BACK_BUTTON_V1 — intercept Android hardware back -->
 <script>
 (function () {
@@ -4915,6 +4915,111 @@ async function sendAIMessage() {
         localStorage.setItem('ox_ai_history', JSON.stringify(chatHistory));
     }, 800);
 }
+</script>
+
+
+<!-- ERROR_TRACKER_V3 (minimal, always-on for diagnosis) -->
+<style>
+#ox-tracker-min {
+  position: fixed; top: 60px; right: 8px; width: 280px;
+  max-height: 50vh; overflow-y: auto;
+  background: rgba(0,0,0,0.92); color: #0f0;
+  font-family: monospace; font-size: 11px; line-height: 1.4;
+  padding: 6px 8px; border-radius: 8px;
+  z-index: 999999; border: 1px solid #0f0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  display: none;
+}
+#ox-tracker-min.show { display: block; }
+#ox-tracker-min .hdr {
+  display: flex; justify-content: space-between;
+  cursor: pointer; font-weight: bold;
+  padding-bottom: 4px; border-bottom: 1px solid #0f0;
+  margin-bottom: 4px;
+}
+#ox-tracker-min .ln { word-break: break-word; margin-bottom: 2px; }
+#ox-tracker-min .ln.err { color: #f87171; font-weight: bold; }
+#ox-tracker-min .ln.warn { color: #fbbf24; }
+#ox-tracker-min .ln.ok { color: #67e8f9; }
+#ox-tracker-btn {
+  position: fixed; top: 60px; right: 8px;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: #dc2626; color: white;
+  border: 0; cursor: pointer; font-size: 18px;
+  z-index: 999998; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(220,38,38,0.6);
+}
+</style>
+
+<button id="ox-tracker-btn" onclick="document.getElementById('ox-tracker-min').classList.toggle('show')">🐞</button>
+<div id="ox-tracker-min">
+  <div class="hdr" onclick="document.getElementById('ox-tracker-min').classList.remove('show')">
+    <span>🐞 Tracker</span>
+    <span style="cursor:pointer;">✕</span>
+  </div>
+  <div id="ox-tracker-lines"></div>
+</div>
+
+<script>
+(function(){
+  if (window.__OX_TRACKER_V3) return;
+  window.__OX_TRACKER_V3 = true;
+  var box = document.getElementById('ox-tracker-lines');
+  if (!box) return;
+  function add(cls, msg) {
+    var d = document.createElement('div');
+    d.className = 'ln ' + (cls || '');
+    var t = new Date();
+    d.textContent = String(t.getHours()).padStart(2,'0') + ':' +
+                    String(t.getMinutes()).padStart(2,'0') + ':' +
+                    String(t.getSeconds()).padStart(2,'0') + ' ' + msg;
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+    while (box.children.length > 80) box.removeChild(box.firstChild);
+  }
+  window.__oxTrackLog = add;
+
+  // Capture JS errors — THE MOST IMPORTANT PART
+  window.addEventListener('error', function(e) {
+    add('err', 'ERROR: ' + (e.message || 'unknown') + ' @ ' +
+        (e.filename || '') + ':' + (e.lineno || '?'));
+    // Auto-show panel on any error
+    var panel = document.getElementById('ox-tracker-min');
+    if (panel) panel.classList.add('show');
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    add('err', 'PROMISE: ' + (e.reason && e.reason.message || e.reason || 'unknown'));
+    var panel = document.getElementById('ox-tracker-min');
+    if (panel) panel.classList.add('show');
+  });
+
+  // Wrap console.error so we catch those too
+  var _cerr = console.error;
+  console.error = function() {
+    try {
+      add('err', 'console.error: ' + Array.from(arguments).map(function(a){
+        try { return typeof a === 'string' ? a : JSON.stringify(a); }
+        catch(e) { return String(a); }
+      }).join(' '));
+    } catch(e) {}
+    return _cerr.apply(console, arguments);
+  };
+
+  // Wrap console.warn
+  var _cwarn = console.warn;
+  console.warn = function() {
+    try {
+      add('warn', Array.from(arguments).map(function(a){
+        try { return typeof a === 'string' ? a : JSON.stringify(a); }
+        catch(e) { return String(a); }
+      }).join(' '));
+    } catch(e) {}
+    return _cwarn.apply(console, arguments);
+  };
+
+  add('ok', '✓ Tracker V3 armed — watching for JS errors');
+  add('ok', 'Script blocks running normally');
+})();
 </script>
 
 </body>
