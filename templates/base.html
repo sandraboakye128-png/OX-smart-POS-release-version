@@ -495,7 +495,7 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
 
             {% if current_user %}
             <div class="border-t border-gray-700 my-2"></div>
-            <a href="/settings" class="nav-link settings-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
+            <a href="/settings" onclick="if(window.oxShowOpening) window.oxShowOpening();" class="nav-link settings-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
                 <i class="fas fa-cog w-5"></i> {{ t('nav.settings') }}
             </a>
             <a href="/offline/?autologin=1" class="nav-link settings-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
@@ -549,16 +549,7 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
             }
             </script>
 
-            {% if current_user %}
-            <a href="{{ ('/admin/users/' ~ session.user_id ~ '/edit') if _is_admin_user else '/settings' }}"
-               class="user-chip" title="{{ 'Edit my profile' if _is_admin_user else 'Open settings' }}">
-                <i class="fas fa-user-circle"></i>
-                <span>{{ current_user.username }}</span>
-                {% if current_user.username.lower() == 'oxbee' %}
-                <span class="sysadmin-badge" style="font-size:0.5rem;padding:1px 4px;">⭐</span>
-                {% endif %}
-            </a>
-            {% endif %}
+            <!-- ghost profile chip removed (Phase 2) -->
         </nav>
     </div>
 
@@ -1277,11 +1268,11 @@ window.OX_LOGOUT_CLEAR = function() {
 </script>
 
 <style>
-#ox-opening-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.95); color: #00CFCF; padding: 14px 24px; border-radius: 12px; display: none; align-items: center; gap: 12px; font-weight: 600; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,207,207,0.3); z-index: 2147483647; pointer-events: none; backdrop-filter: blur(4px); animation: oxFadeIn 0.2s ease-out; }
+#ox-opening-toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(15, 23, 42, 0.95); color: #00CFCF; padding: 14px 24px; border-radius: 12px; display: none; align-items: center; gap: 12px; font-weight: 600; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,207,207,0.3); z-index: 2147483647; pointer-events: none; backdrop-filter: blur(4px); animation: oxFadeIn 0.2s ease-out; }
 #ox-opening-toast.show { display: flex; }
 .ox-spinner { width: 18px; height: 18px; border: 3px solid rgba(0, 207, 207, 0.3); border-top-color: #00CFCF; border-radius: 50%; animation: oxSpin 0.6s linear infinite; }
 @keyframes oxSpin { to { transform: rotate(360deg); } }
-@keyframes oxFadeIn { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes oxFadeIn { from { opacity: 0; transform: translate(-50%, -50%); } to { opacity: 1; transform: translate(-50%, -50%); } }
 </style>
 <div id="ox-opening-toast"><div class="ox-spinner"></div><span>Opening... Please wait</span></div>
 <script>
@@ -1368,7 +1359,7 @@ window.OX_LOGOUT_CLEAR = function() {
     .calc-btn.op { background: #fcd34d; }
 </style>
 
-<div id="ai-assistant-btn" onclick="toggleAIChat()" style="position: relative;">
+<div id="ai-assistant-btn" onclick="toggleAIChat()">
     🤖
     <span id="ai-badge" style="display: none; position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; font-size: 11px; font-weight: bold; min-width: 18px; height: 18px; border-radius: 9px; align-items: center; justify-content: center; border: 2px solid white; padding: 0 4px;">0</span>
 </div>
@@ -1725,13 +1716,43 @@ const OX_AI = {
             body.scrollTop = body.scrollHeight;
         }
 
-        // Process query
-        const reply = await this.processQuery(text);
+        try {
+            const res = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ message: text })
+            });
+            const data = await res.json();
+            let reply = data.success ? data.reply : "I couldn't process that right now.";
 
-        // Remove typing indicator and add real reply
-        const typingEl = document.getElementById(typingId);
-        if (typingEl) typingEl.remove();
-        this.addMessage('bot', reply);
+            if (reply.includes('[NAVIGATE:')) {
+                const match = reply.match(/\[NAVIGATE:([^\]]+)\]/);
+                if (match && match[1]) {
+                    const page = match[1].trim();
+                    reply = reply.replace(match[0], '').trim();
+                    setTimeout(() => {
+                        const routes = {
+                            dashboard: '/', products: '/products', sales: '/sales',
+                            purchases: '/purchases', claims: '/claims',
+                            settings: '/settings', 'today-sales': '/today-sales',
+                            analytics: '/analytics', archive: '/archive',
+                            logs: '/logs', activities: '/activities',
+                            'admin/users': '/admin/users'
+                        };
+                        window.location.href = routes[page] || ('/' + page);
+                    }, 500);
+                }
+            }
+
+            const typingEl = document.getElementById(typingId);
+            if (typingEl) typingEl.remove();
+            this.addMessage('bot', reply);
+        } catch (e) {
+            const typingEl = document.getElementById(typingId);
+            if (typingEl) typingEl.remove();
+            this.addMessage('bot', 'Network error - could not reach the AI server. Please try again.');
+        }
     }
 };
 
@@ -1950,6 +1971,79 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
     while (box.children.length > 80) box.removeChild(box.firstChild);
   }
   window.__oxTrackLog = add;
+
+  // === TRACKER_V3_UPGRADE (Phase 2) ===
+  // XHR tracking
+  try {
+    var _xhrOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url) {
+      try { add('warn', 'XHR: ' + method + ' ' + url); } catch(e) {}
+      return _xhrOpen.apply(this, arguments);
+    };
+    var _xhrSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function() {
+      try {
+        var self = this;
+        this.addEventListener('load', function() {
+          try { add(self.status >= 400 ? 'err' : 'ok', 'XHR-DONE: ' + self.status + ' ' + (self.responseURL || '')); } catch(e) {}
+        });
+        this.addEventListener('error', function() {
+          try { add('err', 'XHR-FAIL: ' + (self.responseURL || '')); } catch(e) {}
+        });
+      } catch(e) {}
+      return _xhrSend.apply(this, arguments);
+    };
+  } catch(e) {}
+
+  // Form submits
+  document.addEventListener('submit', function(e) {
+    try {
+      var f = e.target;
+      add('ok', 'FORM: ' + (f.action || location.href) + ' (' + (f.method || 'GET').toUpperCase() + ')');
+    } catch(err) {}
+  }, true);
+
+  // History navigation
+  try {
+    ['pushState', 'replaceState'].forEach(function(fn) {
+      var orig = history[fn];
+      history[fn] = function() {
+        try { add('ok', 'HISTORY.' + fn + ': ' + arguments[2]); } catch(e) {}
+        return orig.apply(this, arguments);
+      };
+    });
+    window.addEventListener('popstate', function() {
+      try { add('ok', 'HISTORY.popstate: ' + location.pathname + location.search); } catch(err) {}
+    });
+  } catch(e) {}
+
+  // Resource load failures (script/link/img)
+  window.addEventListener('error', function(e) {
+    if (e.target && e.target !== window && e.target.tagName && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK' || e.target.tagName === 'IMG')) {
+      try { add('err', 'RESOURCE-FAIL: ' + e.target.tagName + ' ' + (e.target.src || e.target.href || '')); } catch(err) {}
+    }
+  }, true);
+
+  // Online/offline
+  window.addEventListener('online', function() { try { add('ok', 'NET-EVENT: online'); } catch(e) {} });
+  window.addEventListener('offline', function() { try { add('warn', 'NET-EVENT: offline'); } catch(e) {} });
+
+  // Tab visibility
+  document.addEventListener('visibilitychange', function() {
+    try { add('ok', 'VISIBILITY: ' + document.visibilityState); } catch(e) {}
+  });
+
+  // Keyboard shortcut: Ctrl+Shift+T toggles the tracker panel
+  document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.shiftKey && (e.key === 'T' || e.key === 't')) {
+      var panel = document.getElementById('ox-tracker-min');
+      if (panel) panel.classList.toggle('show');
+    }
+  });
+
+  add('ok', 'Tracker V3 UPGRADE armed: XHR + forms + history + resources + visibility');
+  // === END TRACKER_V3_UPGRADE ===
+
 
   // TRACKER_UPGRADE_V1 — See EVERYTHING
   window.addEventListener('error', function(e) {

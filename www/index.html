@@ -1869,11 +1869,11 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
 </script>
 
 <style>
-#ox-opening-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.95); color: #00CFCF; padding: 14px 24px; border-radius: 12px; display: none; align-items: center; gap: 12px; font-weight: 600; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,207,207,0.3); z-index: 2147483647; pointer-events: none; backdrop-filter: blur(4px); animation: oxFadeIn 0.2s ease-out; }
+#ox-opening-toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(15, 23, 42, 0.95); color: #00CFCF; padding: 14px 24px; border-radius: 12px; display: none; align-items: center; gap: 12px; font-weight: 600; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,207,207,0.3); z-index: 2147483647; pointer-events: none; backdrop-filter: blur(4px); animation: oxFadeIn 0.2s ease-out; }
 #ox-opening-toast.show { display: flex; }
 .ox-spinner { width: 18px; height: 18px; border: 3px solid rgba(0, 207, 207, 0.3); border-top-color: #00CFCF; border-radius: 50%; animation: oxSpin 0.6s linear infinite; }
 @keyframes oxSpin { to { transform: rotate(360deg); } }
-@keyframes oxFadeIn { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes oxFadeIn { from { opacity: 0; transform: translate(-50%, -50%); } to { opacity: 1; transform: translate(-50%, -50%); } }
 </style>
 <div id="ox-opening-toast"><div class="ox-spinner"></div><span>Opening... Please wait</span></div>
 <script>
@@ -1951,7 +1951,7 @@ setInterval(async function() {
     .calc-btn.op { background: #fcd34d; }
 </style>
 
-<div id="ai-assistant-btn" onclick="toggleAIChat()" style="position: relative;">
+<div id="ai-assistant-btn" onclick="toggleAIChat()">
     🤖
     <span id="ai-badge" style="display: none; position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; font-size: 11px; font-weight: bold; min-width: 18px; height: 18px; border-radius: 9px; align-items: center; justify-content: center; border: 2px solid white; padding: 0 4px;">0</span>
 </div>
@@ -2314,13 +2314,39 @@ const OX_AI = {
             body.scrollTop = body.scrollHeight;
         }
 
-        // Process query
-        const reply = await this.processQuery(text);
+        try {
+            const token = localStorage.getItem('ox_api_token');
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = 'Bearer ' + token;
 
-        // Remove typing indicator and add real reply
-        const typingEl = document.getElementById(typingId);
-        if (typingEl) typingEl.remove();
-        this.addMessage('bot', reply);
+            const res = await fetch(RENDER_URL + '/api/ai/chat', {
+                method: 'POST',
+                headers: headers,
+                credentials: 'include',
+                body: JSON.stringify({ message: text })
+            });
+            const data = await res.json();
+            let reply = data.success ? data.reply : "I couldn't process that right now.";
+
+            if (reply.includes('[NAVIGATE:')) {
+                const match = reply.match(/\[NAVIGATE:([^\]]+)\]/);
+                if (match && match[1]) {
+                    const page = match[1].trim();
+                    reply = reply.replace(match[0], '').trim();
+                    setTimeout(() => {
+                        if (typeof switchView === 'function') switchView(page);
+                    }, 500);
+                }
+            }
+
+            const typingEl = document.getElementById(typingId);
+            if (typingEl) typingEl.remove();
+            this.addMessage('bot', reply);
+        } catch (e) {
+            const typingEl = document.getElementById(typingId);
+            if (typingEl) typingEl.remove();
+            this.addMessage('bot', 'Network error - could not reach the AI server.');
+        }
     }
 };
 
@@ -2542,6 +2568,72 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
     while (box.children.length > 80) box.removeChild(box.firstChild);
   }
   window.__oxTrackLog = add;
+
+  // === TRACKER_V3_UPGRADE (Phase 2) ===
+  try {
+    var _xhrOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url) {
+      try { add('warn', 'XHR: ' + method + ' ' + url); } catch(e) {}
+      return _xhrOpen.apply(this, arguments);
+    };
+    var _xhrSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function() {
+      try {
+        var self = this;
+        this.addEventListener('load', function() {
+          try { add(self.status >= 400 ? 'err' : 'ok', 'XHR-DONE: ' + self.status + ' ' + (self.responseURL || '')); } catch(e) {}
+        });
+        this.addEventListener('error', function() {
+          try { add('err', 'XHR-FAIL: ' + (self.responseURL || '')); } catch(e) {}
+        });
+      } catch(e) {}
+      return _xhrSend.apply(this, arguments);
+    };
+  } catch(e) {}
+
+  document.addEventListener('submit', function(e) {
+    try {
+      var f = e.target;
+      add('ok', 'FORM: ' + (f.action || location.href) + ' (' + (f.method || 'GET').toUpperCase() + ')');
+    } catch(err) {}
+  }, true);
+
+  try {
+    ['pushState', 'replaceState'].forEach(function(fn) {
+      var orig = history[fn];
+      history[fn] = function() {
+        try { add('ok', 'HISTORY.' + fn + ': ' + arguments[2]); } catch(e) {}
+        return orig.apply(this, arguments);
+      };
+    });
+    window.addEventListener('popstate', function() {
+      try { add('ok', 'HISTORY.popstate: ' + location.pathname + location.search); } catch(err) {}
+    });
+  } catch(e) {}
+
+  window.addEventListener('error', function(e) {
+    if (e.target && e.target !== window && e.target.tagName && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK' || e.target.tagName === 'IMG')) {
+      try { add('err', 'RESOURCE-FAIL: ' + e.target.tagName + ' ' + (e.target.src || e.target.href || '')); } catch(err) {}
+    }
+  }, true);
+
+  window.addEventListener('online', function() { try { add('ok', 'NET-EVENT: online'); } catch(e) {} });
+  window.addEventListener('offline', function() { try { add('warn', 'NET-EVENT: offline'); } catch(e) {} });
+
+  document.addEventListener('visibilitychange', function() {
+    try { add('ok', 'VISIBILITY: ' + document.visibilityState); } catch(e) {}
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.shiftKey && (e.key === 'T' || e.key === 't')) {
+      var panel = document.getElementById('ox-tracker-min');
+      if (panel) panel.classList.toggle('show');
+    }
+  });
+
+  add('ok', 'Tracker V3 UPGRADE armed: XHR + forms + history + resources + visibility');
+  // === END TRACKER_V3_UPGRADE ===
+
   window.addEventListener('error', function(e) {
     add('err', 'ERROR: ' + (e.message || 'unknown') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '?'));
     var panel = document.getElementById('ox-tracker-min');
@@ -2665,6 +2757,62 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
   setTimeout(init, 1500);
 })();
 </script>
+
+
+<!-- ============================================================ -->
+<!-- PHASE3_OFFLINE_GUARD — offline-safe shell                    -->
+<!-- 1) Wraps pullData() so it never runs (never wipes DB) offline -->
+<!-- 2) Re-renders dashboard from Dexie when going offline        -->
+<!-- 3) Re-renders dashboard when coming back online              -->
+<!-- ============================================================ -->
+<script>
+(function(){
+    'use strict';
+    if (window.__OX_PHASE3_OFFLINE) return;
+    window.__OX_PHASE3_OFFLINE = true;
+
+    var _wrapped = false;
+    function wrapPullData() {
+        if (_wrapped) return true;
+        if (typeof window.pullData !== 'function') return false;
+        var orig = window.pullData;
+        window.pullData = function() {
+            if (!navigator.onLine) {
+                console.log('[Phase3] pullData skipped - offline');
+                return Promise.resolve();
+            }
+            return orig.apply(this, arguments);
+        };
+        _wrapped = true;
+        console.log('[Phase3] pullData offline guard active');
+        return true;
+    }
+    if (!wrapPullData()) {
+        var tries = 0;
+        var iv = setInterval(function() { if (wrapPullData() || ++tries > 40) clearInterval(iv); }, 250);
+    }
+
+    window.addEventListener('offline', function () {
+        setTimeout(function () {
+            try {
+                var av = document.getElementById('appView');
+                if (av && !av.classList.contains('hidden') && typeof renderDashboard === 'function') {
+                    renderDashboard();
+                }
+            } catch (e) {}
+        }, 500);
+    });
+
+    window.addEventListener('online', function () {
+        setTimeout(function () {
+            try { if (typeof renderDashboard === 'function') renderDashboard(); } catch (e) {}
+        }, 1500);
+    });
+
+    console.log('[Phase3] offline guard armed');
+})();
+</script>
+<!-- END PHASE3_OFFLINE_GUARD -->
 
 </body>
 </html>

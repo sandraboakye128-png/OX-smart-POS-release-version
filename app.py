@@ -6,6 +6,7 @@ import os
 import uuid
 import threading
 from flask import send_from_directory
+from google import genai
 
 # ---------- IMPORT PURCHASE SERVICES ----------
 from services.purchase_service import (
@@ -182,12 +183,30 @@ def parse_date_cell(value):
 
 # ===================== CREATE APP =====================
 # ===================== CREATE APP =====================
+# ===================== CREATE APP =====================
 app = Flask(__name__)
 # ALL_WRITE_SITES_NOTIFY_V1
 app.secret_key = os.getenv("SECRET_KEY", "temporary-dev-key")
 
 # ✅ App version / environment — exposed to templates + /settings page
-app.config['APP_VERSION'] = '10.0'  # HARDCODED for build v9.4
+app.config['APP_VERSION'] = '10.3'  # v10.3 — Gemini AI backend
+
+# ============================================================
+#  GEMINI AI CLIENT
+#  Initialized once at import time. Reads GEMINI_API_KEY from
+#  the environment (already set on Render).
+#  If the key is missing the app still boots; /api/ai/chat
+#  just returns a graceful "AI not configured" error.
+# ============================================================
+try:
+    _gemini_key = os.getenv("GEMINI_API_KEY")
+    if not _gemini_key:
+        raise RuntimeError("GEMINI_API_KEY is not set in the environment")
+    ai_client = genai.Client(api_key=_gemini_key)
+    print("✅ Gemini AI client initialized.")
+except Exception as _ai_err:
+    print(f"⚠️  Gemini AI client failed to initialize: {_ai_err}")
+    ai_client = None
 # Pre-compute production flag now; will be re-affirmed below when
 # IS_PRODUCTION is resolved. Default is 'development'.
 app.config['APP_ENV'] = 'production' if (os.getenv("FLASK_ENV") == "production" or os.getenv("RENDER")) else 'development'
@@ -6049,6 +6068,82 @@ def ping():
     return jsonify({"status": "ok", "message": "Deployed version is current"})
 
 
+
+
+# ===================== AI CHAT (GEMINI) =====================
+@app.route('/api/ai/chat', methods=['POST'])
+def ai_chat():
+    """
+    Server-side proxy to Google Gemini.
+    The API key never leaves the server — the frontend only talks
+    to this endpoint.
+    """
+    if not ai_client:
+        return jsonify({
+            "success": False,
+            "reply": "AI is not configured on the server. Please set GEMINI_API_KEY."
+        }), 500
+
+    try:
+        data = request.get_json() or {}
+        user_message = (data.get('message') or '').strip()
+        if not user_message:
+            return jsonify({
+                "success": False,
+                "reply": "Please type a message."
+            }), 400
+
+        # ── System prompt: teaches the AI how to behave inside OX Smart ──
+        system_prompt = (
+            "You are the OX Smart POS Assistant. You help manage inventory, "
+            "sales, purchases, claims, and batches.\n\n"
+            "IMPORTANT — NAVIGATION:\n"
+            "If the user asks to open/go to/navigate to a page, you MUST include "
+            "a navigation tag on its own line in the format: [NAVIGATE:page_name]\n"
+            "Valid page names are: dashboard, products, sales, purchases, "
+            "claims, settings, today-sales, analytics, archive, activities, "
+            "logs, admin/users.\n"
+            "Example: if the user says 'open products', reply with:\n"
+            "[NAVIGATE:products]\n"
+            "Opening Products for you...\n\n"
+            "Otherwise, answer their question helpfully and concisely. "
+            "Use plain text. Keep replies short (1-3 sentences) unless asked "
+            "for detail. Never invent data you don't have."
+        )
+
+        full_prompt = f"{system_prompt}\n\nUser: {user_message}\nAssistant:"
+
+        # ── Call Gemini ──
+        response = ai_client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=full_prompt,
+        )
+
+        reply = (response.text or "").strip()
+        if not reply:
+            reply = "I couldn't generate a response. Please try again."
+
+        return jsonify({"success": True, "reply": reply})
+
+    except Exception as e:
+        print(f"❌ Gemini API Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "reply": "I'm having trouble connecting to my brain right now. Please try again."
+        }), 500
+
+
+@app.route('/api/ai/health', methods=['GET'])
+def ai_health():
+    """Quick check — used by the frontend to know if AI is wired up."""
+    return jsonify({
+        "success": True,
+        "configured": ai_client is not None,
+        "provider": "google-gemini",
+        "model": "gemini-flash-latest",
+    })
 # ============================================================
 #  PREVIEW & EDIT DATA (Excel-like)
 # ============================================================

@@ -59,3 +59,13 @@ templates/*.broken-*
 services/*.bak-*
 www/*.bak-*
 app.py.bak-*
+
+# backups created during patching
+*.bak
+*.bak2
+*.bak3
+*.bak4
+
+# Capacitor auto-generated gradle files
+android/app/capacitor.build.gradle
+android/capacitor.settings.gradle
