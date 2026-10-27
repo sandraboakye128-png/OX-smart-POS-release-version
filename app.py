@@ -6113,23 +6113,35 @@ def ai_chat():
 
         full_prompt = f"{system_prompt}\n\nUser: {user_message}\nAssistant:"
 
-        # ── Call Gemini with model fallback chain ──
+        # ── Call Gemini with model fallback + 503 retry ──
+        import time as _time
         response = None
         last_err = None
         tried = []
-        for _model in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest"]:
-            try:
-                response = ai_client.models.generate_content(
-                    model=_model,
-                    contents=full_prompt,
-                )
-                print(f"[ai-chat] OK model={_model}")
+        _models = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-flash-latest"]
+        for _model in _models:
+            for _attempt in range(3):  # 3 tries per model on 503 only
+                try:
+                    response = ai_client.models.generate_content(
+                        model=_model,
+                        contents=full_prompt,
+                    )
+                    print(f"[ai-chat] OK model={_model} attempt={_attempt+1}")
+                    break
+                except Exception as _me:
+                    last_err = _me
+                    _err_str = str(_me)
+                    _is_503 = ("503" in _err_str or "UNAVAILABLE" in _err_str or "ServerError" in type(_me).__name__)
+                    if _is_503 and _attempt < 2:
+                        _wait = 2 ** _attempt  # 1s, 2s
+                        print(f"[ai-chat] model={_model} 503, retrying in {_wait}s (attempt {_attempt+1}/3)")
+                        _time.sleep(_wait)
+                        continue
+                    tried.append(f"{_model}: {type(_me).__name__}")
+                    print(f"[ai-chat] model={_model} FAILED: {type(_me).__name__}: {_me}")
+                    break
+            if response is not None:
                 break
-            except Exception as _me:
-                last_err = _me
-                tried.append(f"{_model}: {type(_me).__name__}")
-                print(f"[ai-chat] model={_model} FAILED: {type(_me).__name__}: {_me}")
-                continue
 
         if response is None:
             raise RuntimeError(f"All models failed. Tried: {', '.join(tried)}. Last: {type(last_err).__name__}: {last_err}")
