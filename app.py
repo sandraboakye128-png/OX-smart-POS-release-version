@@ -6113,25 +6113,45 @@ def ai_chat():
 
         full_prompt = f"{system_prompt}\n\nUser: {user_message}\nAssistant:"
 
-        # ── Call Gemini ──
-        response = ai_client.models.generate_content(
-            model="gemini-flash-latest",
-            contents=full_prompt,
-        )
+        # ── Call Gemini with model fallback chain ──
+        response = None
+        last_err = None
+        tried = []
+        for _model in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest"]:
+            try:
+                response = ai_client.models.generate_content(
+                    model=_model,
+                    contents=full_prompt,
+                )
+                print(f"[ai-chat] OK model={_model}")
+                break
+            except Exception as _me:
+                last_err = _me
+                tried.append(f"{_model}: {type(_me).__name__}")
+                print(f"[ai-chat] model={_model} FAILED: {type(_me).__name__}: {_me}")
+                continue
 
-        reply = (response.text or "").strip()
+        if response is None:
+            raise RuntimeError(f"All models failed. Tried: {', '.join(tried)}. Last: {type(last_err).__name__}: {last_err}")
+
+        try:
+            reply = (response.text or "").strip()
+        except Exception as _te:
+            raise RuntimeError(f"response.text raised {type(_te).__name__}: {_te}")
+
         if not reply:
             reply = "I couldn't generate a response. Please try again."
 
         return jsonify({"success": True, "reply": reply})
 
     except Exception as e:
-        print(f"❌ Gemini API Error: {e}")
+        print(f"\u274c Gemini API Error: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
             "success": False,
-            "reply": "I'm having trouble connecting to my brain right now. Please try again."
+            "reply": "I'm having trouble connecting to my brain right now. Please try again.",
+            "debug_error": f"{type(e).__name__}: {str(e)[:400]}"
         }), 500
 
 
@@ -6142,7 +6162,7 @@ def ai_health():
         "success": True,
         "configured": ai_client is not None,
         "provider": "google-gemini",
-        "model": "gemini-flash-latest",
+        "model": "gemini-2.5-flash (fallback: 2.0, 1.5, latest)",
     })
 # ============================================================
 #  PREVIEW & EDIT DATA (Excel-like)
