@@ -16,12 +16,12 @@
         <form id="loginForm">
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2">{{ t("auth.login_username") }}</label>
-                <input type="text" id="username" name="username" required autocomplete="new-password"
+                <input type="text" id="username" name="username" required autocomplete="off"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2">{{ t("auth.login_password") }}</label>
-                <input type="text" id="password" name="password" required autocomplete="new-password" class="masked-password"
+                <input type="text" id="password" name="password" required autocomplete="off" class="masked-password"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div class="mb-6">
@@ -127,7 +127,11 @@
                     fetch('/api/auth/check', { credentials: 'include' })
                         .then(res => res.json())
                         .then(data => {
-                            if (data.logged_in) { if (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA") { console.log("Typing detected, skipping redirect"); return; }
+                            if (data.logged_in) { 
+                                if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) { 
+                                    console.log("Typing detected, skipping redirect"); 
+                                    return; 
+                                }
                                 // Server says we're logged in – redirect
                                 console.log('Blocked redirect to home');
                             } else {
@@ -201,12 +205,8 @@
         updateOfflineBanner();
     });
 
-    window.addEventListener('pageshow', function(event) {
-        if (event.persisted) {
-            forceClear();
-            updateOfflineBanner();
-        }
-    });
+    // REMOVED pageshow forceClear — it was causing the keyboard to close
+    // when the WebView resized on Android.
 
     // ============================================================
     //  TOGGLE PASSWORD VISIBILITY
@@ -223,7 +223,7 @@
     });
     
     // ============================================================
-    //  HANDLE LOGIN SUBMISSION (with full data clear + 7‑day expiry)
+    //  HANDLE LOGIN SUBMISSION (with full data clear + 24h expiry)
     // ============================================================
     const loginForm = document.getElementById('loginForm');
     loginForm.addEventListener('submit', async (e) => {
@@ -258,7 +258,7 @@
                 loginBtn.textContent = '{{ t("auth.login_clearing") }}';
                 await clearAllBrowserData();
                 
-                // ✅ Store NEW session with 7‑day expiry
+                // ✅ Store NEW session with 24-hour expiry
                 const session = {
                     username: data.user.username,
                     role: data.user.role,

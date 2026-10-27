@@ -20,7 +20,7 @@
       "splashImmersive": true
     },
     "Keyboard": {
-      "resize": "native",
+      "resize": "body", 
       "style": "dark"
     }
   }

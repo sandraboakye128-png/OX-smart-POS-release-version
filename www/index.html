@@ -1951,7 +1951,10 @@ setInterval(async function() {
     .calc-btn.op { background: #fcd34d; }
 </style>
 
-<div id="ai-assistant-btn" onclick="toggleAIChat()">🤖</div>
+<div id="ai-assistant-btn" onclick="toggleAIChat()" style="position: relative;">
+    🤖
+    <span id="ai-badge" style="display: none; position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; font-size: 11px; font-weight: bold; min-width: 18px; height: 18px; border-radius: 9px; align-items: center; justify-content: center; border: 2px solid white; padding: 0 4px;">0</span>
+</div>
 
 <div id="ai-chat-window">
     <div id="ai-chat-header">
@@ -2021,88 +2024,314 @@ function calcPress(val) {
 }
 window.calcPress = calcPress;
 
-// --- AI CHAT ---
-let chatHistory = JSON.parse(localStorage.getItem('ox_ai_history') || '[]');
-let currentChatId = Date.now();
+// --- SMART AI ENGINE (PHASE 2) ---
+const OX_AI = {
+    chatHistory: JSON.parse(localStorage.getItem('ox_ai_history') || '[]'),
+    currentChatId: Date.now(),
+    adviceCount: 0,
 
-function toggleAIChat() {
-    var w = document.getElementById('ai-chat-window');
-    if (!w) return;
-    w.style.display = (w.style.display === 'flex') ? 'none' : 'flex';
-    if (w.style.display === 'flex') {
-        loadChat(currentChatId);
-        setTimeout(function () { var inp = document.getElementById('ai-chat-input'); if (inp) inp.focus(); }, 100);
-    }
-}
-window.toggleAIChat = toggleAIChat;
+    // Initialize AI, load history, and run background advice
+    init: function() {
+        this.loadChat(this.currentChatId);
+        this.runBackgroundAdvice();
+    },
 
-// SHELL_AI_NEW_CHAT_V1
-function startNewChat(e) {
-    if (e) e.stopPropagation();
-    currentChatId = Date.now();
-    var body = document.getElementById('ai-chat-body');
-    if (body) body.innerHTML = '<div class="ai-msg bot">New chat started 👋 Ask me anything about your store.</div>';
-    var list = document.getElementById('ai-chat-history-list');
-    if (list) list.classList.add('hidden');
-    var inp = document.getElementById('ai-chat-input');
-    if (inp) { inp.value = ''; inp.focus(); }
-}
-window.startNewChat = startNewChat;
+    // Format markdown-like bold text
+    formatText: function(text) {
+        return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    },
 
-function toggleChatHistory() {
-    var list = document.getElementById('ai-chat-history-list');
-    if (!list) return;
-    if (list.classList.contains('hidden')) {
-        if (chatHistory.length === 0) list.innerHTML = '<div style="padding:5px;color:#666;font-size:12px;">No previous chats.</div>';
-        else list.innerHTML = chatHistory.map(c => `<div style="cursor:pointer; padding:5px; border-bottom:1px solid #ddd; font-size:13px;" onclick="loadChat(${c.id})">${c.title}</div>`).join('');
-        list.classList.remove('hidden');
-    } else list.classList.add('hidden');
-}
-window.toggleChatHistory = toggleChatHistory;
+    // Add message to UI and history
+    addMessage: function(role, text) {
+        const body = document.getElementById('ai-chat-body');
+        if (body) {
+            body.innerHTML += `<div class="ai-msg ${role}">${this.formatText(text)}</div>`;
+            body.scrollTop = body.scrollHeight;
+        }
+        
+        let chat = this.chatHistory.find(c => c.id === this.currentChatId);
+        if (!chat) {
+            chat = { id: this.currentChatId, title: text.substring(0, 20) + '...', messages: [] };
+            this.chatHistory.push(chat);
+        }
+        chat.messages.push({ role: role, text: text });
+        localStorage.setItem('ox_ai_history', JSON.stringify(this.chatHistory));
+    },
 
-function loadChat(id) {
-    currentChatId = id;
-    var list = document.getElementById('ai-chat-history-list');
-    if (list) list.classList.add('hidden');
-    var chat = chatHistory.find(c => c.id === id) || { id: id, title: 'New Chat', messages: [] };
-    var body = document.getElementById('ai-chat-body');
-    if (!body) return;
-    if (chat.messages.length === 0) body.innerHTML = `<div class="ai-msg bot">Hello! 👋 I am your Smart Assistant. I can check stock, analyze sales, or guide you. Try asking "how many products do I have?"</div>`;
-    else body.innerHTML = chat.messages.map(m => `<div class="ai-msg ${m.role}">${m.text}</div>`).join('');
-    body.scrollTop = body.scrollHeight;
-}
-window.loadChat = loadChat;
+    // Process user input
+    processQuery: async function(text) {
+        const lower = text.toLowerCase();
+        
+        // 1. Navigation Intents
+        if (lower.includes('open ') || lower.includes('go to ') || lower.includes('navigate to ')) {
+            if (lower.includes('dashboard') || lower.includes('home')) return this.navigate('dashboard');
+            if (lower.includes('product')) return this.navigate('products');
+            if (lower.includes('sale')) return this.navigate('sales');
+            if (lower.includes('purchase')) return this.navigate('purchases');
+            if (lower.includes('claim')) return this.navigate('claims');
+            if (lower.includes('settings')) return this.navigate('settings');
+        }
 
-async function sendAIMessage() {
-    var input = document.getElementById('ai-chat-input');
-    var text = input.value.trim();
-    if (!text) return;
-    input.value = '';
-    var body = document.getElementById('ai-chat-body');
-    body.innerHTML += `<div class="ai-msg user">${text}</div>`;
-    body.scrollTop = body.scrollHeight;
-    let chat = chatHistory.find(c => c.id === currentChatId);
-    if (!chat) { chat = { id: currentChatId, title: text.substring(0, 20), messages: [] }; chatHistory.push(chat); }
-    chat.messages.push({ role: 'user', text: text });
-    localStorage.setItem('ox_ai_history', JSON.stringify(chatHistory));
-    setTimeout(async () => {
-        let reply = "I'm your Smart POS Assistant. I can check stock, analyze sales, or guide you.";
-        let lower = text.toLowerCase();
+        // 2. Price / Stock Lookup
+        if (lower.includes('price') || lower.includes('stock') || lower.includes('find') || lower.includes('how much')) {
+            let term = lower.replace('what is the price of', '')
+                            .replace('how much is', '')
+                            .replace('find', '')
+                            .replace('stock of', '')
+                            .replace('in purchases', '')
+                            .replace('in products', '')
+                            .replace('?', '').trim();
+            
+            if (term.length > 2 && typeof db !== 'undefined' && db) {
+                try {
+                    const products = await db.products.toArray();
+                    const match = products.find(p => 
+                        (p.name && p.name.toLowerCase().includes(term)) || 
+                        (p.brand && p.brand.toLowerCase().includes(term))
+                    );
+                    
+                    if (match) {
+                        let reply = `I found **${match.name}** (${match.brand || 'No brand'}).\n`;
+                        reply += `💰 Price: **₵${match.selling_price}**\n`;
+                        reply += `📦 Stock: **${match.stock || 0}** left.`;
+                        
+                        if (lower.includes('purchase') || lower.includes('buy')) {
+                            reply += `\n\n*Tip: You can restock this item in the Purchases page.*`;
+                        }
+                        return reply;
+                    } else {
+                        return `I searched your inventory but couldn't find any product matching "${term}".`;
+                    }
+                } catch (e) { console.warn(e); }
+            }
+        }
+
+        // 3. Batch Lookup
+        if (lower.includes('batch ')) {
+            const match = lower.match(/batch\s+(\d+)/);
+            if (match && match[1] && typeof db !== 'undefined' && db) {
+                const batchId = match[1];
+                try {
+                    const batches = await db.batches.toArray();
+                    const batch = batches.find(b => b.id == batchId || b.batch_id == batchId);
+                    if (batch) {
+                        return `📦 **Batch #${batchId}**\nProduct: ${batch.name || 'Unknown'}\nStatus: ${batch.remaining_quantity > 0 ? 'In Stock' : 'Depleted'}\nRemaining: **${batch.remaining_quantity}**\nClaimed: ${batch.claimed_quantity}\nSelling Price: ₵${batch.selling_price}`;
+                    }
+                } catch (e) {}
+            }
+        }
+
+        // 4. General Analytics (Fallback)
         try {
             if (typeof db !== 'undefined' && db) {
-                if (lower.includes('batch') || lower.includes('batches')) { const count = await db.batches.count(); reply = `Currently, you have **${count}** batches in your inventory.`; }
-                else if (lower.includes('stock') || lower.includes('products')) { const count = await db.products.count(); reply = `Currently, you have **${count}** products registered in your system.`; }
-                else if (lower.includes('sales') || lower.includes('profit')) { const sales = await db.sales.toArray(); const total = sales.reduce((s, x) => s + (x.total || 0), 0); reply = `You have recorded **${sales.length}** sales, totaling **₵${total.toFixed(2)}**.`; }
-                else if (lower.includes('hello') || lower.includes('hi')) { reply = "Hello! 👋 How can I help you manage your store today?"; }
+                if (lower.includes('batch') || lower.includes('batches')) {
+                    const count = await db.batches.count();
+                    return `Currently, you have **${count}** batches in your inventory.`;
+                } else if (lower.includes('product')) {
+                    const count = await db.products.count();
+                    return `Currently, you have **${count}** products registered in your system.`;
+                } else if (lower.includes('sales') || lower.includes('profit')) {
+                    const sales = await db.sales.toArray();
+                    const total = sales.reduce((s, x) => s + (x.total || 0), 0);
+                    return `You have recorded **${sales.length}** sales, totaling **₵${total.toFixed(2)}**.`;
+                }
             }
         } catch (e) {}
-        body.innerHTML += `<div class="ai-msg bot">${reply}</div>`;
+
+        // 5. Greetings / Default
+        if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
+            return "Hello! 👋 How can I help you manage your store today? You can ask me to 'find MTN broadband', 'open products', or 'what should I buy?'.";
+        }
+
+        return "I'm your Smart POS Assistant. I can check stock, analyze sales, or navigate the app. Try asking: 'find iPhone 12', 'open dashboard', or 'what should I buy?'.";
+    },
+
+    // Navigation helper
+    navigate: function(view) {
+        // 1. Offline Shell Navigation
+        if (typeof switchView === 'function') {
+            try {
+                switchView(view);
+                return `🚀 Navigating to the **${view}** page.`;
+            } catch (e) {}
+        }
+        
+        // 2. Online Base Navigation
+        const routes = {
+            dashboard: '/',
+            products: '/products',
+            sales: '/sales',
+            purchases: '/purchases',
+            claims: '/claims',
+            settings: '/settings'
+        };
+        if (routes[view]) {
+            setTimeout(() => window.location.href = routes[view], 800);
+            return `🚀 Taking you to the **${view}** page...`;
+        }
+        return `I couldn't find the page "${view}".`;
+    },
+
+    // Run background analysis for proactive advice
+    runBackgroundAdvice: async function() {
+        if (typeof db === 'undefined' || !db) return;
+        
+        try {
+            // Wait a few seconds for data to load before analyzing
+            await new Promise(r => setTimeout(r, 3000));
+            
+            const products = await db.products.toArray();
+            const sales = await db.sales.toArray();
+            const batches = await db.batches.toArray();
+
+            if (!products.length || !sales.length) return;
+
+            // Find top selling products
+            const salesItems = await db.sales_items.toArray();
+            const qtyMap = {};
+            salesItems.forEach(item => {
+                if (item.product_id) qtyMap[item.product_id] = (qtyMap[item.product_id] || 0) + (item.quantity || 0);
+            });
+
+            const topProductId = Object.keys(qtyMap).sort((a, b) => qtyMap[b] - qtyMap[a])[0];
+            
+            if (topProductId) {
+                const product = products.find(p => p.id == topProductId);
+                if (product && product.stock < 10) {
+                    const msg = `⚠️ **Stock Alert**: **${product.name}** is your top seller but you only have **${product.stock}** left! Consider restocking.`;
+                    this.triggerAdviceBadge(msg);
+                }
+            }
+        } catch (e) {
+            console.warn('[AI Advice] Background analysis failed:', e);
+        }
+    },
+
+    // Show badge and store advice
+    triggerAdviceBadge: function(message) {
+        this.adviceCount++;
+        const badge = document.getElementById('ai-badge');
+        if (badge) {
+            badge.textContent = this.adviceCount;
+            badge.style.display = 'flex';
+        }
+        // Save advice to display when chat opens
+        let adviceHistory = JSON.parse(localStorage.getItem('ox_ai_advice') || '[]');
+        adviceHistory.push({ text: message, timestamp: Date.now() });
+        localStorage.setItem('ox_ai_advice', JSON.stringify(adviceHistory));
+    },
+
+    // Load a specific chat
+    loadChat: function(id) {
+        this.currentChatId = id;
+        const list = document.getElementById('ai-chat-history-list');
+        if (list) list.classList.add('hidden');
+        
+        const chat = this.chatHistory.find(c => c.id === id) || { id: id, title: 'New Chat', messages: [] };
+        const body = document.getElementById('ai-chat-body');
+        if (!body) return;
+        
+        if (chat.messages.length === 0) {
+            body.innerHTML = `<div class="ai-msg bot">Hello! 👋 I am your Smart Assistant. I can check stock, navigate pages, or guide you. Try asking "what should I buy?"</div>`;
+        } else {
+            body.innerHTML = chat.messages.map(m => `<div class="ai-msg ${m.role}">${this.formatText(m.text)}</div>`).join('');
+        }
+        
+        // Append unread advice
+        const adviceHistory = JSON.parse(localStorage.getItem('ox_ai_advice') || '[]');
+        if (adviceHistory.length > 0) {
+            adviceHistory.forEach(adv => {
+                body.innerHTML += `<div class="ai-msg bot" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">${this.formatText(adv.text)}</div>`;
+            });
+            localStorage.removeItem('ox_ai_advice'); // Clear after showing
+        }
+        
         body.scrollTop = body.scrollHeight;
-        chat.messages.push({ role: 'bot', text: reply });
-        localStorage.setItem('ox_ai_history', JSON.stringify(chatHistory));
-    }, 800);
-}
-window.sendAIMessage = sendAIMessage;
+    },
+
+    // Toggle Chat Window
+    toggleChat: function() {
+        const w = document.getElementById('ai-chat-window');
+        if (!w) return;
+        const isOpening = w.style.display !== 'flex';
+        w.style.display = isOpening ? 'flex' : 'none';
+        
+        if (isOpening) {
+            this.loadChat(this.currentChatId);
+            // Reset badge when opened
+            this.adviceCount = 0;
+            const badge = document.getElementById('ai-badge');
+            if (badge) badge.style.display = 'none';
+            
+            setTimeout(() => {
+                const inp = document.getElementById('ai-chat-input');
+                if (inp) inp.focus();
+            }, 100);
+        }
+    },
+
+    // Start New Chat
+    startNewChat: function(e) {
+        if (e) e.stopPropagation();
+        this.currentChatId = Date.now();
+        this.loadChat(this.currentChatId);
+        const list = document.getElementById('ai-chat-history-list');
+        if (list) list.classList.add('hidden');
+        const inp = document.getElementById('ai-chat-input');
+        if (inp) { inp.value = ''; inp.focus(); }
+    },
+
+    // Toggle History list
+    toggleHistory: function() {
+        const list = document.getElementById('ai-chat-history-list');
+        if (!list) return;
+        if (list.classList.contains('hidden')) {
+            if (this.chatHistory.length === 0) {
+                list.innerHTML = '<div style="padding:5px;color:#666;font-size:12px;">No previous chats.</div>';
+            } else {
+                list.innerHTML = this.chatHistory.map(c => `<div style="cursor:pointer; padding:5px; border-bottom:1px solid #ddd; font-size:13px;" onclick="OX_AI.loadChat(${c.id})">${c.title}</div>`).join('');
+            }
+            list.classList.remove('hidden');
+        } else {
+            list.classList.add('hidden');
+        }
+    },
+
+    // Send Message
+    sendMessage: async function() {
+        const input = document.getElementById('ai-chat-input');
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+
+        this.addMessage('user', text);
+
+        // Show typing indicator
+        const body = document.getElementById('ai-chat-body');
+        const typingId = 'typing-' + Date.now();
+        if (body) {
+            body.innerHTML += `<div class="ai-msg bot" id="${typingId}">...</div>`;
+            body.scrollTop = body.scrollHeight;
+        }
+
+        // Process query
+        const reply = await this.processQuery(text);
+
+        // Remove typing indicator and add real reply
+        const typingEl = document.getElementById(typingId);
+        if (typingEl) typingEl.remove();
+        this.addMessage('bot', reply);
+    }
+};
+
+// Global bindings for HTML onclick
+window.toggleAIChat = () => OX_AI.toggleChat();
+window.startNewChat = (e) => OX_AI.startNewChat(e);
+window.toggleChatHistory = () => OX_AI.toggleHistory();
+window.sendAIMessage = () => OX_AI.sendMessage();
+
+// Boot AI
+document.addEventListener('DOMContentLoaded', () => OX_AI.init());
 </script>
 
 <!-- ============================================================ -->

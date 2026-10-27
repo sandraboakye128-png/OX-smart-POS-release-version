@@ -16,12 +16,12 @@
         <form id="signupForm">
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2">{{ t("auth.signup_username") }}</label>
-                <input type="text" id="username" name="username" required autocomplete="new-password"
+                <input type="text" id="username" name="username" required autocomplete="off"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2">{{ t("auth.signup_password") }}</label>
-                <input type="text" id="password" name="password" required autocomplete="new-password" class="masked-password"
+                <input type="text" id="password" name="password" required autocomplete="off" class="masked-password"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <p class="text-xs text-gray-500 mt-1">{{ t("auth.signup_pwd_hint") }}</p>
             </div>
@@ -97,15 +97,22 @@
             if (document.activeElement !== input) input.value = '';
         });
         document.getElementById('showPassword').checked = false;
-        document.getElementById('password').type = 'password';
-        document.getElementById('role').value = 'user';
+        
+        // Ensure the CSS masking class is applied instead of changing the input type
+        const pwField = document.getElementById('password');
+        if (pwField) {
+            pwField.classList.add('masked-password');
+        }
+        
+        const roleField = document.getElementById('role');
+        if (roleField) {
+            roleField.value = 'user';
+        }
     }
 
     // Force clear multiple times to beat browser autofill
     function forceClear() {
         clearFormFields();
-        /* KB_FIX_17: setTimeout nuke removed — was wiping focused inputs */
-        /* KB_FIX_17: setTimeout nuke removed — was wiping focused inputs */
     }
 
     // Clear on page load
@@ -118,7 +125,7 @@
     // Clear also when page is restored from bfcache (back/forward)
     window.addEventListener('pageshow', function(event) {
         if (event.persisted) {
-            forceClear();
+            // forceClear(); // REMOVED: This was causing the keyboard to drop on Android WebView
             checkAdminCount();
             updateOfflineBanner();
         }
