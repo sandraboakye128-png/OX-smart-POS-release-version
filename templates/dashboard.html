@@ -13,13 +13,11 @@
         <span id="dataSourceBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-gray-100 text-gray-500"></span>
     </div>
     <div class="flex flex-wrap items-center gap-2 md:gap-4">
-        <!-- Date Range Picker -->
         <div class="flex items-center gap-1 md:gap-2">
             <input type="date" id="startDate" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-xs md:text-sm">
             <span class="text-gray-500 text-xs md:text-sm">to</span>
             <input type="date" id="endDate" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-xs md:text-sm">
         </div>
-        <!-- Time Range Picker -->
         <div class="flex items-center gap-1 md:gap-2">
             <input type="time" id="startTime" class="border border-gray-300 rounded-lg px-2 py-1 md:px-3 md:py-2 text-xs md:text-sm" step="60">
             <span class="text-gray-500 text-xs md:text-sm">to</span>
@@ -30,7 +28,7 @@
     </div>
 </div>
 
-<!-- KPI Cards – 5 columns (2 on mobile) -->
+<!-- KPI Cards -->
 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4 mb-4 md:mb-6">
     <div class="bg-white rounded-xl shadow-md p-2 md:p-4">
         <p class="text-gray-500 text-[10px] md:text-sm">{{ t('dashboard.kpi.total_sales') }}</p>
@@ -65,12 +63,11 @@
         <p class="text-[10px] md:text-xs text-gray-400 mt-1 md:mt-2">{{ t('dashboard.note.top_products') }}</p>
     </div>
 
-    <!-- ✅ Split Low Stock Panel (Dashboard = all categories) -->
     {% set low_stock_category = 'all' %}
     {% include '_low_stock_split.html' %}
 </div>
 
-<!-- Pie Chart & Sales History (with Calendar) -->
+<!-- Pie Chart & Sales History -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
     <!-- Pie Chart -->
     <div class="bg-white rounded-xl shadow-md p-3 md:p-4">
@@ -110,28 +107,24 @@
                 <tbody id="calendarBody"></tbody>
             </table>
         </div>
-        <div id="salesHistoryList" class="flex-1 max-h-48 md:max-h-72 overflow-y-auto space-y-1 md:space-y-2 pr-2">
-            <!-- dynamic content -->
-        </div>
+        <div id="salesHistoryList" class="flex-1 max-h-48 md:max-h-72 overflow-y-auto space-y-1 md:space-y-2 pr-2"></div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+(function () {
+    'use strict';
+
     // ============================================================
-    //  APK GATE — same flag as products.html
-    //
-    //  Web / PWA: IS_APK = false → existing API + db.cache path
-    //  APK:       IS_APK = true  → OX_DATA.dashboard.* (reads Dexie)
+    //  APK GATE + MODE FLAGS
     // ============================================================
     const IS_APK = (typeof OX_ENV !== 'undefined') && !!OX_ENV.useLocalDb;
-    // Non-admins never see cost or profit anywhere on the dashboard.
     const IS_ADMIN = {{ 'true' if (current_user and current_user.role == 'admin') else 'false' }};
 
-    // i18n — server-rendered translator, available to all dashboard JS
     const T = {
         no_top_products: '{{ t("dashboard.no_top_products")|e }}',
-        select_range:   '{{ t("dashboard.select_range")|e }}',
+        select_range:    '{{ t("dashboard.select_range")|e }}',
         no_history:      '{{ t("dashboard.no_history")|e }}',
         offline_note:    '{{ t("dashboard.offline_note")|e }}',
         alert_title:     '{{ t("dashboard.alert.title")|e }}',
@@ -144,44 +137,29 @@
         return (v && v.length) ? v : (fallback || key);
     }
 
-    document.addEventListener('DOMContentLoaded', async function() {
-        console.log("DOM loaded – Dashboard");
+    document.addEventListener('DOMContentLoaded', async function () {
+        console.log('[dashboard] DOMContentLoaded — booting');
 
+        // ---------- badges & offline banner ----------
         const badge = document.getElementById('dataSourceBadge');
         if (badge) badge.textContent = IS_APK ? 'APK · Dexie' : 'Web · API';
 
-        // ── APK-only: ensure Dexie has data before first render ──
-        if (IS_APK && typeof db !== 'undefined' && db) {
-            try {
-                const count = await db.products.count();
-                if (count === 0 && typeof pullData === 'function') {
-                    console.log('[dashboard] Dexie empty — running initial pull…');
-                    await pullData();
-                    console.log('[dashboard] Initial pull complete.');
-                }
-            } catch (e) {
-                console.warn('[dashboard] pre-load sync failed:', e);
-            }
-        }
-
-        // ---------- Offline banner ----------
         function updateOfflineBanner() {
             const banner = document.getElementById('offlineBanner');
+            if (!banner) return;
             if (!navigator.onLine) banner.classList.remove('hidden');
             else banner.classList.add('hidden');
         }
-        window.addEventListener('online', updateOfflineBanner);
+        window.addEventListener('online',  updateOfflineBanner);
         window.addEventListener('offline', updateOfflineBanner);
 
-        // ---------- Helpers ----------
+        // ---------- state ----------
         let pieChart = null;
         let lowStockShown = false;
-        let startDate = null;
-        let endDate = null;
-        let startTime = null;
-        let endTime = null;
+        let startDate = null, endDate = null;
+        let startTime = null, endTime = null;
         let selectedDate = null;
-        let calendarYear = new Date().getFullYear();
+        let calendarYear  = new Date().getFullYear();
         let calendarMonth = new Date().getMonth();
 
         const CURRENCY = '{{ settings.currency_symbol if settings else "₵" }}';
@@ -190,104 +168,146 @@
         }
         function escapeHtml(str) {
             if (!str) return '';
-            return str.replace(/[&<>]/g, function(m) {
+            return String(str).replace(/[&<>]/g, function (m) {
                 if (m === '&') return '&amp;';
                 if (m === '<') return '&lt;';
                 if (m === '>') return '&gt;';
                 return m;
             });
         }
+        function _setText(id, val) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val;
+        }
+        function generateColors(n) {
+            const colors = [];
+            for (let i = 0; i < n; i++) {
+                const hue = (i * 360 / n) % 360;
+                colors.push(`hsl(${hue}, 70%, 60%)`);
+            }
+            return colors;
+        }
+
         function updateClock() {
             const clockEl = document.getElementById('clock');
-            if (!clockEl) return;   // CLOCK_GUARD_V1 — stop timer if element is gone
+            if (!clockEl) return; // CLOCK_GUARD_V1
             const now = new Date();
-            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            clockEl.innerText = timeStr;
+            clockEl.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             setTimeout(updateClock, 1000);
         }
         updateClock();
 
         function getDateTimeRange() {
             let startDateTime = null, endDateTime = null;
-            if (startDate) {
-                startDateTime = startTime ? `${startDate} ${startTime}:00` : `${startDate} 00:00:00`;
-            }
-            if (endDate) {
-                endDateTime = endTime ? `${endDate} ${endTime}:00` : `${endDate} 23:59:59`;
-            }
+            if (startDate) startDateTime = startTime ? `${startDate} ${startTime}:00` : `${startDate} 00:00:00`;
+            if (endDate)   endDateTime   = endTime   ? `${endDate} ${endTime}:00`       : `${endDate} 23:59:59`;
             return { start_datetime: startDateTime, end_datetime: endDateTime };
         }
 
-        // Calendar rendering
+        // ---------- CALENDAR (null-safe + try/catch) ----------
         function renderCalendar(year, month) {
-            const monthNames = ['January','February','March','April','May','June',
-                                'July','August','September','October','November','December'];
-            document.getElementById('calendarMonthYear').innerText = `${monthNames[month]} ${year}`;
+            const tbody   = document.getElementById('calendarBody');
+            const labelEl = document.getElementById('calendarMonthYear');
+            if (!tbody) { console.warn('[calendar] #calendarBody missing — abort render'); return; }
+            try {
+                const monthNames = ['January','February','March','April','May','June',
+                                    'July','August','September','October','November','December'];
+                if (labelEl) labelEl.innerText = `${monthNames[month]} ${year}`;
 
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const firstDay = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const todayStr = new Date().toISOString().split('T')[0];
 
-            let html = '<tr>';
-            for (let i = 0; i < firstDay; i++) html += '<td></td>';
-            for (let d = 1; d <= daysInMonth; d++) {
-                const dateObj = new Date(year, month, d);
-                const dateStr = dateObj.toISOString().split('T')[0];
-                const isSelected = (selectedDate === dateStr);
-                const isToday = (dateStr === new Date().toISOString().split('T')[0]);
-                let cls = 'p-0.5 md:p-1 rounded cursor-pointer hover:bg-blue-100 text-xs md:text-sm ';
-                if (isSelected) cls += 'bg-blue-500 text-white hover:bg-blue-600 ';
-                else if (isToday) cls += 'bg-gray-200 font-bold ';
-                html += `<td class="${cls}" data-date="${dateStr}">${d}</td>`;
-                if ((firstDay + d) % 7 === 0) html += '</tr><tr>';
-            }
-            html += '</tr>';
-            document.getElementById('calendarBody').innerHTML = html;
+                let html = '<tr>';
+                for (let i = 0; i < firstDay; i++) html += '<td></td>';
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const dateStr = new Date(year, month, d).toISOString().split('T')[0];
+                    const isSelected = (selectedDate === dateStr);
+                    const isToday = (dateStr === todayStr);
+                    let cls = 'p-0.5 md:p-1 rounded cursor-pointer hover:bg-blue-100 text-xs md:text-sm ';
+                    if (isSelected)      cls += 'bg-blue-500 text-white hover:bg-blue-600 ';
+                    else if (isToday)    cls += 'bg-gray-200 font-bold ';
+                    html += `<td class="${cls}" data-date="${dateStr}">${d}</td>`;
+                    if ((firstDay + d) % 7 === 0) html += '</tr><tr>';
+                }
+                html += '</tr>';
+                tbody.innerHTML = html;
+                console.log('[calendar] rendered', daysInMonth, 'days for', month + 1, '/', year);
 
-            document.querySelectorAll('#calendarBody td[data-date]').forEach(td => {
-                td.addEventListener('click', function() {
-                    const newDate = this.dataset.date;
-                    startDate = newDate; endDate = newDate;
-                    startTime = ''; endTime = '';
-                    selectedDate = newDate;
-                    document.getElementById('startDate').value = newDate;
-                    document.getElementById('endDate').value = newDate;
-                    document.getElementById('startTime').value = '';
-                    document.getElementById('endTime').value = '';
-                    loadDashboard();
-                    renderCalendar(calendarYear, calendarMonth);
+                tbody.querySelectorAll('td[data-date]').forEach(td => {
+                    td.addEventListener('click', function () {
+                        const newDate = this.dataset.date;
+                        startDate = newDate; endDate = newDate;
+                        startTime = ''; endTime = '';
+                        selectedDate = newDate;
+                        const sd = document.getElementById('startDate');
+                        const ed = document.getElementById('endDate');
+                        const st = document.getElementById('startTime');
+                        const et = document.getElementById('endTime');
+                        if (sd) sd.value = newDate;
+                        if (ed) ed.value = newDate;
+                        if (st) st.value = '';
+                        if (et) et.value = '';
+                        loadDashboard();
+                        renderCalendar(calendarYear, calendarMonth);
+                    });
                 });
-            });
+            } catch (e) {
+                console.error('[calendar] render failed:', e);
+            }
         }
 
-        document.getElementById('prevMonthBtn').addEventListener('click', function() {
-            if (calendarMonth === 0) { calendarMonth = 11; calendarYear--; }
-            else { calendarMonth--; }
-            renderCalendar(calendarYear, calendarMonth);
-        });
-        document.getElementById('nextMonthBtn').addEventListener('click', function() {
-            if (calendarMonth === 11) { calendarMonth = 0; calendarYear++; }
-            else { calendarMonth++; }
-            renderCalendar(calendarYear, calendarMonth);
-        });
-        document.getElementById('todayHistoryBtn').addEventListener('click', function() {
-            const today = new Date().toISOString().split('T')[0];
-            startDate = today; endDate = today; startTime = ''; endTime = '';
-            selectedDate = today;
-            document.getElementById('startDate').value = today;
-            document.getElementById('endDate').value = today;
-            document.getElementById('startTime').value = '';
-            document.getElementById('endTime').value = '';
-            const now = new Date();
-            calendarYear = now.getFullYear();
-            calendarMonth = now.getMonth();
-            renderCalendar(calendarYear, calendarMonth);
-            loadDashboard();
-        });
+        // ---------- BUTTON LISTENERS (fully null-guarded) ----------
+        try {
+            const prevBtn = document.getElementById('prevMonthBtn');
+            if (prevBtn) prevBtn.addEventListener('click', function () {
+                if (calendarMonth === 0) { calendarMonth = 11; calendarYear--; }
+                else { calendarMonth--; }
+                renderCalendar(calendarYear, calendarMonth);
+            });
 
-        // ========== MAIN DASHBOARD LOAD ==========
+            const nextBtn = document.getElementById('nextMonthBtn');
+            if (nextBtn) nextBtn.addEventListener('click', function () {
+                if (calendarMonth === 11) { calendarMonth = 0; calendarYear++; }
+                else { calendarMonth++; }
+                renderCalendar(calendarYear, calendarMonth);
+            });
+
+            const todayBtn = document.getElementById('todayHistoryBtn');
+            if (todayBtn) todayBtn.addEventListener('click', function () {
+                const today = new Date().toISOString().split('T')[0];
+                startDate = today; endDate = today;
+                startTime = ''; endTime = '';
+                selectedDate = today;
+                const sd = document.getElementById('startDate');
+                const ed = document.getElementById('endDate');
+                const st = document.getElementById('startTime');
+                const et = document.getElementById('endTime');
+                if (sd) sd.value = today;
+                if (ed) ed.value = today;
+                if (st) st.value = '';
+                if (et) et.value = '';
+                const now = new Date();
+                calendarYear = now.getFullYear();
+                calendarMonth = now.getMonth();
+                renderCalendar(calendarYear, calendarMonth);
+                loadDashboard();
+            });
+
+            const applyBtn = document.getElementById('applyFilterBtn');
+            if (applyBtn) applyBtn.addEventListener('click', applyFilter);
+        } catch (e) {
+            console.error('[dashboard] button setup failed:', e);
+        }
+
+        // ---------- MAIN LOAD ----------
         async function loadDashboard() {
+            console.log('[dashboard] loadDashboard()');
+
             if (typeof db === 'undefined' || !db) {
-                console.warn('Dexie not available – showing empty');
+                console.warn('[dashboard] Dexie not available — showing empty');
+                // Still render calendar and empty states
+                renderEmptyStates();
                 return;
             }
 
@@ -300,7 +320,6 @@
             let apiSuccess = false;
 
             if (IS_APK) {
-                // ── APK path: everything from OX_DATA. No network. ──
                 try {
                     const range = getDateTimeRange();
                     const [sum, top, hist, lowSplit] = await Promise.all([
@@ -310,15 +329,14 @@
                         OX_DATA.lowStock.split({ category: 'all' }),
                     ]);
                     summary = sum;
-                    topProducts = top;
-                    salesHistory = hist;
+                    topProducts = top || [];
+                    salesHistory = hist || [];
                     lowStock = (lowSplit && lowSplit.product_level && lowSplit.product_level.low_stock) || [];
-                    console.log('📦 Dashboard computed from OX_DATA (Dexie)');
+                    console.log('[dashboard] data from OX_DATA (Dexie)');
                 } catch (e) {
-                    console.warn('OX_DATA dashboard fetch failed:', e);
+                    console.warn('[dashboard] OX_DATA fetch failed:', e);
                 }
             } else {
-                // ── Web path: unchanged API + cache behavior ──
                 const range = getDateTimeRange();
                 const params = new URLSearchParams();
                 if (range.start_datetime) params.append('start_datetime', range.start_datetime);
@@ -338,8 +356,8 @@
                         ]);
 
                         if (summaryRes.ok) summary = await summaryRes.json();
-                        if (topRes.ok)     topProducts = await topRes.json();
-                        if (historyRes.ok) salesHistory = await historyRes.json();
+                        if (topRes.ok)     topProducts = (await topRes.json()) || [];
+                        if (historyRes.ok) salesHistory = (await historyRes.json()) || [];
                         if (lowStockRes.ok) {
                             lowStockSplit = await lowStockRes.json();
                             if (lowStockSplit && lowStockSplit.product_level) {
@@ -347,16 +365,16 @@
                             }
                         }
 
-                        await db.cache.put({ key: 'dashboard_summary',           value: summary,       timestamp: Date.now() });
-                        await db.cache.put({ key: 'dashboard_top_products',      value: topProducts,   timestamp: Date.now() });
-                        await db.cache.put({ key: 'dashboard_sales_history',     value: salesHistory,  timestamp: Date.now() });
-                        await db.cache.put({ key: 'dashboard_low_stock_split',   value: lowStockSplit, timestamp: Date.now() });
-                        await db.cache.put({ key: 'dashboard_last_update',       value: Date.now(),    timestamp: Date.now() });
+                        await db.cache.put({ key: 'dashboard_summary',         value: summary,       timestamp: Date.now() });
+                        await db.cache.put({ key: 'dashboard_top_products',    value: topProducts,   timestamp: Date.now() });
+                        await db.cache.put({ key: 'dashboard_sales_history',   value: salesHistory,  timestamp: Date.now() });
+                        await db.cache.put({ key: 'dashboard_low_stock_split', value: lowStockSplit, timestamp: Date.now() });
+                        await db.cache.put({ key: 'dashboard_last_update',     value: Date.now(),    timestamp: Date.now() });
 
                         apiSuccess = true;
-                        console.log('✅ Dashboard data loaded from API');
+                        console.log('[dashboard] data from API');
                     } catch (e) {
-                        console.warn('API failed, falling back to Dexie cache', e);
+                        console.warn('[dashboard] API failed, falling back to cache:', e);
                     }
                 }
 
@@ -365,9 +383,9 @@
                         const cachedSummary = await db.cache.get('dashboard_summary');
                         if (cachedSummary) summary = cachedSummary.value;
                         const cachedTop = await db.cache.get('dashboard_top_products');
-                        if (cachedTop) topProducts = cachedTop.value;
+                        if (cachedTop) topProducts = cachedTop.value || [];
                         const cachedHistory = await db.cache.get('dashboard_sales_history');
-                        if (cachedHistory) salesHistory = cachedHistory.value;
+                        if (cachedHistory) salesHistory = cachedHistory.value || [];
 
                         const cachedSplit = await db.cache.get('dashboard_low_stock_split');
                         if (cachedSplit && cachedSplit.value && cachedSplit.value.product_level) {
@@ -377,19 +395,14 @@
                             const cachedLowStock = await db.cache.get('dashboard_low_stock');
                             if (cachedLowStock) lowStock = cachedLowStock.value || [];
                         }
-                        console.log('📦 Dashboard data loaded from Dexie cache');
+                        console.log('[dashboard] data from Dexie cache');
                     } catch (e) {
-                        console.warn('Failed to read from Dexie cache:', e);
+                        console.warn('[dashboard] cache read failed:', e);
                     }
                 }
             }
 
-            // KPI cards
-            // SAFE_TEXT_V1 — never crash the promise if a DOM element is missing
-            function _setText(id, val) {
-                const el = document.getElementById(id);
-                if (el) el.innerText = val;
-            }
+            // ---------- KPI cards ----------
             if (summary) {
                 _setText('salesValue',    formatMoney(summary.sales || 0));
                 if (IS_ADMIN) _setText('profitValue', formatMoney(summary.profit || 0));
@@ -398,90 +411,126 @@
                 _setText('lowStockValue', lowStock ? lowStock.length : 0);
             }
 
-            // Top products
+            // ---------- Top products ----------
             const topContainer = document.getElementById('topProductsList');
-            topContainer.innerHTML = '';
-            if (topProducts && topProducts.length) {
-                topProducts.forEach((p, index) => {
-                    const div = document.createElement('div');
-                    div.className = 'border-b pb-1 flex justify-between items-center hover:bg-gray-50 p-1 rounded transition-colors text-xs md:text-sm';
-                    let medal = '';
-                    if (index === 0) medal = '🥇 ';
-                    else if (index === 1) medal = '🥈 ';
-                    else if (index === 2) medal = '🥉 ';
-                    div.innerHTML = `
-                        <span>${medal}<strong class="text-indigo-700">${escapeHtml(p.name)}</strong> <span class="text-gray-600 text-[10px] md:text-xs">(${escapeHtml(p.brand)} | ${escapeHtml(p.category)})</span></span>
-                        <span class="font-bold text-indigo-600 text-xs md:text-sm">${p.qty || 0} sold</span>
-                    `;
-                    topContainer.appendChild(div);
-                });
-            } else {
-                topContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">' + tt('no_top_products') + '</div>';
-            }
-
-            // Pie chart
-            if (pieChart) pieChart.destroy();
-            const ctx = document.getElementById('pieChart');
-            const container = document.getElementById('pieChartContainer');
-            const offlineMsg = document.getElementById('pieChartOfflineMsg');
-            if (topProducts && topProducts.length > 0) {
-                container.classList.remove('hidden');
-                offlineMsg.classList.add('hidden');
-                let labels = topProducts.map(p => `${p.name.substring(0, 15)}${p.name.length > 15 ? '...' : ''}`);
-                let values = topProducts.map(p => p.qty || 0);
-                if (values.length > 8) {
-                    const top8Values = values.slice(0,8);
-                    const top8Labels = labels.slice(0,8);
-                    const othersSum = values.slice(8).reduce((a,b) => a+b, 0);
-                    top8Values.push(othersSum);
-                    top8Labels.push('Others');
-                    pieChart = new Chart(ctx, {
-                        type: 'pie',
-                        data: { labels: top8Labels, datasets: [{ data: top8Values, backgroundColor: generateColors(top8Labels.length) }] },
-                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+            if (topContainer) {
+                topContainer.innerHTML = '';
+                if (topProducts && topProducts.length) {
+                    topProducts.forEach((p, index) => {
+                        const div = document.createElement('div');
+                        div.className = 'border-b pb-1 flex justify-between items-center hover:bg-gray-50 p-1 rounded transition-colors text-xs md:text-sm';
+                        let medal = '';
+                        if (index === 0) medal = '🥇 ';
+                        else if (index === 1) medal = '🥈 ';
+                        else if (index === 2) medal = '🥉 ';
+                        div.innerHTML = `
+                            <span>${medal}<strong class="text-indigo-700">${escapeHtml(p.name)}</strong> <span class="text-gray-600 text-[10px] md:text-xs">(${escapeHtml(p.brand || '')} | ${escapeHtml(p.category || '')})</span></span>
+                            <span class="font-bold text-indigo-600 text-xs md:text-sm">${p.qty || 0} sold</span>
+                        `;
+                        topContainer.appendChild(div);
                     });
                 } else {
+                    topContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">' + tt('no_top_products') + '</div>';
+                }
+            }
+
+            // ---------- PIE CHART (fully guarded) ----------
+            if (pieChart) { try { pieChart.destroy(); } catch (e) {} pieChart = null; }
+
+            const ctx        = document.getElementById('pieChart');
+            const container  = document.getElementById('pieChartContainer');
+            const offlineMsg = document.getElementById('pieChartOfflineMsg');
+
+            // Start hidden — only show on successful render
+            if (container) container.classList.add('hidden');
+            if (offlineMsg) offlineMsg.classList.add('hidden');
+
+            if (!topProducts || topProducts.length === 0) {
+                if (offlineMsg) {
+                    offlineMsg.textContent = 'No product data in this range';
+                    offlineMsg.classList.remove('hidden');
+                }
+            } else if (typeof Chart === 'undefined') {
+                console.warn('[pie] Chart.js not loaded — hiding chart area');
+                if (offlineMsg) {
+                    offlineMsg.textContent = 'Chart library unavailable — see Top Products list above';
+                    offlineMsg.classList.remove('hidden');
+                }
+            } else if (!ctx || !container) {
+                console.warn('[pie] #pieChart or #pieChartContainer missing');
+            } else {
+                try {
+                    let labels = topProducts.map(p => {
+                        const n = p.name || '';
+                        return n.substring(0, 15) + (n.length > 15 ? '...' : '');
+                    });
+                    let values = topProducts.map(p => p.qty || 0);
+                    if (values.length > 8) {
+                        const t8 = values.slice(0, 8);
+                        const l8 = labels.slice(0, 8);
+                        t8.push(values.slice(8).reduce((a, b) => a + b, 0));
+                        l8.push('Others');
+                        labels = l8; values = t8;
+                    }
                     pieChart = new Chart(ctx, {
                         type: 'pie',
-                        data: { labels: labels, datasets: [{ data: values, backgroundColor: generateColors(labels.length) }] },
-                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+                        data: {
+                            labels,
+                            datasets: [{ data: values, backgroundColor: generateColors(labels.length) }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }
+                            }
+                        }
                     });
+                    if (container) container.classList.remove('hidden');
+                    if (offlineMsg) offlineMsg.classList.add('hidden');
+                    console.log('[pie] chart rendered with', labels.length, 'slices');
+                } catch (e) {
+                    console.error('[pie] chart render failed:', e);
+                    if (container) container.classList.add('hidden');
+                    if (offlineMsg) {
+                        offlineMsg.textContent = 'Chart error — see Top Products list above';
+                        offlineMsg.classList.remove('hidden');
+                    }
                 }
-            } else {
-                container.classList.add('hidden');
-                offlineMsg.classList.remove('hidden');
             }
 
-            // Sales history
+            // ---------- Sales history ----------
             const historyContainer = document.getElementById('salesHistoryList');
-            historyContainer.innerHTML = '';
-            if (salesHistory && salesHistory.length) {
-                salesHistory.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = 'border-b pb-1 md:pb-2 mb-1 md:mb-2 hover:bg-gray-50 p-1 rounded transition-colors';
-                    div.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <span class="font-medium text-gray-700 text-xs md:text-sm">${item.date}</span>
-                            <span class="font-bold text-green-600 text-xs md:text-base">${formatMoney(item.total_sales)}</span>
-                        </div>
-                        <div class="text-[10px] md:text-sm text-gray-500 flex justify-between">
-                            ${IS_ADMIN ? `<span>Profit: ${formatMoney(item.profit)}</span>` : '<span></span>'}
-                            <span>Discount: ${formatMoney(item.discount)}</span>
-                        </div>
-                    `;
-                    historyContainer.appendChild(div);
-                });
-                if (!navigator.onLine) {
-                    const note = document.createElement('div');
-                    note.className = 'text-[10px] md:text-xs text-amber-500 mt-2 text-center';
-                    note.innerText = tt('offline_note');
-                    historyContainer.appendChild(note);
+            if (historyContainer) {
+                historyContainer.innerHTML = '';
+                if (salesHistory && salesHistory.length) {
+                    salesHistory.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'border-b pb-1 md:pb-2 mb-1 md:mb-2 hover:bg-gray-50 p-1 rounded transition-colors';
+                        div.innerHTML = `
+                            <div class="flex justify-between items-center">
+                                <span class="font-medium text-gray-700 text-xs md:text-sm">${item.date}</span>
+                                <span class="font-bold text-green-600 text-xs md:text-base">${formatMoney(item.total_sales)}</span>
+                            </div>
+                            <div class="text-[10px] md:text-sm text-gray-500 flex justify-between">
+                                ${IS_ADMIN ? `<span>Profit: ${formatMoney(item.profit)}</span>` : '<span></span>'}
+                                <span>Discount: ${formatMoney(item.discount)}</span>
+                            </div>
+                        `;
+                        historyContainer.appendChild(div);
+                    });
+                    if (!navigator.onLine) {
+                        const note = document.createElement('div');
+                        note.className = 'text-[10px] md:text-xs text-amber-500 mt-2 text-center';
+                        note.innerText = tt('offline_note');
+                        historyContainer.appendChild(note);
+                    }
+                } else {
+                    historyContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">' + tt('no_history') + '</div>';
                 }
-            } else {
-                historyContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">' + tt('no_history') + '</div>';
             }
 
-            // Low stock alert (once per session)
+            // ---------- Low stock alert ----------
             if (!lowStockShown && lowStock && lowStock.length > 0) {
                 const previewList = lowStock.slice(0, 5).map(item => {
                     return `• ${item.name} (${item.brand}) - ${item.total_remaining != null ? item.total_remaining : item.stock} left`;
@@ -492,61 +541,78 @@
                 }, 100);
                 lowStockShown = true;
             }
+
+            console.log('[dashboard] loadDashboard complete');
         }
 
-        function generateColors(n) {
-            const colors = [];
-            for (let i = 0; i < n; i++) {
-                const hue = (i * 360 / n) % 360;
-                colors.push(`hsl(${hue}, 70%, 60%)`);
+        function renderEmptyStates() {
+            const topContainer = document.getElementById('topProductsList');
+            if (topContainer) topContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">' + tt('no_top_products') + '</div>';
+            const historyContainer = document.getElementById('salesHistoryList');
+            if (historyContainer) historyContainer.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm">' + tt('no_history') + '</div>';
+            const container = document.getElementById('pieChartContainer');
+            if (container) container.classList.add('hidden');
+            const offlineMsg = document.getElementById('pieChartOfflineMsg');
+            if (offlineMsg) {
+                offlineMsg.textContent = 'No data available';
+                offlineMsg.classList.remove('hidden');
             }
-            return colors;
         }
 
         function applyFilter() {
-            const start = document.getElementById('startDate').value;
-            const end = document.getElementById('endDate').value;
-            const st = document.getElementById('startTime').value;
-            const et = document.getElementById('endTime').value;
+            const sd = document.getElementById('startDate');
+            const ed = document.getElementById('endDate');
+            const st = document.getElementById('startTime');
+            const et = document.getElementById('endTime');
+            const start = sd ? sd.value : '';
+            const end   = ed ? ed.value : '';
+            const stv   = st ? st.value : '';
+            const etv   = et ? et.value : '';
             if (!start && !end) { alert(tt('select_range')); return; }
             startDate = start || null;
-            endDate = end || null;
-            startTime = st || null;
-            endTime = et || null;
+            endDate   = end   || null;
+            startTime = stv   || null;
+            endTime   = etv   || null;
             if (startDate && startDate === endDate) selectedDate = startDate;
             else selectedDate = null;
             if (startDate) {
                 const d = new Date(startDate);
-                calendarYear = d.getFullYear();
+                calendarYear  = d.getFullYear();
                 calendarMonth = d.getMonth();
                 renderCalendar(calendarYear, calendarMonth);
             }
             loadDashboard();
         }
 
-        document.getElementById('applyFilterBtn').addEventListener('click', applyFilter);
-
-        // ---------- Initialisation ----------
+        // ---------- INITIALISE ----------
         const today = new Date().toISOString().split('T')[0];
-        document.getElementById('startDate').value = today;
-        document.getElementById('endDate').value = today;
-        document.getElementById('startTime').value = '00:00';
-        document.getElementById('endTime').value = '23:59';
+        const _sd = document.getElementById('startDate');
+        const _ed = document.getElementById('endDate');
+        const _st = document.getElementById('startTime');
+        const _et = document.getElementById('endTime');
+        if (_sd) _sd.value = today;
+        if (_ed) _ed.value = today;
+        if (_st) _st.value = '00:00';
+        if (_et) _et.value = '23:59';
         startDate = today; endDate = today;
         startTime = '00:00'; endTime = '23:59';
         selectedDate = today;
 
         const now = new Date();
-        calendarYear = now.getFullYear();
+        calendarYear  = now.getFullYear();
         calendarMonth = now.getMonth();
+
+        // ← renderCalendar runs unconditionally, BEFORE any button setup
         renderCalendar(calendarYear, calendarMonth);
 
-        window.addEventListener('beforeunload', function() {
-            lowStockShown = false;
-        });
+        window.addEventListener('beforeunload', function () { lowStockShown = false; });
 
+        // ← loadDashboard runs regardless of button setup outcome
         loadDashboard();
-        window.addEventListener('online', function() { loadDashboard(); });
+        window.addEventListener('online', function () { loadDashboard(); });
+
+        console.log('[dashboard] init complete');
     });
+})();
 </script>
 {% endblock %}
