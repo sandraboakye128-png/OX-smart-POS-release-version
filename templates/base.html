@@ -211,9 +211,9 @@
         @media (max-height: 500px) { .notif-dropdown { position: fixed; top: 56px; left: 12px; right: 12px; width: auto; max-width: none; min-height: 0; max-height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px)); } }
         @supports not (height: 100dvh) { @media (max-height: 500px) { .notif-dropdown { max-height: calc(100vh - 64px - env(safe-area-inset-bottom, 0px)); } } }
 
-        .user-chip { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #f1f5f9; border-radius: 10px; font-size: 0.8rem; color: #334155; font-weight: 500; white-space: nowrap; text-decoration: none; cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s; }
-        .user-chip:hover  { background: #e2e8f0; color: #0f172a; }
-        .user-chip:active { transform: scale(0.97); }
+        .user-chip { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #f1f5f9; border-radius: 10px; font-size: 0.8rem; color: #334155; font-weight: 500; white-space: nowrap; text-decoration: none; cursor: default; }
+        /* .user-chip:hover — disabled in Phase 4 (chip is now plain text) */
+        /* .user-chip:active — disabled in Phase 4 */
         .user-chip i { color: #00CFCF; font-size: 1.1rem; }
         @media (max-width: 480px) { .user-chip span { display: none; } .user-chip { padding: 6px 8px; } }
 
@@ -304,6 +304,67 @@
         body.dark-theme .main-content { background: #0f172a !important; }
         body.dark-theme .mobile-header, body.dark-theme footer { background: #0b1220 !important; }
         body.dark-theme .bg-white, body.dark-theme .bg-gray-50, body.dark-theme .bg-gray-100 { background-color: #1e293b !important; color: #e2e8f0 !important; }
+
+        /* ===== PHASE3 DARK MODE — text readability fixes ===== */
+
+        /* Tables */
+        body.dark-theme table { color: #e2e8f0 !important; }
+        body.dark-theme thead { background: #1e293b !important; }
+        body.dark-theme th { color: #cbd5e1 !important; border-color: #334155 !important; background: #1e293b !important; }
+        body.dark-theme td { color: #e2e8f0 !important; border-color: #334155 !important; }
+        body.dark-theme tbody tr { background: transparent !important; }
+        body.dark-theme tbody tr:nth-child(even) { background: #162032 !important; }
+        body.dark-theme tbody tr:hover { background: #1e293b !important; }
+
+        /* Forms */
+        body.dark-theme input:not([type="checkbox"]):not([type="radio"]),
+        body.dark-theme textarea,
+        body.dark-theme select {
+            background: #0f172a !important;
+            color: #e2e8f0 !important;
+            border-color: #334155 !important;
+        }
+        body.dark-theme input::placeholder,
+        body.dark-theme textarea::placeholder { color: #64748b !important; }
+        body.dark-theme label { color: #cbd5e1 !important; }
+
+        /* Cards & content areas */
+        body.dark-theme .card { background: #1e293b !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+        body.dark-theme .card-header { background: #0f172a !important; border-color: #334155 !important; color: #f1f5f9 !important; }
+        body.dark-theme .card-body { color: #e2e8f0 !important; }
+
+        /* Headings */
+        body.dark-theme h1, body.dark-theme h2, body.dark-theme h3,
+        body.dark-theme h4, body.dark-theme h5, body.dark-theme h6 { color: #f1f5f9 !important; }
+
+        /* Tailwind gray text overrides */
+        body.dark-theme .text-gray-500,
+        body.dark-theme .text-gray-600,
+        body.dark-theme .text-gray-700,
+        body.dark-theme .text-gray-800 { color: #94a3b8 !important; }
+        body.dark-theme .text-gray-900,
+        body.dark-theme .text-black { color: #e2e8f0 !important; }
+
+        /* Batch lists */
+        body.dark-theme .batch-item,
+        body.dark-theme .batch-row,
+        body.dark-theme .batch-card { background: #1e293b !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+        body.dark-theme .batch-badge { background: #334155 !important; color: #cbd5e1 !important; }
+
+        /* Modals & dropdowns */
+        body.dark-theme .modal,
+        body.dark-theme .modal-content,
+        body.dark-theme .dropdown-menu { background: #1e293b !important; color: #e2e8f0 !important; border-color: #334155 !important; }
+        body.dark-theme .modal-header,
+        body.dark-theme .modal-footer { border-color: #334155 !important; }
+
+        /* Sidebar labels */
+        body.dark-theme .sidebar, body.dark-theme .nav-section-label { color: #cbd5e1 !important; }
+        body.dark-theme .nav-item { color: #cbd5e1 !important; }
+        body.dark-theme .nav-item:hover { color: #f1f5f9 !important; background: #1e293b !important; }
+
+        /* Toast text */
+        body.dark-theme .toast, body.dark-theme .toast-msg { color: #e2e8f0 !important; }
         body.dark-theme .text-gray-800, body.dark-theme .text-gray-700 { color: #e2e8f0 !important; }
         body.dark-theme .text-gray-600, body.dark-theme .text-gray-500 { color: #94a3b8 !important; }
         body.dark-theme .text-gray-400 { color: #64748b !important; }
@@ -357,6 +418,21 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
 </script>
 </head>
 <body>
+
+<div id="global-boot-loader" style="position:fixed; inset:0; background:#f3f4f6; z-index:99999999; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+    <div style="width:56px; height:56px; border:4px solid #cbd5e1; border-top-color:#00CFCF; border-radius:50%; animation:spin 0.8s linear infinite; margin-bottom:20px;"></div>
+    <div style="font-weight:700; color:#1f2937; font-size:1.1rem;">Loading System...</div>
+</div>
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+<script>
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            var l = document.getElementById('global-boot-loader');
+            if (l) { l.style.opacity = '0'; l.style.transition = 'opacity 0.3s ease'; setTimeout(function() { l.remove(); }, 300); }
+        }, 500);
+    });
+</script>
+
 
 <!-- PIN LOCK -->
 <div id="pinLockScreen">
@@ -493,7 +569,7 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
             <a href="/purchases/screens" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
                 <i class="fas fa-shopping-cart w-5"></i> {{ t('nav.purchases_scr') }}
             </a>
-            <a href="/inventory/import" target="_blank" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
+            <a href="/inventory/import" target="_blank" onclick="if(window.oxShowOpening) window.oxShowOpening();" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
                 <i class="fas fa-file-import w-5"></i> {{ t('nav.import') }}
             </a>
             <a href="/admin/users" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-[#334155] transition text-sm">
@@ -594,10 +670,7 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
                         </div>
                     </div>
                 </div>
-                <div class="user-chip" style="cursor:default; padding-right:14px;">
-                    <i class="fas fa-user-circle"></i>
-                    <span style="font-weight:600; margin-left:4px;">{{ current_user.username }}</span>
-                </div>
+                <div style="cursor:default; pointer-events:none; user-select:none; color:#cbd5e1; font-weight:600; padding-right:14px;" aria-label="Logged in as {{ current_user.username }}">{{ current_user.username }}</div>
             </div>
         </div>
         {% endif %}
@@ -2058,13 +2131,11 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
   // TRACKER_UPGRADE_V1 — See EVERYTHING
   window.addEventListener('error', function(e) {
     add('err', 'ERROR: ' + (e.message || 'unknown') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '?'));
-    var panel = document.getElementById('ox-tracker-min');
-    if (panel) panel.classList.add('show');
+
   });
   window.addEventListener('unhandledrejection', function(e) {
     add('err', 'PROMISE: ' + (e.reason && e.reason.message || e.reason || 'unknown'));
-    var panel = document.getElementById('ox-tracker-min');
-    if (panel) panel.classList.add('show');
+
   });
 
   var _cerr = console.error;

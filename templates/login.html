@@ -46,10 +46,28 @@
     </div>
 </div>
 
+<div id="ox-login-splash">
+    <div class="splash-spinner"></div>
+    <div class="splash-logo">OX SMART</div>
+    <div class="splash-msg" id="oxSplashMsg">Signing you in…</div>
+</div>
+
 <script>
     // ============================================================
     //  CLEAR ALL BROWSER DATA (localStorage, sessionStorage, IndexedDB, caches)
     // ============================================================
+    function showLoginSplash(msg) {
+        const s = document.getElementById('ox-login-splash');
+        if (!s) return;
+        const m = document.getElementById('oxSplashMsg');
+        if (m) m.textContent = msg || 'Signing you in\u2026';
+        s.classList.add('show');
+    }
+    function hideLoginSplash() {
+        const s = document.getElementById('ox-login-splash');
+        if (s) s.classList.remove('show');
+    }
+
     async function clearAllBrowserData() {
         console.log('🧹 Clearing all browser data...');
         
@@ -240,6 +258,7 @@
         const originalText = loginBtn.textContent;
         loginBtn.disabled = true;
         loginBtn.textContent = '{{ t("auth.login_logging_in") }}';
+        showLoginSplash('Signing you in\u2026');
         
         try {
             const response = await fetch('/api/auth/login', {
@@ -256,6 +275,7 @@
             if (data.success) {
                 // ✅ CLEAR ALL OLD BROWSER DATA FIRST
                 loginBtn.textContent = '{{ t("auth.login_clearing") }}';
+                showLoginSplash('Clearing old data\u2026');
                 await clearAllBrowserData();
                 
                 // ✅ Store NEW session with 24-hour expiry
@@ -271,14 +291,17 @@
                 
                 // ✅ Redirect with cache-buster to force fresh page load
                 loginBtn.textContent = '{{ t("auth.login_success_loading") }}';
+                showLoginSplash('Loading your workspace\u2026');
                 window.location.href = '/?_t=' + Date.now();
             } else {
+                hideLoginSplash();
                 alert('Login failed: ' + data.error);
                 loginBtn.disabled = false;
                 loginBtn.textContent = originalText;
             }
         } catch (error) {
             console.error('Login error:', error);
+            hideLoginSplash();
             alert('{{ t("auth.err_login_failed") }}');
             loginBtn.disabled = false;
             loginBtn.textContent = originalText;
@@ -287,5 +310,30 @@
 </script>
 <style>
 .masked-password { -webkit-text-security: disc; }
+#ox-login-splash {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 24px;
+    z-index: 99999;
+    visibility: hidden; opacity: 0;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+    pointer-events: none;
+}
+#ox-login-splash.show { visibility: visible; opacity: 1; pointer-events: auto; }
+#ox-login-splash .splash-spinner {
+    width: 64px; height: 64px;
+    border: 4px solid rgba(99, 102, 241, 0.25);
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: oxSplashSpin 0.9s linear infinite;
+}
+#ox-login-splash .splash-logo {
+    color: #a5b4fc; font-size: 1.6rem; font-weight: 800; letter-spacing: 2px;
+}
+#ox-login-splash .splash-msg {
+    color: #cbd5e1; font-size: 0.9rem; font-weight: 500;
+}
+@keyframes oxSplashSpin { to { transform: rotate(360deg); } }
 </style>
 {% endblock %}

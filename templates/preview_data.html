@@ -345,7 +345,7 @@
 </div>
 
         <div id="pvSheetWrapper" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden" style="display:flex; flex-direction:column; flex:1 1 auto; min-height:0;">
-            <div id="pvScrollContainer" class="overflow-auto" style="max-height:65vh; padding-bottom:20vh; -webkit-overflow-scrolling:touch;">
+            <div id="pvScrollContainer" class="overflow-auto" style="max-height:65vh; padding-bottom:50vh !important; -webkit-overflow-scrolling:touch;">
                 <table id="pvTable" class="min-w-full text-xs md:text-sm" style="border-collapse: collapse;">
                     <thead class="bg-gray-100 sticky top-0 z-10">
                         <tr id="pvColLetters" class="pv-letters-row"></tr>
@@ -2034,32 +2034,19 @@ function _pvUpdateSheetRotateBtn(isFs) {
 // ============================================================
 })();
 
-// PV_KEYBOARD_SCROLL_FIX: Adjust max-height dynamically when keyboard opens
-(function() {
-    function adjustPvHeight() {
-        var el = document.getElementById('pvScrollContainer');
-        if (!el) return;
-        var vv = window.visualViewport;
-        if (!vv) return;
-        // Subtract the top bar / toolbar height (approx 180px) and the keyboard height
-        var availableHeight = vv.height - 180; 
-        if (availableHeight > 200) {
-            el.style.maxHeight = availableHeight + 'px';
-        } else {
-            el.style.maxHeight = '65vh';
-        }
+
+
+
+<script>
+// PV_KEYBOARD_SCROLL_FIX_V2: Scroll the focused cell above the keyboard
+document.addEventListener('focusin', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+        setTimeout(function() {
+            e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }, 300); // Wait for keyboard to open
     }
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', adjustPvHeight);
-        window.visualViewport.addEventListener('scroll', adjustPvHeight);
-    }
-    // Also trigger on focus of any editable cell to ensure the container resizes before the keyboard fully opens
-    document.addEventListener('focusin', function(e) {
-        if (e.target.closest && e.target.closest('td[contenteditable="true"]')) {
-            setTimeout(adjustPvHeight, 300);
-        }
-    });
-})();
+});
+</script>
 
 </script>
 {% endblock %}

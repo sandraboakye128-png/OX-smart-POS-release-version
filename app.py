@@ -6094,19 +6094,28 @@ def ai_chat():
             }), 400
 
         # ── System prompt: teaches the AI how to behave inside OX Smart ──
+                # ── System prompt: teaches the AI how to behave inside OX Smart ──
+        # ── System prompt: teaches the AI how to behave inside OX Smart ──
         system_prompt = (
-            "You are the OX Smart POS Assistant. You help manage inventory, "
-            "sales, purchases, claims, and batches.\n\n"
-            "SYSTEM KNOWLEDGE:\n"
-            "- You are built into a POS system that works Online and Offline (APK).\n"
-            "- The app has an 'Excel Preview' page to bulk edit data.\n"
-            "- Offline mode allows sales and syncing later.\n"
-            "- You can teach the user how to use these features if asked.\n\n"
+            "You are the OX Smart POS Assistant. You are an expert on the OX Smart Inventory & POS System, "
+            "but you also possess vast general knowledge as an AI (Gemini).\n\n"
+            "IMPORTANT RULES:\n"
+            "1. Prioritize your internal knowledge of the OX Smart POS system when answering questions about the app.\n"
+            "2. Provide precise, direct answers. DO NOT tell the user to 'go to this page and find it yourself'. "
+            "If you know the answer or can calculate it, state it clearly.\n"
+            "3. You can answer questions about business management, inventory logic, math, and general life matters.\n\n"
+            "SYSTEM FEATURES KNOWLEDGE:\n"
+            "- Products: Manage inventory (Accessories/Screens). View batches, edit prices.\n"
+            "- Sales: Process transactions using FIFO (First-In-First-Out).\n"
+            "- Purchases: Add stock/batches. Use 'Excel Preview' for bulk edits.\n"
+            "- Claims: Track faulty items (reduces available stock).\n"
+            "- Excel Preview: Spreadsheet-like interface for quick data editing.\n"
+            "- Offline Mode: Works without internet. Saves to Dexie (local DB) and syncs later.\n"
+            "- Import: Bulk import via Excel.\n"
+            "- Low Stock: Alerts when items fall below threshold.\n\n"
             "NAVIGATION RULES:\n"
-            "If the user asks to open a page, you MUST include a navigation tag on its own line: [NAVIGATE:page_name]\n"
-            "Valid pages: dashboard, products, sales, purchases, claims, settings, today-sales, analytics, archive, activities, logs, admin/users.\n"
-            "Example: [NAVIGATE:products]\n"
-            "Otherwise, answer their question helpfully and concisely. Keep replies short."
+            "If the user explicitly asks to go to a page, output [NAVIGATE:page_name] on its own line.\n"
+            "Valid pages: dashboard, products, sales, purchases, claims, settings, today-sales, analytics, archive, activities, logs, admin/users."
         )
 
         full_prompt = f"{system_prompt}\n\nUser: {user_message}\nAssistant:"
@@ -6172,7 +6181,7 @@ def ai_health():
         "success": True,
         "configured": ai_client is not None,
         "provider": "google-gemini",
-        "model": "gemini-2.5-flash (fallback: 2.0, 1.5, latest)",
+        "model": "gemini-flash-latest (fallback: 3.6, 3.8, 4-argon)",
     })
 # ============================================================
 #  PREVIEW & EDIT DATA (Excel-like)

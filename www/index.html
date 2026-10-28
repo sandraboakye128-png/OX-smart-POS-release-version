@@ -352,6 +352,33 @@
     <script>
         window.addEventListener('load', function() { setTimeout(function() { document.body.classList.add('app-loaded'); }, 100); });
     </script>
+
+<style id="phase2-heads-up-style">
+/* HEADS-UP NOTIFICATION (Phone style) */
+#ox-heads-up-container {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    width: 90%; max-width: 400px; z-index: 2147483647;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+}
+.ox-heads-up {
+    background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 16px;
+    padding: 12px 16px; color: #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    display: flex; align-items: flex-start; gap: 12px;
+    animation: slideDown 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    pointer-events: auto; cursor: pointer; transition: all 0.2s ease;
+}
+.ox-heads-up:hover { transform: scale(1.02); }
+.ox-heads-up.dismissing { animation: slideUp 0.3s ease-in forwards; }
+.ox-heads-up .hu-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+.ox-heads-up .hu-content { flex: 1; min-width: 0; }
+.ox-heads-up .hu-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 2px; }
+.ox-heads-up .hu-msg { font-size: 0.8rem; color: #94a3b8; line-height: 1.3; }
+@keyframes slideDown { from { transform: translateY(-120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-120%); opacity: 0; } }
+</style>
+<div id="ox-heads-up-container"></div>
+
 </head>
 <body>
 
@@ -800,7 +827,67 @@ const Notifications = (function () {
     _load();
     setTimeout(_refresh, 0);
     window.addEventListener('storage', (e) => { if (e.key !== STORAGE_KEY) return; items.length = 0; _load(); _refresh(); });
-    return { add, update, remove, clearAll, reloadForUser, info: (t,m) => add({type:'info', title:t, message:m, persistent:true}), success: (t,m) => add({type:'success', title:t, message:m, persistent:true}), warning: (t,m) => add({type:'warning', title:t, message:m, persistent:true}), error: (t,m) => add({type:'error', title:t, message:m, persistent:true}), get items() { return items; }, get unreadCount() { return items.length; } };
+    function showHeadsUp(id, type, title, message) {
+        const container = document.getElementById('ox-heads-up-container');
+        if (!container) return;
+        
+        const existing = document.getElementById('hu-' + id);
+        if (existing) existing.remove();
+
+        const el = document.createElement('div');
+        el.className = 'ox-heads-up';
+        el.id = 'hu-' + id;
+        
+        let icon = 'ℹ️';
+        if (type === 'success') icon = '✅';
+        if (type === 'warning') icon = '⚠️';
+        if (type === 'error') icon = '❌';
+
+        el.innerHTML = `<div class="hu-icon">${icon}</div><div class="hu-content"><div class="hu-title">${title}</div><div class="hu-msg">${message}</div></div>`;
+        
+        el.onclick = function() {
+            el.classList.add('dismissing');
+            setTimeout(() => el.remove(), 300);
+            if (typeof toggleNotifications === 'function') toggleNotifications();
+        };
+
+        container.appendChild(el);
+
+        // Auto-dismiss after 4 seconds
+        setTimeout(() => {
+            if (el.parentNode) {
+                el.classList.add('dismissing');
+                setTimeout(() => el.remove(), 300);
+            }
+        }, 4000);
+    }
+
+    function add(opts) {
+        const { type='info', title='', message='', duration=0, id=null, progress=null, persistent=true, headsUp=false } = opts || {};
+        if (id) { const existing = items.find(i => i.id === id); if (existing) return update(id, { type, title, message, progress, persistent, headsUp }); }
+        
+        const notif = { id: id || ('n_' + (nextId++) + '_' + Date.now()), type, title, message, progress, persistent: !!persistent, timestamp: Date.now(), _timer: null };
+        items.unshift(notif); _refresh(); _save();
+        
+        if (headsUp) {
+            showHeadsUp(notif.id, type, title, message);
+        }
+
+        if (!persistent && duration > 0 && type !== 'progress') notif._timer = setTimeout(() => remove(notif.id), duration);
+        return notif.id;
+    }
+
+    function update(id, patch) {
+        const n = items.find(i => i.id === id); if (!n) return;
+        if (patch && patch.persistent === true && n._timer) { clearTimeout(n._timer); n._timer = null; }
+        Object.assign(n, patch || {}); n.timestamp = Date.now(); _refresh(); _save();
+        
+        if (patch && patch.headsUp) {
+            showHeadsUp(id, patch.type || n.type, patch.title || n.title, patch.message || n.message);
+        }
+    }
+
+    return { add, update, remove, clearAll, reloadForUser, showHeadsUp, info: (t,m) => add({type:'info', title:t, message:m, persistent:true}), success: (t,m) => add({type:'success', title:t, message:m, persistent:true}), warning: (t,m) => add({type:'warning', title:t, message:m, persistent:true}), error: (t,m) => add({type:'error', title:t, message:m, persistent:true}), get items() { return items; }, get unreadCount() { return items.length; } };
 })();
 window.Notifications = Notifications;
 
@@ -831,10 +918,27 @@ async function refreshPendingNotifications() {
         const count = mine.length;
         const existing = Notifications.items.find(i => i.id === 'pending-status');
         if (count > 0) {
-            const msg = `${count} change${count===1?'':'s'} waiting to sync`;
-            if (existing) Notifications.update('pending-status', { type: 'pending', title: 'Pending sync', message: msg, persistent: true });
-            else Notifications.add({ id: 'pending-status', type: 'pending', title: 'Pending sync', message: msg, persistent: true });
-        } else if (existing) Notifications.remove('pending-status');
+            const msg = `${count} offline action${count===1?'':'s'} waiting. Reconnect & sync ASAP to avoid stock conflicts with other users.`;
+            if (existing) {
+                if (!existing._warned) {
+                    Notifications.update('pending-status', { type: 'warning', title: 'Action Required: Sync Pending', message: msg, persistent: true, headsUp: true });
+                    existing._warned = true;
+                } else {
+                    Notifications.update('pending-status', { type: 'warning', title: 'Action Required: Sync Pending', message: msg, persistent: true });
+                }
+            } else {
+                const nid = Notifications.add({ id: 'pending-status', type: 'warning', title: 'Action Required: Sync Pending', message: msg, persistent: true, headsUp: true });
+            }
+        } else {
+            if (existing) {
+                if (existing._warned) {
+                    Notifications.update('pending-status', { type: 'success', title: 'Sync Complete', message: 'All actions synced successfully. Other users will now see your updates.', persistent: true, headsUp: true });
+                    setTimeout(() => Notifications.remove('pending-status'), 5000);
+                } else {
+                    Notifications.remove('pending-status');
+                }
+            }
+        }
     } catch (e) {}
 }
 window.refreshPendingNotifications = refreshPendingNotifications;
@@ -1079,8 +1183,8 @@ async function enterApp(knownOnline, opts) {
         loadingView.classList.add('hidden'); appView.classList.add('hidden');
         const syncView = document.createElement('div');
         syncView.id = 'ox-first-sync';
-        syncView.style.cssText = 'position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:#e2e8f0;gap:16px;padding:24px;text-align:center;';
-        syncView.innerHTML = '<div style="width:56px;height:56px;border:4px solid #334155;border-top-color:#00CFCF;border-radius:50%;animation:oxSpin 0.8s linear infinite;"></div>'
+        syncView.style.cssText = 'position:fixed;inset:0;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:#e2e8f0;gap:20px;padding:24px;text-align:center;';
+        syncView.innerHTML = '<div style="font-size:1.6rem;font-weight:800;color:#a5b4fc;letter-spacing:2px;margin-bottom:4px;">OX SMART</div><div style="width:64px;height:64px;border:4px solid rgba(99,102,241,0.25);border-top-color:#6366f1;border-radius:50%;animation:oxSpin 0.9s linear infinite;"></div>'
             + '<div style="font-size:1rem;font-weight:700;">Downloading your data…</div>'
             + '<div style="font-size:0.8rem;color:#94a3b8;max-width:280px;line-height:1.5;">Fetching products, sales, and inventory from the server.<br><strong style="color:#fbbf24;">Please keep your connection active</strong> until this finishes.</div>'
             + '<button id="ox-first-sync-retry" style="margin-top:16px;background:#ef4444;color:#fff;border:0;border-radius:8px;padding:10px 24px;font-size:0.85rem;font-weight:700;cursor:pointer;display:none;">🔄 Retry Sync</button>'
@@ -1090,7 +1194,7 @@ async function enterApp(knownOnline, opts) {
         try {
             await fullSync();
             const after = await db.products.count().catch(() => 0);
-            if (after === 0) throw new Error('Sync returned 0 products');
+            if (after === 0) console.warn('Sync returned 0 products. Proceeding with empty local DB.');
             syncView.remove();
             loadingView.classList.add('hidden'); appView.classList.remove('hidden');
         } catch (e) {
@@ -1112,7 +1216,20 @@ async function enterApp(knownOnline, opts) {
         setTimeout(function () { if (typeof db !== 'undefined' && db && db.products) db.products.count().then(function(c) { if (c === 0) showToast('⚠️ Data not synced. Check internet or tap Sync Now.', { error: true }); }); }, 8000);
     }
 }
+function tryHideNativeSplash() {
+    try {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen && typeof window.Capacitor.Plugins.SplashScreen.hide === 'function') {
+            window.Capacitor.Plugins.SplashScreen.hide();
+        }
+    } catch (e) {}
+}
 window.enterApp = enterApp;
+
+// PHASE4: Hide native splash on first paint (safety net at 2s)
+document.addEventListener('DOMContentLoaded', function () {
+    requestAnimationFrame(function () { tryHideNativeSplash(); });
+    setTimeout(tryHideNativeSplash, 2000);
+});
 
 function renderUserChip() {
     const u = getStoredUser();
@@ -1364,6 +1481,18 @@ async function syncNow() {
         Notifications.update('sync-now', { type: 'error', title: 'Sync failed', message: (e && e.message) || 'Could not reach server' });
         showError('Sync failed: ' + e.message);
         showToast('Sync failed', { error: true });
+
+        // PHASE2_CONFLICT_HANDLER: Detect stock issues caused by other users syncing first
+        const errStr = String(e.message || '').toLowerCase();
+        if (errStr.includes('only has') || errStr.includes('cannot sell') || errStr.includes('good unit')) {
+            Notifications.add({
+                type: 'error',
+                title: '⚠️ Stock Conflict Detected',
+                message: 'Another user sold this item while you were offline. Please check your inventory.',
+                headsUp: true,
+                persistent: true
+            });
+        }
     } finally {
         btn.disabled = false; icon.classList.remove('spinning'); text.textContent = 'Sync Now';
         topIcon.classList.remove('spinning'); topIcon.disabled = false;
@@ -1410,22 +1539,34 @@ function renderMenu() {
     const nav = $('menuNav');
     const isAdmin = _isAdminUser();
     const items = [];
+    
     if (isAdmin) items.push(menuItemHtml('dashboard'));
-    items.push('<div class="menu-section-label">' + (typeof window.t === 'function' ? window.t('shell.menu.inventory_sales') : 'Inventory &amp; Sales') + '</div>');
+    
+    items.push('<div class="menu-section-label">Inventory &amp; Sales</div>');
     items.push(menuItemHtml('products'));
     items.push(menuItemHtml('products-screen'));
     items.push(menuItemHtml('sales'));
     items.push(menuItemHtml('sales-screen'));
     items.push(menuItemHtml('today-accessories'));
     items.push(menuItemHtml('today-screens'));
-    if (isAdmin) { items.push(menuItemHtml('purchases')); items.push(menuItemHtml('purchases-screen')); }
-    const more = [];
-    if (isAdmin) { more.push(menuItemHtml('analytics')); more.push(menuItemHtml('logs')); more.push(menuItemHtml('users')); more.push(menuItemHtml('archive')); }
-    more.push(menuItemHtml('claims'));
-    if (more.length > 0) { items.push('<div class="menu-section-label">' + (typeof window.t === 'function' ? window.t('shell.menu.reports_admin') : 'Reports &amp; Admin') + '</div>'); more.forEach(i => items.push(i)); }
+    items.push(menuItemHtml('claims')); 
+    
+    if (isAdmin) {
+        items.push('<div class="menu-section-label">Admin Tools</div>');
+        items.push(menuItemHtml('analytics'));
+        items.push(menuItemHtml('purchases'));
+        items.push(menuItemHtml('purchases-screen'));
+        items.push(menuItemHtml('preview-data')); // Added Excel Preview
+        items.push(menuItemHtml('logs'));
+        items.push(menuItemHtml('users'));
+        items.push(menuItemHtml('archive'));
+    }
+    
     items.push('<div class="menu-section-label">Utilities</div>');
     items.push('<div class="menu-item" onclick="window.openShellCalc && window.openShellCalc();"><span class="icon">🧮</span><span class="label">Calculator</span></div>');
     items.push('<div class="menu-item" onclick="if(typeof forceSystemRefresh===\'function\')forceSystemRefresh(event);closeMenu();"><span class="icon">🔄</span><span class="label">Refresh System</span></div>');
+    items.push('<div class="menu-item" style="color:#ef4444; margin-top:10px; border-top:1px solid #334155; padding-top:15px;" onclick="doLogout(); closeMenu();"><span class="icon">🚪</span><span class="label">Logout</span></div>');
+    
     nav.innerHTML = items.join('');
 }
 function menuItemHtml(key) {
@@ -2638,13 +2779,11 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
 
   window.addEventListener('error', function(e) {
     add('err', 'ERROR: ' + (e.message || 'unknown') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '?'));
-    var panel = document.getElementById('ox-tracker-min');
-    if (panel) panel.classList.add('show');
+    
   });
   window.addEventListener('unhandledrejection', function(e) {
     add('err', 'PROMISE: ' + (e.reason && e.reason.message || e.reason || 'unknown'));
-    var panel = document.getElementById('ox-tracker-min');
-    if (panel) panel.classList.add('show');
+    
   });
   var _cerr = console.error;
   console.error = function() {
