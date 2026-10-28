@@ -316,6 +316,14 @@
         body.dark-theme .shadow, body.dark-theme .shadow-sm, body.dark-theme .shadow-md, body.dark-theme .shadow-lg, body.dark-theme .shadow-xl { box-shadow: 0 2px 12px rgba(0,0,0,0.55) !important; }
         body.dark-theme .sidebar { background: #0b1220 !important; }
 
+        body.dark-theme .text-gray-900, body.dark-theme .text-black { color: #f8fafc !important; }
+        body.dark-theme .bg-white { background-color: #1e293b !important; color: #e2e8f0 !important; }
+        body.dark-theme table th { background-color: #0f172a !important; color: #94a3b8 !important; }
+        body.dark-theme .batch-group-header { background-color: #1e293b !important; border-color: #334155 !important; }
+        body.dark-theme .batch-group-body { background-color: #0f172a !important; }
+        body.dark-theme input[type="text"] { color: #e2e8f0 !important; }
+
+
         html, body { font-family: var(--app-font-family) !important; }
         body { font-size: var(--app-font-size) !important; }
         .text-xs   { font-size: var(--app-font-size-xs) !important; }
@@ -586,10 +594,10 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
                         </div>
                     </div>
                 </div>
-                <a href="{{ ('/admin/users/' ~ session.user_id ~ '/edit') if _is_admin_user else '/settings' }}" class="user-chip" title="Profile">
+                <div class="user-chip" style="cursor:default; padding-right:14px;">
                     <i class="fas fa-user-circle"></i>
-                    <span>{{ current_user.username }}</span>
-                </a>
+                    <span style="font-weight:600; margin-left:4px;">{{ current_user.username }}</span>
+                </div>
             </div>
         </div>
         {% endif %}
@@ -1324,7 +1332,7 @@ window.OX_LOGOUT_CLEAR = function() {
         background: white; border-radius: 12px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         display: none; flex-direction: column; z-index: 999999;
-        border: 1px solid #e5e7eb; overflow: hidden;
+        border: 1px solid #e5e7eb; overflow: hidden; resize: both; min-width: 300px; min-height: 300px;
     }
     #ai-chat-header {
         background: #4f46e5; color: white; padding: 10px 12px;
@@ -1353,7 +1361,7 @@ window.OX_LOGOUT_CLEAR = function() {
 
     /* Calculator */
     #calc-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 999999; }
-    #calc-box { background: white; padding: 20px; border-radius: 12px; width: 300px; }
+    #calc-box { background: white; padding: 20px; border-radius: 12px; width: 95vw; max-width: 400px; }
     #calc-screen { width: 100%; height: 50px; text-align: right; font-size: 24px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; padding: 5px; background: #f8f9fa; }
     .calc-btn { width: 22%; height: 50px; margin: 1%; font-size: 18px; border: none; border-radius: 6px; background: #e5e7eb; cursor: pointer; }
     .calc-btn.op { background: #fcd34d; }
@@ -1361,7 +1369,7 @@ window.OX_LOGOUT_CLEAR = function() {
 
 <div id="ai-assistant-btn" onclick="toggleAIChat()">
     🤖
-    <span id="ai-badge" style="display: none; position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; font-size: 11px; font-weight: bold; min-width: 18px; height: 18px; border-radius: 9px; align-items: center; justify-content: center; border: 2px solid white; padding: 0 4px;">0</span>
+    
 </div>
 
 <div id="ai-chat-window">
@@ -1377,7 +1385,7 @@ window.OX_LOGOUT_CLEAR = function() {
         <div class="ai-msg bot">Hello! 👋 I am your Smart Assistant. I can check stock, analyze sales, or guide you. Try asking "how many products do I have?"</div>
     </div>
     <div id="ai-chat-input-area">
-        <input type="text" id="ai-chat-input" placeholder="Ask about your data..." onkeypress="if(event.key==='Enter') sendAIMessage()">
+        <textarea id="ai-chat-input" rows="1" placeholder="Ask about your data..." onkeypress="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendAIMessage(); }" style="resize:none; overflow-y:hidden;"></textarea>
         <button id="ai-chat-send" onclick="sendAIMessage()">➤</button>
     </div>
 </div>
@@ -1701,6 +1709,8 @@ const OX_AI = {
 
     // Send Message
     sendMessage: async function() {
+        const inp = document.getElementById('ai-chat-input');
+        if(inp) { inp.style.height = 'auto'; inp.style.height = '36px'; }
         const input = document.getElementById('ai-chat-input');
         const text = input.value.trim();
         if (!text) return;

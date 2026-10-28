@@ -189,7 +189,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "temporary-dev-key")
 
 # ✅ App version / environment — exposed to templates + /settings page
-app.config['APP_VERSION'] = '10.3'  # v10.3 — Gemini AI backend
+app.config['APP_VERSION'] = '10.4'  # v10.3 — Gemini AI backend
 
 # ============================================================
 #  GEMINI AI CLIENT
@@ -6097,18 +6097,16 @@ def ai_chat():
         system_prompt = (
             "You are the OX Smart POS Assistant. You help manage inventory, "
             "sales, purchases, claims, and batches.\n\n"
-            "IMPORTANT — NAVIGATION:\n"
-            "If the user asks to open/go to/navigate to a page, you MUST include "
-            "a navigation tag on its own line in the format: [NAVIGATE:page_name]\n"
-            "Valid page names are: dashboard, products, sales, purchases, "
-            "claims, settings, today-sales, analytics, archive, activities, "
-            "logs, admin/users.\n"
-            "Example: if the user says 'open products', reply with:\n"
-            "[NAVIGATE:products]\n"
-            "Opening Products for you...\n\n"
-            "Otherwise, answer their question helpfully and concisely. "
-            "Use plain text. Keep replies short (1-3 sentences) unless asked "
-            "for detail. Never invent data you don't have."
+            "SYSTEM KNOWLEDGE:\n"
+            "- You are built into a POS system that works Online and Offline (APK).\n"
+            "- The app has an 'Excel Preview' page to bulk edit data.\n"
+            "- Offline mode allows sales and syncing later.\n"
+            "- You can teach the user how to use these features if asked.\n\n"
+            "NAVIGATION RULES:\n"
+            "If the user asks to open a page, you MUST include a navigation tag on its own line: [NAVIGATE:page_name]\n"
+            "Valid pages: dashboard, products, sales, purchases, claims, settings, today-sales, analytics, archive, activities, logs, admin/users.\n"
+            "Example: [NAVIGATE:products]\n"
+            "Otherwise, answer their question helpfully and concisely. Keep replies short."
         )
 
         full_prompt = f"{system_prompt}\n\nUser: {user_message}\nAssistant:"

@@ -1945,7 +1945,7 @@ setInterval(async function() {
     .ai-msg.bot { background: #e0e7ff; color: #3730a3; align-self: flex-start; border-bottom-left-radius: 0; }
     .ai-msg.user { background: #4f46e5; color: white; align-self: flex-end; margin-left: auto; border-bottom-right-radius: 0; }
     #calc-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 999999; }
-    #calc-box { background: white; padding: 20px; border-radius: 12px; width: 300px; }
+    #calc-box { background: white; padding: 20px; border-radius: 12px; width: 95vw; max-width: 400px; }
     #calc-screen { width: 100%; height: 50px; text-align: right; font-size: 24px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; padding: 5px; background: #f8f9fa; }
     .calc-btn { width: 22%; height: 50px; margin: 1%; font-size: 18px; border: none; border-radius: 6px; background: #e5e7eb; cursor: pointer; }
     .calc-btn.op { background: #fcd34d; }
@@ -1953,7 +1953,7 @@ setInterval(async function() {
 
 <div id="ai-assistant-btn" onclick="toggleAIChat()">
     🤖
-    <span id="ai-badge" style="display: none; position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; font-size: 11px; font-weight: bold; min-width: 18px; height: 18px; border-radius: 9px; align-items: center; justify-content: center; border: 2px solid white; padding: 0 4px;">0</span>
+    
 </div>
 
 <div id="ai-chat-window">
@@ -1969,7 +1969,7 @@ setInterval(async function() {
         <div class="ai-msg bot">Hello! 👋 I am your Smart Assistant. I can check stock, analyze sales, or guide you. Try asking "how many products do I have?"</div>
     </div>
     <div id="ai-chat-input-area">
-        <input type="text" id="ai-chat-input" placeholder="Ask about your data..." onkeypress="if(event.key==='Enter') sendAIMessage()">
+        <textarea id="ai-chat-input" rows="1" placeholder="Ask about your data..." onkeypress="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendAIMessage(); }" style="resize:none; overflow-y:hidden;"></textarea>
         <button id="ai-chat-send" onclick="sendAIMessage()">➤</button>
     </div>
 </div>
@@ -2299,6 +2299,8 @@ const OX_AI = {
 
     // Send Message
     sendMessage: async function() {
+        const inp = document.getElementById('ai-chat-input');
+        if(inp) { inp.style.height = 'auto'; inp.style.height = '36px'; }
         const input = document.getElementById('ai-chat-input');
         const text = input.value.trim();
         if (!text) return;
@@ -2813,6 +2815,19 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
 })();
 </script>
 <!-- END PHASE3_OFFLINE_GUARD -->
+
+
+<script>
+document.addEventListener('focusin', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        setTimeout(function() {
+            if (e.target.closest('.preview-table') || e.target.closest('#viewDynamic')) {
+                e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+        }, 300);
+    }
+});
+</script>
 
 </body>
 </html>
