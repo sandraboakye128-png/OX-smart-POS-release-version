@@ -69,3 +69,7 @@ app.py.bak-*
 # Capacitor auto-generated gradle files
 android/app/capacitor.build.gradle
 android/capacitor.settings.gradle
+
+*.bak5
+*.bak6
+*.bak7
