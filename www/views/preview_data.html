@@ -1,5 +1,5 @@
-{% extends 'base.html' %}
-{% block content %}
+
+
 
 <style id="pv-fix-style">
     #pvRecentBox {
@@ -17,19 +17,10 @@
         transform: rotate(90deg);
         transform-origin: center center;
     }
-    .pv-row-new td { background: #fde68a !important; }
-    .pv-row-import-added td {
-        background: #a7f3d0 !important;
-        border-bottom: 1px solid #10b981 !important;
-    }
-    .pv-row-import-updated td {
-        background: #c4b5fd !important;
-        border-bottom: 1px solid #8b5cf6 !important;
-    }
-    .pv-row-not-in-db td {
-        background: #fee2e2 !important;
-        border-bottom: 1px solid #fca5a5 !important;
-    }
+    /* color moved to pv-vivid-rows */
+    /* color moved to pv-vivid-rows */
+    /* color moved to pv-vivid-rows */
+    /* color moved to pv-vivid-rows */
     @media (max-width: 480px) {
         #pvRotateBtn { padding: 4px 6px !important; }
     }
@@ -120,6 +111,20 @@
     #pvStep3.pv-sheet-fullscreen #pvSheetRotateBtn:hover {
         background: #b91c1c !important;
     }
+    /* PV_SAVE_STICKY_V1 — keep Save button visible on the right in landscape */
+    #pvStep3.pv-sheet-fullscreen #pvSaveBtn {
+        position: sticky !important;
+        right: 0 !important;
+        z-index: 10 !important;
+        box-shadow: -4px 0 8px rgba(0,0,0,0.15) !important;
+        border-left: 1px solid #d1d5db !important;
+    }
+
+    /* PV_SUGGEST_FIX_V6 — keep suggest dropdown above fullscreen sheet */
+    #pvStep3.pv-sheet-fullscreen #pvSuggestBox {
+        position: fixed !important;
+        z-index: 2147483647 !important;
+    }
     /* Toolbar stays reachable in landscape: single row, h-scroll if needed */
     #pvStep3.pv-sheet-fullscreen > div:first-child {
         flex: 0 0 auto !important;
@@ -142,11 +147,16 @@
     }
 </style>
 <style id="pv-vivid-rows">
-    tr.pv-row-new td                    { background: #fde68a !important; }
-    tr.pv-row-import-added td           { background: #86efac !important; border-bottom: 1px solid #16a34a !important; }
-    tr.pv-row-import-updated td         { background: #c4b5fd !important; border-bottom: 1px solid #7c3aed !important; }
-    tr.pv-row-not-in-db td              { background: #fca5a5 !important; border-bottom: 1px solid #dc2626 !important; color: #7f1d1d !important; opacity: 0.85; }
+    /* PV_COLORS_V2 — distinct Excel vs Import colors */
+    tr.pv-row-new td                    { background: #fde68a !important; } /* Yellow: new this session */
+    tr.pv-row-excel-added td            { background: #a7f3d0 !important; border-bottom: 1px solid #10b981 !important; } /* Green: Excel add */
+    tr.pv-row-excel-updated td          { background: #fed7aa !important; border-bottom: 1px solid #f97316 !important; } /* Orange: Excel update */
+    tr.pv-row-import-added td           { background: #bfdbfe !important; border-bottom: 1px solid #3b82f6 !important; } /* Blue: Import add */
+    tr.pv-row-import-updated td         { background: #c4b5fd !important; border-bottom: 1px solid #8b5cf6 !important; } /* Purple: Import update */
+    tr.pv-row-not-in-db td              { background: #fca5a5 !important; border-bottom: 1px solid #dc2626 !important; color: #7f1d1d !important; opacity: 0.85; } /* Red: archived */
     tr.pv-row-new td.pv-rownum,
+    tr.pv-row-excel-added td.pv-rownum,
+    tr.pv-row-excel-updated td.pv-rownum,
     tr.pv-row-import-added td.pv-rownum,
     tr.pv-row-import-updated td.pv-rownum,
     tr.pv-row-not-in-db td.pv-rownum    { background: #f3f4f6 !important; color: #6b7280 !important; opacity: 1; }
@@ -157,7 +167,7 @@
 
 
 
-<div id="pvCurrentUser" data-username="{{ current_user.username if current_user else '' }}" style="display:none;"></div>
+<div id="pvCurrentUser" data-username="admin" style="display:none;"></div>
 
 <div class="p-4 md:p-6 space-y-4">
 
@@ -166,15 +176,15 @@
         <div class="flex flex-wrap justify-between items-center gap-2">
             <div>
                 <h1 class="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <i class="fas fa-table text-emerald-500"></i> {{ t('preview.title') }}
+                    <i class="fas fa-table text-emerald-500"></i> Preview & Edit Data
                 </h1>
                 <p class="text-gray-500 text-xs md:text-sm mt-0.5">
-                    {{ t('preview.subtitle') }}
+                    Edit data like a spreadsheet
                 </p>
             </div>
             <button onclick="previewBackToMenu()" id="pvBackBtn"
                     class="hidden bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm">
-                ← {{ t('preview.back_to_menu') }}
+                ← Back to Menu
             </button>
         </div>
     </div>
@@ -184,28 +194,28 @@
         <button onclick="previewPickKind('purchases')"
                 class="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:border-emerald-400 transition text-left">
             <div class="text-4xl mb-2">📦</div>
-            <div class="text-lg font-bold text-gray-800">{{ t('preview.purchases') }}</div>
-            <div class="text-sm text-gray-500 mt-1">{{ t('preview.purchases_desc') }}</div>
+            <div class="text-lg font-bold text-gray-800">Purchases</div>
+            <div class="text-sm text-gray-500 mt-1">Edit purchase batches</div>
         </button>
         <button onclick="previewPickKind('sales')"
                 class="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:border-emerald-400 transition text-left">
             <div class="text-4xl mb-2">💰</div>
-            <div class="text-lg font-bold text-gray-800">{{ t('preview.sales') }}</div>
-            <div class="text-sm text-gray-500 mt-1">{{ t('preview.sales_desc') }}</div>
+            <div class="text-lg font-bold text-gray-800">Sales</div>
+            <div class="text-sm text-gray-500 mt-1">Edit sales records</div>
         </button>
     </div>
 
     <!-- ============ STEP 2: CATEGORY ============ -->
     <div id="pvStep2" class="hidden bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-        <h3 class="text-base font-semibold text-gray-700 mb-4">{{ t('preview.which_category') }}</h3>
+        <h3 class="text-base font-semibold text-gray-700 mb-4">Which category?</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <button onclick="previewPickCategory('Accessory')"
                     class="bg-teal-500 hover:bg-teal-600 text-white py-4 rounded-xl font-semibold text-base">
-                {{ t('preview.accessories') }}
+                Accessories
             </button>
             <button onclick="previewPickCategory('Screen')"
                     class="bg-purple-500 hover:bg-purple-600 text-white py-4 rounded-xl font-semibold text-base">
-                {{ t('preview.screens') }}
+                Screens
             </button>
         </div>
     </div>
@@ -220,15 +230,15 @@
 
             <button onclick="previewAddRow()"
                     class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm">
-                ➕ {{ t('preview.add_row') }}
+                ➕ Add Row
             </button>
             <button onclick="previewExportCSV()"
                     class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm">
-                📄 {{ t('preview.export_csv') }}
+                📄 Export CSV
             </button>
             <button onclick="previewOpenInExcel()"
                     class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm">
-                🖥 {{ t('preview.open_excel') }}
+                🖥 Open in Excel
             </button>
 
             <button onclick="pvToggleSheetRotate()" id="pvSheetRotateBtn"
@@ -243,12 +253,12 @@
                 <input type="checkbox" id="pvHideDeletedChk" class="h-3.5 w-3.5 accent-red-600" onchange="pvToggleHideDeleted(this.checked)">
                 <span>&#x1F5D1; Hide deleted</span>
             </label>
-            {% if current_user and (current_user.role == 'admin' or current_user.username|lower == 'oxbee') %}
-            <button onclick="previewSavePrompt()"
+            
+            <button id="pvSaveBtn" onclick="previewSavePrompt()"
                     class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold">
-                💾 {{ t('preview.save') }}
+                💾 Save
             </button>
-            {% endif %}
+            
         </div>
 
         <!-- Sheet -->
@@ -334,8 +344,8 @@
     </div>
 </div>
 
-        <div id="pvSheetWrapper" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="overflow-auto" style="max-height: 65vh;">
+        <div id="pvSheetWrapper" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden" style="display:flex; flex-direction:column; flex:1 1 auto; min-height:0;">
+            <div id="pvScrollContainer" class="overflow-auto" style="max-height:65vh; padding-bottom:50vh !important; -webkit-overflow-scrolling:touch;">
                 <table id="pvTable" class="min-w-full text-xs md:text-sm" style="border-collapse: collapse;">
                     <thead class="bg-gray-100 sticky top-0 z-10">
                         <tr id="pvColLetters" class="pv-letters-row"></tr>
@@ -364,22 +374,12 @@
             </div>
             <div id="pvRecentLegend" class="pt-2 border-t border-amber-300">
                 <div class="flex flex-wrap items-center gap-3 text-[11px] text-gray-600">
-                    <span class="flex items-center gap-1">
-                        <span style="display:inline-block;width:14px;height:14px;background:#fef9c3;border:1px solid #ca8a04;border-radius:3px;"></span>
-                        Added this session
-                    </span>
-                    <span class="flex items-center gap-1">
-                        <span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border:1px solid #16a34a;border-radius:3px;"></span>
-                        Added via import
-                    </span>
-                    <span class="flex items-center gap-1">
-                        <span style="display:inline-block;width:14px;height:14px;background:#e9d5ff;border:1px solid #9333ea;border-radius:3px;"></span>
-                        Updated via import
-                    </span>
-                    <span class="flex items-center gap-1">
-                        <span style="display:inline-block;width:14px;height:14px;background:#fee2e2;border:1px solid #ef4444;border-radius:3px;"></span>
-                        Not in DB anymore
-                    </span>
+                    <span class="flex items-center gap-1"><span style="display:inline-block;width:14px;height:14px;background:#fde68a;border:1px solid #ca8a04;border-radius:3px;"></span>Added this session</span>
+                    <span class="flex items-center gap-1"><span style="display:inline-block;width:14px;height:14px;background:#a7f3d0;border:1px solid #10b981;border-radius:3px;"></span>Added via Excel</span>
+                    <span class="flex items-center gap-1"><span style="display:inline-block;width:14px;height:14px;background:#fed7aa;border:1px solid #f97316;border-radius:3px;"></span>Updated via Excel</span>
+                    <span class="flex items-center gap-1"><span style="display:inline-block;width:14px;height:14px;background:#bfdbfe;border:1px solid #3b82f6;border-radius:3px;"></span>Added via Import</span>
+                    <span class="flex items-center gap-1"><span style="display:inline-block;width:14px;height:14px;background:#c4b5fd;border:1px solid #8b5cf6;border-radius:3px;"></span>Updated via Import</span>
+                    <span class="flex items-center gap-1"><span style="display:inline-block;width:14px;height:14px;background:#fca5a5;border:1px solid #ef4444;border-radius:3px;"></span>Not in DB anymore</span>
                 </div>
             </div>
         </div>
@@ -439,39 +439,39 @@
 <!-- ============ SAVE MODE MODAL ============ -->
 <div id="pvSaveModal" class="hidden flex items-center justify-center p-4" style="position:fixed !important; inset:0 !important; z-index:2147483646 !important; background:rgba(0,0,0,0.7) !important; isolation:isolate;">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5">
-        <h3 class="text-lg font-bold text-gray-800 mb-3">💾 {{ t('preview.save_mode_title') }}</h3>
-        <p class="text-sm text-gray-500 mb-4">{{ t('preview.save_mode_hint') }}</p>
+        <h3 class="text-lg font-bold text-gray-800 mb-3">💾 Save Mode</h3>
+        <p class="text-sm text-gray-500 mb-4">How should existing rows be handled?</p>
         <div class="space-y-2">
             <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
                 <input type="radio" name="pvSaveMode" value="replace" class="mt-1">
                 <div>
-                    <div class="font-semibold text-sm">🔄 {{ t('preview.mode_replace') }}</div>
-                    <div class="text-xs text-gray-500">{{ t('preview.mode_replace_desc') }}</div>
+                    <div class="font-semibold text-sm">🔄 Replace All</div>
+                    <div class="text-xs text-gray-500">Delete all and add new</div>
                 </div>
             </label>
             <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
                 <input type="radio" name="pvSaveMode" value="append" class="mt-1">
                 <div>
-                    <div class="font-semibold text-sm">➕ {{ t('preview.mode_append') }}</div>
-                    <div class="text-xs text-gray-500">{{ t('preview.mode_append_desc') }}</div>
+                    <div class="font-semibold text-sm">➕ Append</div>
+                    <div class="text-xs text-gray-500">Add new rows only</div>
                 </div>
             </label>
             <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
                 <input type="radio" name="pvSaveMode" value="merge" class="mt-1" checked>
                 <div>
-                    <div class="font-semibold text-sm">🔀 {{ t('preview.mode_merge') }}</div>
-                    <div class="text-xs text-gray-500">{{ t('preview.mode_merge_desc') }}</div>
+                    <div class="font-semibold text-sm">🔀 Merge</div>
+                    <div class="text-xs text-gray-500">Update existing, add new</div>
                 </div>
             </label>
         </div>
         <div class="flex justify-end gap-2 mt-5">
             <button onclick="previewCloseSaveModal()"
                     class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">
-                {{ t('preview.cancel') }}
+                Cancel
             </button>
             <button onclick="previewConfirmSave()"
                     class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
-                {{ t('preview.confirm_save') }}
+                Save
             </button>
         </div>
     </div>
@@ -480,10 +480,57 @@
 <script>
 (function() {
 'use strict';
+// PV_CAT_PATCHED
 window.__pvHideDebug = true;  // set false to silence filter debug logs
 console.log('[pv] build v3 (dom-scan fix) loaded');
 
 const $ = id => document.getElementById(id);
+
+// PV_TYPING_FIX_V4 — block Android back-gesture-on-empty-backspace
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Backspace' && e.keyCode !== 8) return;
+    var td = e.target && e.target.closest && e.target.closest('td[contenteditable="true"], [contenteditable="true"]');
+    if (!td) {
+        // Outside a contenteditable: also block to stop back-nav on empty inputs
+        var t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) {
+            if (!t.value || t.selectionStart === 0 && t.selectionEnd === 0) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }
+        return;
+    }
+    var text = (td.textContent || '').replace(/\u200B/g, '');
+    var atStart = false;
+    try {
+        var sel = window.getSelection();
+        if (sel && sel.rangeCount) {
+            var r = sel.getRangeAt(0);
+            atStart = r.collapsed && r.startOffset === 0;
+        }
+    } catch (_e) {}
+    // Empty cell or caret at position 0 with nothing to delete → block.
+    if (!text.length || atStart) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
+
+// PV_TYPING_FIX_V4 — global guard: Backspace outside any editable field
+// must never trigger the WebView's "back" navigation.
+window.addEventListener('keydown', function(e) {
+    if (e.key !== 'Backspace' && e.keyCode !== 8) return;
+    var t = e.target;
+    if (!t) { e.preventDefault(); return; }
+    var tag = (t.tagName || '').toUpperCase();
+    var editable = t.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA';
+    if (!editable) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
+
 let PV = {
     kind: null, category: null, columns: [], rows: [],
     originalIds: new Set(),
@@ -551,6 +598,20 @@ let PV = {
 })();
 
 // ---- UI flow ----------------------------------------------------------
+// ── Category label resolver: maps raw 'Accessory'/'Screen' → admin label ──
+var PV_LABELS = {
+  accessory: "Accessories",
+  screen:    "Screens"
+};
+function pvLabel(cat) {
+  if (!cat) return cat;
+  var lc = String(cat).toLowerCase();
+  if (lc === 'accessory' || lc === 'accessories') return PV_LABELS.accessory;
+  if (lc === 'screen'    || lc === 'screens')    return PV_LABELS.screen;
+  return cat;
+}
+window.pvLabel = pvLabel;
+
 window.previewPickKind = function(kind) {
     PV.kind = kind;
     $('pvStep1').classList.add('hidden');
@@ -564,7 +625,9 @@ window.previewPickCategory = function(category) {
     previewLoad();
 };
 window.previewBackToMenu = function() {
-    PV = { kind: null, category: null, columns: [], rows: [] };
+    PV.kind = null; PV.category = null; PV.columns = []; PV.rows = [];
+    PV.originalIds = new Set(); PV.originalRows = [];
+    PV.recentIds = new Set(); PV.deletedIds = new Set(); PV.dirtyIds = new Set();
     $('pvStep1').classList.remove('hidden');
     $('pvStep2').classList.add('hidden');
     $('pvStep3').classList.add('hidden');
@@ -574,10 +637,10 @@ window.previewBackToMenu = function() {
 
 // ---- Load rows --------------------------------------------------------
 async function previewLoad() {
-    $('pvBody').innerHTML = '<tr><td colspan="20" class="text-center py-6 text-gray-400">{{ t("preview.loading") }}</td></tr>';
+    $('pvBody').innerHTML = '<tr><td colspan="20" class="text-center py-6 text-gray-400">Loading…</td></tr>';
     try {
         const _inc = (PV.kind === 'purchases') ? '?include_deleted=1' : '';
-        const res = await fetch(`/api/preview/${PV.kind}/${PV.category}${_inc}`);
+        const res = await fetch((window.RENDER_URL||'')+`/api/preview/${PV.kind}/${PV.category}${_inc}`);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Load failed');
         PV.columns = data.columns;
@@ -614,12 +677,12 @@ async function previewLoad() {
         });
         previewRenderHead();
         previewRenderBody();
-        $('pvTitle').textContent = (PV.kind === 'purchases' ? '📦' : '💰') + ' ' + PV.category;
+        $('pvTitle').textContent = (PV.kind === 'purchases' ? '📦' : '💰') + ' ' + pvLabel(PV.category);
         $('pvCount').textContent = `${PV.rows.length} rows`;
         $('pvStatus').textContent = '';
         // Load auto-suggest data (best-effort)
         try {
-            const sres = await fetch(`/api/preview/suggestions/${PV.category}`);
+            const sres = await fetch((window.RENDER_URL||'')+`/api/preview/suggestions/${PV.category}`);
             const sdata = await sres.json();
             if (sdata.success) {
                 PV.suggestions = { products: sdata.products || [], categories: sdata.categories || [] };
@@ -814,12 +877,18 @@ function previewRenderBody() {
             const categoryIsEditable =
                 isCategory && PV.category === 'Accessory';
 
+            // Category: show label, carry raw value in data-raw-cat
+            const _dispVal = isCategory ? pvLabel(val) : val;
+            const _rawCatAttr = (isCategory && val)
+                ? ` data-raw-cat="${escapeHtml(String(val))}"`
+                : '';
+
             // ARCHIVED ROW: hard-lock every cell — no contenteditable, no inputs
             if (_isArchived) {
-                return `<td data-key="${c.key}" data-type="${c.type}"
+                return `<td data-key="${c.key}" data-type="${c.type}"${_rawCatAttr}
                         contenteditable="false"
                         class="px-3 py-1.5 border-b text-red-900 whitespace-nowrap select-none"
-                        style="pointer-events:none !important; user-select:none;">${escapeHtml(String(val))}</td>`;
+                        style="pointer-events:none !important; user-select:none;">${escapeHtml(String(_dispVal))}</td>`;
             }
 
             if (isDate) {
@@ -836,8 +905,8 @@ function previewRenderBody() {
             const cls = (c.editable || categoryIsEditable)
                 ? 'px-3 py-1.5 border-b text-gray-800'
                 : 'px-3 py-1.5 border-b text-gray-500 bg-gray-50';
-            return `<td data-key="${c.key}" data-type="${c.type}" ${edit}
-                    class="${cls} whitespace-nowrap focus:outline-none focus:bg-amber-50">${escapeHtml(String(val))}</td>`;
+            return `<td data-key="${c.key}" data-type="${c.type}" ${edit}${_rawCatAttr}
+                    class="${cls} whitespace-nowrap focus:outline-none focus:bg-amber-50">${escapeHtml(String(_dispVal))}</td>`;
         }).join('');
         const _action = String(r.action || '').toLowerCase();
         let rowCls = '';
@@ -846,8 +915,12 @@ function previewRenderBody() {
         } else if (isNew) {
             rowCls = 'pv-row-new';
         } else if (_action === 'added_from_excel') {
-            rowCls = 'pv-row-import-added';
+            rowCls = 'pv-row-excel-added';
         } else if (_action === 'updated_from_excel') {
+            rowCls = 'pv-row-excel-updated';
+        } else if (_action === 'added_from_import') {
+            rowCls = 'pv-row-import-added';
+        } else if (_action === 'updated_from_import') {
             rowCls = 'pv-row-import-updated';
         }
         return `${divider}<tr data-row="${i}" class="${rowCls}">
@@ -875,7 +948,7 @@ window.previewDeleteRow = async function(i) {
     var isNew = !!r.__tempId || bid == null || bid === '' || bid === 0;
 
     if (isNew) {
-        if (!confirm('{{ t("preview.confirm_delete_row") }}')) return;
+        if (!confirm('Delete this row?')) return;
         PV.rows.splice(i, 1);
         previewRenderBody();
         try { $('pvCount').textContent = PV.rows.length + ' rows'; } catch (e) {}
@@ -896,7 +969,7 @@ window.previewDeleteRow = async function(i) {
     if (status) status.textContent = 'Archiving batch #' + bid + '\u2026';
 
     try {
-        var res = await fetch('/api/batches/' + encodeURIComponent(bid) + '?type=keep', {
+        var res = await fetch((window.RENDER_URL||'')+'/api/batches/' + encodeURIComponent(bid) + '?type=keep', {
             method: 'DELETE',
             credentials: 'include'
         });
@@ -941,7 +1014,7 @@ window.previewRestoreRow = async function(i) {
             var aid = r._archiveId;
             if (!aid) {
                 // Fallback: find it in the archive
-                var listRes = await fetch('/api/archive?status=ALL&page=1&per_page=500&search=', { credentials: 'include' });
+                var listRes = await fetch((window.RENDER_URL||'')+'/api/archive?status=ALL&page=1&per_page=500&search=', { credentials: 'include' });
                 var listData = await listRes.json();
                 var match = (listData.items || []).find(function(x) {
                     return String(x.batch_id) === String(r.batch_id);
@@ -949,7 +1022,7 @@ window.previewRestoreRow = async function(i) {
                 if (!match) throw new Error('Archive entry for batch #' + r.batch_id + ' not found');
                 aid = match.id;
             }
-            var res = await fetch('/api/archive/restore', {
+            var res = await fetch((window.RENDER_URL||'')+'/api/archive/restore', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -990,7 +1063,7 @@ window.previewRestoreRow = async function(i) {
 window.previewAddRow = function() {
     const blank = {};
     PV.columns.forEach(c => { blank[c.key] = c.type === 'int' || c.type === 'float' ? 0 : ''; });
-    blank.category = (PV.category === 'Screen') ? 'Screen' : '';
+    blank.category = (PV.category === 'Screen') ? 'Screen' : 'Accessory';
     // Pre-fill Sold By with the current user (server ignores client value
     // and uses the authenticated session user — this is just a UI hint).
     try {
@@ -1042,8 +1115,17 @@ function collectRows() {
                 return;
             }
             let v = td.textContent.trim();
-            if (type === 'int') v = parseInt(v) || 0;
-            else if (type === 'float') v = parseFloat(v) || 0;
+            if (key === 'category') {
+                var _rawAttr = td.getAttribute('data-raw-cat');
+                if (!v) {
+                    v = _rawAttr || 'Accessory';
+                } else if (_rawAttr && v === pvLabel(_rawAttr)) {
+                    v = _rawAttr;
+                }
+            } else {
+                if (type === 'int') v = parseInt(v) || 0;
+                else if (type === 'float') v = parseFloat(v) || 0;
+            }
             obj[key] = v;
         });
         out.push(obj);
@@ -1052,15 +1134,32 @@ function collectRows() {
 }
 
 // ---- CSV / Excel ------------------------------------------------------
-window.previewExportCSV = function() {
+window.previewExportCSV = async function() {
     if (!PV.kind || !PV.category) return;
-    window.location.href = `/api/preview/${PV.kind}/${PV.category}/export.csv`;
+    var url = (window.RENDER_URL || '') + '/api/preview/' + PV.kind + '/' + PV.category + '/export.csv';
+    try {
+        var token = localStorage.getItem('ox_api_token');
+        var headers = {};
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        var res = await fetch(url, { headers: headers, credentials: 'include' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var blob = await res.blob();
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = PV.kind + '_' + PV.category + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
+    } catch (e) {
+        alert('Export failed: ' + e.message);
+    }
 };
 
 window.previewOpenInExcel = function() {
     // Same as CSV download — the OS will offer to open in Excel / Sheets
     previewExportCSV();
-    $('pvStatus').textContent = '{{ t("preview.excel_hint") }}';
+    $('pvStatus').textContent = 'Opening in Excel…';
 };
 
 // ---- Save -------------------------------------------------------------
@@ -1085,7 +1184,7 @@ async function _pvHasPriceOrIdentityChange(rows) {
     var orig = PV.originalRows || [];
     if (!orig.length) {
         try {
-            var res = await fetch('/api/preview/' + PV.kind + '/' + PV.category);
+            var res = await fetch((window.RENDER_URL||'')+'/api/preview/' + PV.kind + '/' + PV.category);
             var data = await res.json();
             if (data && data.success) {
                 orig = data.rows || [];
@@ -1137,7 +1236,7 @@ async function _pvDoSave(rows, mode, updateMode) {
     var status = document.getElementById('pvStatus');
     if (status) status.textContent = 'Saving…';
     try {
-        var res = await fetch('/api/preview/' + PV.kind + '/' + PV.category, {
+        var res = await fetch((window.RENDER_URL||'')+'/api/preview/' + PV.kind + '/' + PV.category, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -1170,6 +1269,11 @@ async function _pvDoSave(rows, mode, updateMode) {
         var data = await res.json();
         if (!data.success) throw new Error(data.error || 'Save failed');
         var s = data.stats || {};
+
+        // PV_SAVE_DUPLICATE_FIX_V1 — track new ids so they highlight yellow after reload
+        (s.inserted_ids || []).forEach(function(id) { PV.recentIds.add(String(id)); });
+        (s.updated_ids  || []).forEach(function(id) { PV.recentIds.add(String(id)); });
+
         if (status) status.innerHTML = '✅ Saved — inserted:' + (s.inserted||0) +
             ' updated:' + (s.updated||0) +
             (s.errors && s.errors.length ? ' — ' + s.errors.length + ' warnings' : '');
@@ -1212,6 +1316,7 @@ function escapeHtml(s) {
 // ============================================================
 //  AUTO-SUGGEST for name / brand / category cells
 // ============================================================
+// PV_TYPING_FIX_V5 — removed scroll/resize suggest reposition (Android IME caret scramble)
 function pvHideSuggest() {
     const box = document.getElementById('pvSuggestBox');
     if (box) box.classList.add('hidden');
@@ -1222,9 +1327,28 @@ function pvPositionSuggest(td) {
     const box = document.getElementById('pvSuggestBox');
     if (!box || !td) return;
     const r = td.getBoundingClientRect();
-    box.style.left = Math.max(8, r.left) + 'px';
-    box.style.top = (r.bottom + 4) + 'px';
-    box.style.width = Math.max(240, Math.min(400, r.width + 120)) + 'px';
+    const boxW = Math.max(240, Math.min(400, r.width + 120));
+    const maxH = 240;
+    const vv = window.visualViewport;
+    const vpW = vv ? vv.width  : window.innerWidth;
+    const vpH = vv ? vv.height : window.innerHeight;
+    const vpOffsetTop  = vv ? vv.offsetTop  : 0;
+    const vpOffsetLeft = vv ? vv.offsetLeft : 0;
+    let left = r.left - vpOffsetLeft;
+    let top  = r.bottom - vpOffsetTop + 4;
+    if (left + boxW > vpW - 8) left = vpW - boxW - 8;
+    if (left < 8) left = 8;
+    const spaceBelow = vpH - (r.bottom - vpOffsetTop);
+    if (spaceBelow < maxH) {
+        const aboveTop = (r.top - vpOffsetTop) - maxH - 4;
+        if (aboveTop >= 8) top = aboveTop;
+        else top = Math.max(8, vpH - maxH - 8);
+    }
+    box.style.left  = left + 'px';
+    box.style.top   = top  + 'px';
+    box.style.width = boxW + 'px';
+    box.style.position = 'fixed';
+    box.style.zIndex   = '2147483647';
 }
 
 function pvRenderSuggest(items, onPick) {
@@ -1248,8 +1372,31 @@ function pvRenderSuggest(items, onPick) {
     window.__pvSuggestItems = items;
 }
 
+// Focus: if a category cell is showing the label, select all so typing replaces it
+document.addEventListener('focusin', function(e) {
+    var td = e.target.closest && e.target.closest('td[data-key="category"][contenteditable="true"]');
+    if (!td) return;
+    var raw = td.getAttribute('data-raw-cat');
+    if (!raw) return;
+    var shown = (td.textContent || '').trim();
+    if (shown === pvLabel(raw)) {
+        try {
+            var range = document.createRange();
+            range.selectNodeContents(td);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        } catch (err) {}
+    }
+});
+
+// PV_TYPING_FIX_V2 — caret snapshot + debounced suggestions
+var _pvSuggestTimer = null;
+var _pvCaretSnapshot = null;
 // Attach input handler on contenteditable cells
 document.addEventListener('input', function(e) {
+    // PV_TYPING_FIX_V2 — snapshot caret for safe DOM updates
+    try { var _sel = window.getSelection(); if (_sel && _sel.rangeCount) { var _r = _sel.getRangeAt(0); _pvCaretSnapshot = { s: _r.startOffset, e: _r.endOffset, node: _r.startContainer }; } } catch (_e) {}
     const td = e.target.closest && e.target.closest('td[data-key][contenteditable="true"]');
     if (!td) return;
     try {
@@ -1264,11 +1411,17 @@ document.addEventListener('input', function(e) {
     } catch (e) {}
     const key = td.dataset.key;
     const typed = (td.textContent || '').trim().toLowerCase();
+    var tr = td.closest('tr'); /* PV_SUGGEST_FIX_V7 */
+    // PV_TYPING_FOCUS_FIX: Save to memory immediately, DO NOT touch the DOM
+    if (tr) {
+        const rowIdx = parseInt(tr.dataset.row, 10);
+        if (!isNaN(rowIdx) && PV.rows[rowIdx]) {
+            PV.rows[rowIdx][td.dataset.key] = td.textContent;
+        }
+    }
     if (!['name', 'brand', 'category', 'item_id'].includes(key)) { pvHideSuggest(); return; }
 
-    // Find the row index from the tr
-    const tr = td.closest('tr');
-    const rowIdx = tr ? parseInt(tr.dataset.row, 10) : -1;
+    
     // Read sibling name/brand for context
     let rowName = '', rowBrand = '';
     if (tr) {
@@ -1310,9 +1463,18 @@ document.addEventListener('input', function(e) {
         items = matches.map(p => ({ main: p.brand || '—', sub: p.name, payload: p }));
         onPick = (it) => { td.textContent = it.payload.brand || ''; };
     } else if (key === 'category') {
-        const matches = cats.filter(c => !typed || c.toLowerCase().includes(typed)).slice(0, 100);
-        items = matches.map(c => ({ main: c, sub: '' }));
-        onPick = (it) => { td.textContent = it.main; };
+        // If the cell is still showing its own label, treat as empty filter
+        var _rawAttr = td.getAttribute('data-raw-cat');
+        var _effectiveTyped = typed;
+        if (_rawAttr && typed === pvLabel(_rawAttr).toLowerCase()) {
+            _effectiveTyped = '';
+        }
+        const matches = cats.filter(c => !_effectiveTyped || c.toLowerCase().includes(_effectiveTyped)).slice(0, 100);
+        items = matches.map(c => ({ main: pvLabel(c), sub: '', raw: c }));
+        onPick = (it) => {
+            td.textContent = it.main;
+            if (it.raw) td.setAttribute('data-raw-cat', it.raw);
+        };
 
     } else if (key === 'item_id') {
         // Filter by product ID prefix; if empty, show all products
@@ -1358,8 +1520,15 @@ document.addEventListener('input', function(e) {
 
     if (items.length === 0) { pvHideSuggest(); return; }
     PV.suggestCell = td;
-    pvPositionSuggest(td);
-    pvRenderSuggest(items, onPick);
+    // PV_TYPING_FIX_V4 — nothing touches the DOM during typing.
+    // pvPositionSuggest used to run per keystroke; on Android WebView
+    // that resets the IME composition buffer → letters scramble. Move
+    // it inside the debounce, then render.
+    clearTimeout(_pvSuggestTimer);
+    _pvSuggestTimer = setTimeout(function() {
+        try { pvPositionSuggest(td); } catch (_e) {}
+        pvRenderSuggest(items, onPick);
+    }, 250);
 });
 
 // Auto-fill from a manually typed item_id (on blur/change)
@@ -1414,9 +1583,6 @@ document.addEventListener('mousedown', function(e) {
     pvHideSuggest();
 });
 
-// Reposition on scroll/resize
-window.addEventListener('scroll', () => { if (PV.suggestCell) pvPositionSuggest(PV.suggestCell); }, true);
-window.addEventListener('resize', () => { if (PV.suggestCell) pvPositionSuggest(PV.suggestCell); });
 
 // ============================================================
 //  RECENT BAR + MODAL
@@ -1885,45 +2051,20 @@ function _pvUpdateSheetRotateBtn(isFs) {
 // ============================================================
 //  SAVE — track newly returned IDs as recent
 // ============================================================
-const _origConfirmSave = window.previewConfirmSave;
-window.previewConfirmSave = async function() {
-    // Call the original — but we re-implement here to intercept stats
-    const mode = document.querySelector('input[name="pvSaveMode"]:checked').value;
-    const rows = collectRows();
-    $('pvStatus').textContent = 'Saving…';
-    try {
-        const res = await fetch(`/api/preview/${PV.kind}/${PV.category}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                rows, mode,
-                deleted_ids: Array.from(PV.deletedIds),
-                dirty_ids:   Array.from(PV.dirtyIds)
-            })
-        });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'Save failed');
-        const s = data.stats || {};
-
-        // Mark newly inserted/updated ids as recent so they highlight after reload
-        (s.inserted_ids || []).forEach(id => PV.recentIds.add(String(id)));
-        (s.updated_ids  || []).forEach(id => PV.recentIds.add(String(id)));
-
-        $('pvStatus').innerHTML = `✅ Saved — ` +
-            `inserted:${s.inserted||0} updated:${s.updated||0}` +
-            (s.errors && s.errors.length ? ` — ${s.errors.length} warnings` : '');
-        previewCloseSaveModal();
-        PV.deletedIds.clear();
-        PV.dirtyIds.clear();
-        await previewLoad();
-        pvRenderRecentBar();
-    } catch (e) {
-        $('pvStatus').innerHTML = `<span class="text-red-600">❌ ${e.message}</span>`;
-        previewCloseSaveModal();
-    }
-};
-
 })();
+
+
+
+
 </script>
-{% endblock %}
+
+<script>
+// PV_KEYBOARD_SCROLL_FIX_V2: Scroll the focused cell above the keyboard
+document.addEventListener('focusin', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+        setTimeout(function() {
+            e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }, 300); // Wait for keyboard to open
+    }
+});
+</script>

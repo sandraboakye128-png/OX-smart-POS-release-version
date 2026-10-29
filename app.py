@@ -189,7 +189,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "temporary-dev-key")
 
 # ✅ App version / environment — exposed to templates + /settings page
-app.config['APP_VERSION'] = '10.4'  # v10.3 — Gemini AI backend
+app.config['APP_VERSION'] = '10.5.1'  # v10.5.1 — Phases 1-5 release
 
 # ============================================================
 #  GEMINI AI CLIENT
@@ -6063,6 +6063,83 @@ def api_clear_notifications():
 
 
 # ===================== PING =====================
+@app.route('/api/sync/broadcast', methods=['POST'])
+@login_required
+def api_sync_broadcast():
+    """PHASE5 — when a shell user pushes changes, notify OTHER online users
+    so they can refresh their view. Broadcast (user_id=NULL) + deduped per
+    actor within 10 minutes to avoid notification spam."""
+    from datetime import datetime as _dt, timezone as _tz
+    try:
+        data = request.json or {}
+        summary = str(data.get('summary') or '').strip()
+        action_count = int(data.get('action_count') or 0)
+        if not summary or action_count <= 0:
+            return jsonify({'success': True, 'skipped': 'no_changes'})
+
+        actor = session.get('username') or 'a user'
+        title = '\U0001F504 New data from @' + actor
+        message = summary + ' \u2014 tap Sync Now to refresh your view.'
+
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Dedupe: any existing un-dismissed broadcast from this actor
+        # within the last 10 minutes gets updated instead of duplicated.
+        existing_id = None
+        try:
+            cur.execute("""
+                SELECT id, created_at FROM notifications
+                WHERE kind = 'sync_broadcast'
+                  AND user_id IS NULL
+                  AND dismissed_at IS NULL
+                ORDER BY created_at DESC
+                LIMIT 1
+            """)
+            row = cur.fetchone()
+            if row:
+                created_at = row[1]
+                # Python-side age comparison so it works on both PG & SQLite
+                age_seconds = 99999
+                try:
+                    if hasattr(created_at, 'timestamp') or hasattr(created_at, 'tzinfo'):
+                        now = _dt.now(_tz.utc)
+                        ca = created_at if created_at.tzinfo else created_at.replace(tzinfo=_tz.utc)
+                        age_seconds = (now - ca).total_seconds()
+                    else:
+                        from datetime import datetime as _dt2
+                        ca = _dt2.fromisoformat(str(created_at))
+                        if ca.tzinfo is None:
+                            ca = ca.replace(tzinfo=_tz.utc)
+                        age_seconds = (_dt.now(_tz.utc) - ca).total_seconds()
+                except Exception:
+                    age_seconds = 99999
+                if age_seconds < 600:
+                    existing_id = row[0]
+        except Exception:
+            pass
+
+        if existing_id:
+            cur.execute("""
+                UPDATE notifications
+                SET title = %s, message = %s, created_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (title, message, existing_id))
+        else:
+            cur.execute("""
+                INSERT INTO notifications (user_id, kind, title, message, meta)
+                VALUES (NULL, 'sync_broadcast', %s, %s, %s)
+            """, (title, message, json.dumps({
+                'actor': actor, 'summary': summary, 'count': action_count
+            })))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'deduped': bool(existing_id)})
+    except Exception as e:
+        print(f'[sync_broadcast] {e}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/ping', methods=['GET'])
 def ping():
     return jsonify({"status": "ok", "message": "Deployed version is current"})
@@ -6071,6 +6148,66 @@ def ping():
 
 
 # ===================== AI CHAT (GEMINI) =====================
+def _build_inventory_context_block(ctx):
+    """PHASE4 — compact inventory snapshot for the Gemini prompt."""
+    if not ctx:
+        return ''
+    lines = []
+
+    summary = ctx.get('summary') or {}
+    if summary:
+        lines.append('== LIVE SYSTEM SNAPSHOT ==')
+        lines.append('Total products: ' + str(summary.get('total_products', 0)))
+        lines.append('Total batches: ' + str(summary.get('total_batches', 0)))
+        lines.append('Sales (non-reversed): ' + str(summary.get('total_sales', 0)))
+        try:
+            lines.append('Total revenue: GHS ' + format(float(summary.get('total_revenue', 0)), '.2f'))
+            lines.append('Total profit: GHS ' + format(float(summary.get('total_profit', 0)), '.2f'))
+        except Exception:
+            pass
+
+    products = ctx.get('products') or []
+    if products:
+        lines.append('')
+        lines.append('== INVENTORY (showing ' + str(len(products)) + ' products) ==')
+        for p in products:
+            try:
+                lines.append(
+                    '- ' + str(p.get('name','?')) +
+                    ' (brand: ' + str(p.get('brand','?')) +
+                    ', cat: ' + str(p.get('category','?')) + '): ' +
+                    'stock=' + str(p.get('stock',0)) +
+                    ', selling_price=' + format(float(p.get('selling_price',0)), '.2f') +
+                    ', cost_price=' + format(float(p.get('cost_price',0)), '.2f')
+                )
+            except Exception:
+                pass
+
+    batch_aggs = ctx.get('batch_aggregates') or []
+    if batch_aggs:
+        lines.append('')
+        lines.append('== BATCH AGGREGATES (' + str(len(batch_aggs)) + ' products) ==')
+        prod_by_id = {str(p.get('id')): p for p in products}
+        for ba in batch_aggs:
+            pid = str(ba.get('product_id'))
+            p = prod_by_id.get(pid)
+            name = p.get('name','?') if p else ('#' + pid)
+            lines.append(
+                '- ' + name + ': ' + str(ba.get('batch_count',0)) + ' batches, ' +
+                'remaining=' + str(ba.get('total_remaining',0)) + ', ' +
+                'claimed=' + str(ba.get('total_claimed',0))
+            )
+
+    top_sellers = ctx.get('top_sellers') or []
+    if top_sellers:
+        lines.append('')
+        lines.append('== TOP SELLERS ==')
+        for i, ts in enumerate(top_sellers, 1):
+            lines.append(str(i) + '. ' + str(ts.get('name','?')) + ': ' + str(ts.get('qty',0)) + ' units')
+
+    return '\n'.join(lines)
+
+
 @app.route('/api/ai/chat', methods=['POST'])
 def ai_chat():
     """
@@ -6092,6 +6229,9 @@ def ai_chat():
                 "success": False,
                 "reply": "Please type a message."
             }), 400
+
+        # PHASE4 — client-supplied inventory snapshot for precise answers
+        inventory_context = data.get('context') or {}
 
         # ── System prompt: teaches the AI how to behave inside OX Smart ──
                 # ── System prompt: teaches the AI how to behave inside OX Smart ──
@@ -6117,6 +6257,21 @@ def ai_chat():
             "If the user explicitly asks to go to a page, output [NAVIGATE:page_name] on its own line.\n"
             "Valid pages: dashboard, products, sales, purchases, claims, settings, today-sales, analytics, archive, activities, logs, admin/users."
         )
+
+        # PHASE4 — append live inventory snapshot if provided
+        _ctx_block = _build_inventory_context_block(inventory_context)
+        if _ctx_block:
+            system_prompt = (
+                system_prompt
+                + "\n\n" + _ctx_block
+                + "\n\nIMPORTANT: The LIVE SYSTEM SNAPSHOT above reflects "
+                "the user's ACTUAL inventory and sales data right now. "
+                "When they ask 'how many products/batches/sales do I have', "
+                "'what is my top seller', 'what is the price of X', or any "
+                "data question — answer DIRECTLY from this snapshot with exact "
+                "numbers. DO NOT invent figures. DO NOT say 'check your dashboard'. "
+                "If the question involves data not in the snapshot, say so clearly."
+            )
 
         full_prompt = f"{system_prompt}\n\nUser: {user_message}\nAssistant:"
 

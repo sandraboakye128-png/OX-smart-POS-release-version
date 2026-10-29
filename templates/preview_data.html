@@ -625,7 +625,9 @@ window.previewPickCategory = function(category) {
     previewLoad();
 };
 window.previewBackToMenu = function() {
-    PV = { kind: null, category: null, columns: [], rows: [] };
+    PV.kind = null; PV.category = null; PV.columns = []; PV.rows = [];
+    PV.originalIds = new Set(); PV.originalRows = [];
+    PV.recentIds = new Set(); PV.deletedIds = new Set(); PV.dirtyIds = new Set();
     $('pvStep1').classList.remove('hidden');
     $('pvStep2').classList.add('hidden');
     $('pvStep3').classList.add('hidden');
@@ -2037,6 +2039,8 @@ function _pvUpdateSheetRotateBtn(isFs) {
 
 
 
+</script>
+
 <script>
 // PV_KEYBOARD_SCROLL_FIX_V2: Scroll the focused cell above the keyboard
 document.addEventListener('focusin', function(e) {
@@ -2046,7 +2050,5 @@ document.addEventListener('focusin', function(e) {
         }, 300); // Wait for keyboard to open
     }
 });
-</script>
-
 </script>
 {% endblock %}

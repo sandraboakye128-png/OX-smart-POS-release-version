@@ -87,7 +87,7 @@
 
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=100')
+            navigator.serviceWorker.register('/sw.js?v=106')
                 .then(() => console.log('✅ Service Worker registered (v100)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
@@ -811,6 +811,53 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
             if (h < 24) return h + 'h ago';
             return Math.floor(h / 24) + 'd ago';
         }
+        var _lastHeadsUpAt = 0;
+        function showHeadsUp(id, type, title, message) {
+            // PHASE5 — phone-style slide-down heads-up. Rate-limited to
+            // max 1 per 2.5 s so bursts don't stack. Skips interim
+            // 'progress' states (they'd be noisy).
+            if (type === 'progress') return;
+            var now = Date.now();
+            if (now - _lastHeadsUpAt < 2500) return;
+            _lastHeadsUpAt = now;
+
+            var container = document.getElementById('ox-heads-up-container');
+            if (!container) return;
+
+            var existing = document.getElementById('hu-' + id);
+            if (existing) existing.remove();
+
+            var el = document.createElement('div');
+            el.className = 'ox-heads-up';
+            el.id = 'hu-' + id;
+
+            var icon = '\u2139\uFE0F';
+            if (type === 'success') icon = '\u2705';
+            if (type === 'warning') icon = '\u26A0\uFE0F';
+            if (type === 'error')   icon = '\u274C';
+
+            el.innerHTML =
+                '<div class="hu-icon">' + icon + '</div>' +
+                '<div class="hu-content">' +
+                    '<div class="hu-title">' + _esc(title) + '</div>' +
+                    '<div class="hu-msg">' + _esc(message) + '</div>' +
+                '</div>';
+
+            el.onclick = function() {
+                el.classList.add('dismissing');
+                setTimeout(function() { el.remove(); }, 300);
+                try { if (typeof toggleNotifications === 'function') toggleNotifications(); } catch (e) {}
+            };
+
+            container.appendChild(el);
+            setTimeout(function() {
+                if (el.parentNode) {
+                    el.classList.add('dismissing');
+                    setTimeout(function() { el.remove(); }, 300);
+                }
+            }, 4000);
+        }
+
         function _renderBadge() {
             const badge = document.getElementById('notifBadge');
             const countEl = document.getElementById('notifCount');
@@ -849,6 +896,7 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
             items.unshift(notif);
             ringBell();
             _refresh(); _save();
+            try { showHeadsUp(notif.id, type, title, message); } catch (e) {}
             if (!persistent && duration > 0 && type !== 'progress') notif._timer = setTimeout(() => remove(notif.id), duration);
             return notif.id;
         }
@@ -859,6 +907,11 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
             Object.assign(n, patch || {});
             n.timestamp = Date.now();
             _refresh(); _save();
+            try {
+                if (patch && (patch.type || patch.title || patch.message)) {
+                    showHeadsUp(id, patch.type || n.type, patch.title || n.title, patch.message || n.message);
+                }
+            } catch (e) {}
         }
         function remove(id) {
             const idx = items.findIndex(i => i.id === id);
@@ -1167,7 +1220,7 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
 (function () {
   'use strict';
   var PREFIX = 'srv_';
-  var KIND_TYPE = { purchase_added:'success', batch_updated:'warning', batch_archived:'warning', batch_restored:'success', sale_completed:'success', sale_reversed:'warning', sale_imported:'info', preview_save:'info', inventory_import:'info', product_added:'success', claim_created:'warning', claim_resolved:'success', user_created:'info', user_deleted:'warning', role_changed:'info', login_failed:'warning' };
+  var KIND_TYPE = { purchase_added:'success', batch_updated:'warning', batch_archived:'warning', batch_restored:'success', sale_completed:'success', sale_reversed:'warning', sale_imported:'info', preview_save:'info', inventory_import:'info', product_added:'success', claim_created:'warning', claim_resolved:'success', user_created:'info', user_deleted:'warning', role_changed:'info', login_failed:'warning', sync_broadcast:'warning' };
   function _N() { return window.Notifications; }
   var NOTIF_REFRESH_MS = 30000;
   var _lastNotifAt = 0;
@@ -1378,7 +1431,15 @@ window.OX_LOGOUT_CLEAR = function() {
     if (a.href === window.location.href) return;
     window.oxShowOpening();
   }, true);
-  document.addEventListener('submit', function(e) { window.oxShowOpening(); }, true);
+  document.addEventListener('submit', function(e) {
+    // PHASE2 — login.html has its own 3-stage splash (Signing you in
+    // → Clearing old data → Loading your workspace). Firing the
+    // "Opening… Please wait" toast on top of that is redundant and
+    // visually conflicting. Skip only for the login form.
+    var f = e.target;
+    if (f && f.id === 'loginForm') return;
+    window.oxShowOpening();
+  }, true);
   window.addEventListener('pageshow', window.oxHideOpening);
 })();
 </script>
@@ -1508,15 +1569,107 @@ function calcPress(val) {
 window.calcPress = calcPress;
 
 // --- SMART AI ENGINE (PHASE 2) ---
+async function _buildAIContext() {
+    if (typeof db === 'undefined' || !db) return null;
+    try {
+        const [products, batches, sales, sales_items] = await Promise.all([
+            db.products.toArray().catch(() => []),
+            db.batches.toArray().catch(() => []),
+            db.sales.toArray().catch(() => []),
+            db.sales_items.toArray().catch(() => [])
+        ]);
+
+        const activeSales = sales.filter(s => !s.reversed);
+        const totalRevenue = activeSales.reduce((sum, s) => sum + parseFloat(s.total || 0), 0);
+        const totalProfit = activeSales.reduce((sum, s) => sum + parseFloat(s.profit || 0), 0);
+
+        const slimProducts = products.slice(0, 200).map(p => ({
+            id: p.id, name: p.name, brand: p.brand || '',
+            category: p.category || '', stock: p.stock || 0,
+            selling_price: parseFloat(p.selling_price || 0),
+            cost_price: parseFloat(p.cost_price || 0)
+        }));
+
+        const batchMap = {};
+        batches.forEach(b => {
+            const pid = b.product_id;
+            if (!pid) return;
+            if (!batchMap[pid]) batchMap[pid] = { count: 0, remaining: 0, claimed: 0 };
+            batchMap[pid].count++;
+            batchMap[pid].remaining += parseInt(b.remaining_quantity || 0, 10);
+            batchMap[pid].claimed += parseInt(b.claimed_quantity || 0, 10);
+        });
+        const batchAggregates = Object.entries(batchMap).map(([pid, s]) => ({
+            product_id: parseInt(pid, 10),
+            batch_count: s.count,
+            total_remaining: s.remaining,
+            total_claimed: s.claimed
+        }));
+
+        const qtyByProduct = {};
+        sales_items.forEach(si => {
+            const pid = si.product_id;
+            if (!pid) return;
+            qtyByProduct[pid] = (qtyByProduct[pid] || 0) + parseInt(si.quantity || 0, 10);
+        });
+        const topSellers = Object.entries(qtyByProduct)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([pid, qty]) => {
+                const p = products.find(x => String(x.id) === String(pid));
+                return { name: p ? p.name : ('#' + pid), qty };
+            });
+
+        return {
+            summary: {
+                total_products: products.length,
+                total_batches: batches.length,
+                total_sales: activeSales.length,
+                total_revenue: totalRevenue,
+                total_profit: totalProfit
+            },
+            products: slimProducts,
+            batch_aggregates: batchAggregates,
+            top_sellers: topSellers
+        };
+    } catch (e) {
+        console.warn('[ai] buildAIContext failed:', e);
+        return null;
+    }
+}
+
+function _aiHistoryKey() {
+    try {
+        var u = JSON.parse(localStorage.getItem('ox_shell_user') || 'null');
+        if (!u) u = JSON.parse(localStorage.getItem('ox_user') || 'null');
+        if (u && u.id != null) return 'ox_ai_history_u' + String(u.id);
+        if (u && u.username) return 'ox_ai_history_' + String(u.username).toLowerCase();
+    } catch (e) {}
+    return 'ox_ai_history_anon';
+}
+function _aiAdviceKey() {
+    return _aiHistoryKey().replace('ox_ai_history', 'ox_ai_advice');
+}
+window.__aiHistoryKey = _aiHistoryKey;
+window.__aiAdviceKey = _aiAdviceKey;
+
 const OX_AI = {
-    chatHistory: JSON.parse(localStorage.getItem('ox_ai_history') || '[]'),
+    chatHistory: JSON.parse(localStorage.getItem(_aiHistoryKey()) || '[]'),
     currentChatId: Date.now(),
     adviceCount: 0,
 
     // Initialize AI, load history, and run background advice
     init: function() {
+        this._refreshHistory();
         this.loadChat(this.currentChatId);
-        this.runBackgroundAdvice();
+        // PHASE4 — proactive AI alerts disabled; stock alerts via Notifications
+    },
+
+    _refreshHistory: function() {
+        try {
+            this.chatHistory = JSON.parse(localStorage.getItem(_aiHistoryKey()) || '[]');
+        } catch (e) { this.chatHistory = []; }
+        this.currentChatId = Date.now();
     },
 
     // Format markdown-like bold text
@@ -1538,7 +1691,7 @@ const OX_AI = {
             this.chatHistory.push(chat);
         }
         chat.messages.push({ role: role, text: text });
-        localStorage.setItem('ox_ai_history', JSON.stringify(this.chatHistory));
+        localStorage.setItem(_aiHistoryKey(), JSON.stringify(this.chatHistory));
     },
 
     // Process user input
@@ -1692,16 +1845,8 @@ const OX_AI = {
 
     // Show badge and store advice
     triggerAdviceBadge: function(message) {
-        this.adviceCount++;
-        const badge = document.getElementById('ai-badge');
-        if (badge) {
-            badge.textContent = this.adviceCount;
-            badge.style.display = 'flex';
-        }
-        // Save advice to display when chat opens
-        let adviceHistory = JSON.parse(localStorage.getItem('ox_ai_advice') || '[]');
-        adviceHistory.push({ text: message, timestamp: Date.now() });
-        localStorage.setItem('ox_ai_advice', JSON.stringify(adviceHistory));
+        // PHASE4 — AI proactive alerts disabled; stock alerts via Notifications
+        return;
     },
 
     // Load a specific chat
@@ -1721,12 +1866,12 @@ const OX_AI = {
         }
         
         // Append unread advice
-        const adviceHistory = JSON.parse(localStorage.getItem('ox_ai_advice') || '[]');
+        const adviceHistory = JSON.parse(localStorage.getItem(_aiAdviceKey()) || '[]');
         if (adviceHistory.length > 0) {
             adviceHistory.forEach(adv => {
                 body.innerHTML += `<div class="ai-msg bot" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">${this.formatText(adv.text)}</div>`;
             });
-            localStorage.removeItem('ox_ai_advice'); // Clear after showing
+            localStorage.removeItem(_aiAdviceKey()); // Clear after showing
         }
         
         body.scrollTop = body.scrollHeight;
@@ -1800,11 +1945,12 @@ const OX_AI = {
         }
 
         try {
+            const _ctx = await _buildAIContext();
             const res = await fetch('/api/ai/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ message: text })
+                body: JSON.stringify({ message: text, context: _ctx })
             });
             const data = await res.json();
             let reply = data.success ? data.reply : "I couldn't process that right now.";
@@ -2290,6 +2436,33 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
   setTimeout(init, 1500);
 })();
 </script>
+
+
+<!-- PHASE5_HEADS_UP_V1 -->
+<div id="ox-heads-up-container"></div>
+<style id="ox-heads-up-style">
+#ox-heads-up-container {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    width: 90%; max-width: 400px; z-index: 2147483647;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+}
+.ox-heads-up {
+    background: rgba(30, 41, 59, 0.96); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 16px;
+    padding: 12px 16px; color: #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+    display: flex; align-items: flex-start; gap: 12px;
+    animation: oxHUSlideDown 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    pointer-events: auto; cursor: pointer; transition: transform 0.15s ease;
+}
+.ox-heads-up:hover { transform: scale(1.015); }
+.ox-heads-up.dismissing { animation: oxHUSlideUp 0.3s ease-in forwards; }
+.ox-heads-up .hu-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+.ox-heads-up .hu-content { flex: 1; min-width: 0; }
+.ox-heads-up .hu-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 2px; color: #f1f5f9; }
+.ox-heads-up .hu-msg { font-size: 0.8rem; color: #94a3b8; line-height: 1.35; }
+@keyframes oxHUSlideDown { from { transform: translateY(-140%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes oxHUSlideUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-140%); opacity: 0; } }
+</style>
 
 </body>
 </html>

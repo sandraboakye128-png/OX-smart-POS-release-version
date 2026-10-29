@@ -379,6 +379,20 @@
 </style>
 <div id="ox-heads-up-container"></div>
 
+
+<style id="ox-login-mic-guard">
+/* PHASE2_FIX — defensive: hide any 3rd-party mic/voice icon that might be
+   injected into the login form by mic.js or similar. Android keyboard
+   native mic is OS-layer and cannot be hidden from CSS. */
+#loginView .mic-btn,
+#loginView .voice-input-btn,
+#loginView [class*="mic-"],
+#loginView button[aria-label*="icrophone"],
+#loginView button[title*="icrophone"] {
+    display: none !important;
+}
+</style>
+
 </head>
 <body>
 
@@ -418,7 +432,7 @@
         <label for="loginPass" data-i18n="shell.login.password">Password</label>
         <div class="password-wrap">
             <input type="text" id="loginPass" autocomplete="current-password" class="masked-password">
-            <button type="button" class="password-toggle" id="passwordToggleBtn" onclick="togglePasswordVisibility()" aria-label="Show password" title="Show/hide password"><span id="passwordEye">👁</span></button>
+            <button type="button" class="password-toggle" id="passwordToggleBtn" onclick="togglePasswordVisibility()" aria-label="Show password" title="Show/hide password"><span id="passwordEye">&#128065;</span></button>
         </div>
         <button id="loginBtn" onclick="doLogin()" data-i18n="shell.login.signin">Sign In</button>
         <div class="login-error" id="loginError"></div>
@@ -827,7 +841,14 @@ const Notifications = (function () {
     _load();
     setTimeout(_refresh, 0);
     window.addEventListener('storage', (e) => { if (e.key !== STORAGE_KEY) return; items.length = 0; _load(); _refresh(); });
+    var _lastHUAt = 0;
     function showHeadsUp(id, type, title, message) {
+        // PHASE5 — phone-style + rate limited (max 1 per 2.5s) + skip progress
+        if (type === 'progress') return;
+        var _now = Date.now();
+        if (_now - _lastHUAt < 2500) return;
+        _lastHUAt = _now;
+
         const container = document.getElementById('ox-heads-up-container');
         if (!container) return;
         
@@ -869,9 +890,8 @@ const Notifications = (function () {
         const notif = { id: id || ('n_' + (nextId++) + '_' + Date.now()), type, title, message, progress, persistent: !!persistent, timestamp: Date.now(), _timer: null };
         items.unshift(notif); _refresh(); _save();
         
-        if (headsUp) {
-            showHeadsUp(notif.id, type, title, message);
-        }
+        // PHASE5 — heads-up fires on ALL notifications (not just headsUp:true)
+        try { showHeadsUp(notif.id, type, title, message); } catch (e) {}
 
         if (!persistent && duration > 0 && type !== 'progress') notif._timer = setTimeout(() => remove(notif.id), duration);
         return notif.id;
@@ -882,9 +902,12 @@ const Notifications = (function () {
         if (patch && patch.persistent === true && n._timer) { clearTimeout(n._timer); n._timer = null; }
         Object.assign(n, patch || {}); n.timestamp = Date.now(); _refresh(); _save();
         
-        if (patch && patch.headsUp) {
-            showHeadsUp(id, patch.type || n.type, patch.title || n.title, patch.message || n.message);
-        }
+        // PHASE5 — heads-up fires on ALL updates too
+        try {
+            if (patch && (patch.type || patch.title || patch.message)) {
+                showHeadsUp(id, patch.type || n.type, patch.title || n.title, patch.message || n.message);
+            }
+        } catch (e) {}
     }
 
     return { add, update, remove, clearAll, reloadForUser, showHeadsUp, info: (t,m) => add({type:'info', title:t, message:m, persistent:true}), success: (t,m) => add({type:'success', title:t, message:m, persistent:true}), warning: (t,m) => add({type:'warning', title:t, message:m, persistent:true}), error: (t,m) => add({type:'error', title:t, message:m, persistent:true}), get items() { return items; }, get unreadCount() { return items.length; } };
@@ -1149,6 +1172,7 @@ function doLogout() {
     try { Object.keys(localStorage).filter(k => k.startsWith('ox_shell_notifications_v1_') || k.startsWith('ox_app_settings_')).forEach(k => { if (k.endsWith('_anon')) localStorage.removeItem(k); }); } catch (e) {}
     try { localStorage.removeItem('ox_signup_started'); } catch (e) {}
     try { sessionStorage.clear(); } catch (e) {}
+    try { if (window.OX_AI) { OX_AI.chatHistory = []; OX_AI.currentChatId = Date.now(); } } catch (e) {}
     try { const dr = $('menuDrawer'); const ov = $('menuOverlay'); if (dr) dr.classList.remove('open'); if (ov) ov.classList.remove('open'); } catch (e) {}
     const pw = $('loginPass'); const eye = $('passwordEye'); const uIn = $('loginUser');
     if (pw) { pw.classList.add('masked-password'); pw.value = ''; }
@@ -1192,12 +1216,29 @@ async function enterApp(knownOnline, opts) {
         if (!document.getElementById('oxSpinStyles')) { var s = document.createElement('style'); s.id = 'oxSpinStyles'; s.textContent = '@keyframes oxSpin { to { transform: rotate(360deg); } }'; document.head.appendChild(s); }
         document.body.appendChild(syncView);
         try {
-            await fullSync();
+            // PHASE3 — fullSync now throws on pull failure; also check
+            // if server sent data but local DB is unexpectedly empty.
+            const _syncResult = await fullSync();
             const after = await db.products.count().catch(() => 0);
-            if (after === 0) console.warn('Sync returned 0 products. Proceeding with empty local DB.');
+            const _serverHad = _syncResult && _syncResult.serverProducts > 0;
+
+            if (after === 0 && _serverHad) {
+                // Server had products but local DB is empty — write failure
+                throw new Error(
+                    'Sync succeeded but local DB is empty (server returned '
+                    + _syncResult.serverProducts + ' products)'
+                );
+            }
+            if (after === 0) {
+                console.warn('[boot] server has 0 products (valid empty account or fresh install)');
+            } else {
+                console.log('[boot] sync OK — ' + after + ' products, '
+                            + (_syncResult ? _syncResult.batches : '?') + ' batches loaded');
+            }
             syncView.remove();
             loadingView.classList.add('hidden'); appView.classList.remove('hidden');
         } catch (e) {
+            console.error('[boot] blocking sync failed:', e);
             const btn = document.getElementById('ox-first-sync-retry');
             if (btn) { btn.style.display = 'inline-block'; btn.onclick = function() { syncView.remove(); enterApp(true, { skipAuthCheck: true, forceBlockingSync: true }); }; }
             const skipBtn = document.getElementById('ox-first-sync-skip');
@@ -1208,6 +1249,7 @@ async function enterApp(knownOnline, opts) {
     else { loadingView.classList.add('hidden'); appView.classList.remove('hidden'); }
     if (online) { try { const s = await fetchAndCacheSettings(); if (s) applyShellSettings(s); } catch (e) {} }
     try { await ensureUserData(); } catch (e) {}
+    try { if (window.OX_AI && OX_AI._refreshHistory) OX_AI._refreshHistory(); } catch (e) {}
     renderMenu();
     await renderDashboard();
     refreshPendingNotifications();
@@ -1728,7 +1770,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu();
           var items = (j && j.items) || []; var onServer = {};
           items.forEach(function (it) { onServer[PREFIX + it.id] = true; });
           items.forEach(function (it) {
-            var typeMap = { purchase_added:'success', sale_reversed:'warning', preview_save:'info', inventory_import:'info', batch_updated:'warning', batch_archived:'warning', batch_restored:'success' };
+            var typeMap = { purchase_added:'success', sale_reversed:'warning', preview_save:'info', inventory_import:'info', batch_updated:'warning', batch_archived:'warning', batch_restored:'success', sync_broadcast:'warning' };
             try { N.add({ id: PREFIX + it.id, type: typeMap[it.kind] || 'info', title: it.title, message: it.message, persistent: true }); } catch (e) {}
           });
           try {
@@ -2166,15 +2208,107 @@ function calcPress(val) {
 window.calcPress = calcPress;
 
 // --- SMART AI ENGINE (PHASE 2) ---
+async function _buildAIContext() {
+    if (typeof db === 'undefined' || !db) return null;
+    try {
+        const [products, batches, sales, sales_items] = await Promise.all([
+            db.products.toArray().catch(() => []),
+            db.batches.toArray().catch(() => []),
+            db.sales.toArray().catch(() => []),
+            db.sales_items.toArray().catch(() => [])
+        ]);
+
+        const activeSales = sales.filter(s => !s.reversed);
+        const totalRevenue = activeSales.reduce((sum, s) => sum + parseFloat(s.total || 0), 0);
+        const totalProfit = activeSales.reduce((sum, s) => sum + parseFloat(s.profit || 0), 0);
+
+        const slimProducts = products.slice(0, 200).map(p => ({
+            id: p.id, name: p.name, brand: p.brand || '',
+            category: p.category || '', stock: p.stock || 0,
+            selling_price: parseFloat(p.selling_price || 0),
+            cost_price: parseFloat(p.cost_price || 0)
+        }));
+
+        const batchMap = {};
+        batches.forEach(b => {
+            const pid = b.product_id;
+            if (!pid) return;
+            if (!batchMap[pid]) batchMap[pid] = { count: 0, remaining: 0, claimed: 0 };
+            batchMap[pid].count++;
+            batchMap[pid].remaining += parseInt(b.remaining_quantity || 0, 10);
+            batchMap[pid].claimed += parseInt(b.claimed_quantity || 0, 10);
+        });
+        const batchAggregates = Object.entries(batchMap).map(([pid, s]) => ({
+            product_id: parseInt(pid, 10),
+            batch_count: s.count,
+            total_remaining: s.remaining,
+            total_claimed: s.claimed
+        }));
+
+        const qtyByProduct = {};
+        sales_items.forEach(si => {
+            const pid = si.product_id;
+            if (!pid) return;
+            qtyByProduct[pid] = (qtyByProduct[pid] || 0) + parseInt(si.quantity || 0, 10);
+        });
+        const topSellers = Object.entries(qtyByProduct)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([pid, qty]) => {
+                const p = products.find(x => String(x.id) === String(pid));
+                return { name: p ? p.name : ('#' + pid), qty };
+            });
+
+        return {
+            summary: {
+                total_products: products.length,
+                total_batches: batches.length,
+                total_sales: activeSales.length,
+                total_revenue: totalRevenue,
+                total_profit: totalProfit
+            },
+            products: slimProducts,
+            batch_aggregates: batchAggregates,
+            top_sellers: topSellers
+        };
+    } catch (e) {
+        console.warn('[ai] buildAIContext failed:', e);
+        return null;
+    }
+}
+
+function _aiHistoryKey() {
+    try {
+        var u = JSON.parse(localStorage.getItem('ox_shell_user') || 'null');
+        if (!u) u = JSON.parse(localStorage.getItem('ox_user') || 'null');
+        if (u && u.id != null) return 'ox_ai_history_u' + String(u.id);
+        if (u && u.username) return 'ox_ai_history_' + String(u.username).toLowerCase();
+    } catch (e) {}
+    return 'ox_ai_history_anon';
+}
+function _aiAdviceKey() {
+    return _aiHistoryKey().replace('ox_ai_history', 'ox_ai_advice');
+}
+window.__aiHistoryKey = _aiHistoryKey;
+window.__aiAdviceKey = _aiAdviceKey;
+
 const OX_AI = {
-    chatHistory: JSON.parse(localStorage.getItem('ox_ai_history') || '[]'),
+    chatHistory: JSON.parse(localStorage.getItem(_aiHistoryKey()) || '[]'),
     currentChatId: Date.now(),
     adviceCount: 0,
 
     // Initialize AI, load history, and run background advice
     init: function() {
+        this._refreshHistory();
         this.loadChat(this.currentChatId);
-        this.runBackgroundAdvice();
+        // PHASE4 — proactive AI alerts disabled; stock alerts via Notifications
+    },
+
+    _refreshHistory: function() {
+        try {
+            this.chatHistory = JSON.parse(localStorage.getItem(_aiHistoryKey()) || '[]');
+        } catch (e) { this.chatHistory = []; }
+        this.currentChatId = Date.now();
     },
 
     // Format markdown-like bold text
@@ -2196,7 +2330,7 @@ const OX_AI = {
             this.chatHistory.push(chat);
         }
         chat.messages.push({ role: role, text: text });
-        localStorage.setItem('ox_ai_history', JSON.stringify(this.chatHistory));
+        localStorage.setItem(_aiHistoryKey(), JSON.stringify(this.chatHistory));
     },
 
     // Process user input
@@ -2350,16 +2484,8 @@ const OX_AI = {
 
     // Show badge and store advice
     triggerAdviceBadge: function(message) {
-        this.adviceCount++;
-        const badge = document.getElementById('ai-badge');
-        if (badge) {
-            badge.textContent = this.adviceCount;
-            badge.style.display = 'flex';
-        }
-        // Save advice to display when chat opens
-        let adviceHistory = JSON.parse(localStorage.getItem('ox_ai_advice') || '[]');
-        adviceHistory.push({ text: message, timestamp: Date.now() });
-        localStorage.setItem('ox_ai_advice', JSON.stringify(adviceHistory));
+        // PHASE4 — AI proactive alerts disabled; stock alerts via Notifications
+        return;
     },
 
     // Load a specific chat
@@ -2379,12 +2505,12 @@ const OX_AI = {
         }
         
         // Append unread advice
-        const adviceHistory = JSON.parse(localStorage.getItem('ox_ai_advice') || '[]');
+        const adviceHistory = JSON.parse(localStorage.getItem(_aiAdviceKey()) || '[]');
         if (adviceHistory.length > 0) {
             adviceHistory.forEach(adv => {
                 body.innerHTML += `<div class="ai-msg bot" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">${this.formatText(adv.text)}</div>`;
             });
-            localStorage.removeItem('ox_ai_advice'); // Clear after showing
+            localStorage.removeItem(_aiAdviceKey()); // Clear after showing
         }
         
         body.scrollTop = body.scrollHeight;
@@ -2458,6 +2584,7 @@ const OX_AI = {
         }
 
         try {
+            const _ctx = await _buildAIContext();
             const token = localStorage.getItem('ox_api_token');
             const headers = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = 'Bearer ' + token;
@@ -2466,7 +2593,7 @@ const OX_AI = {
                 method: 'POST',
                 headers: headers,
                 credentials: 'include',
-                body: JSON.stringify({ message: text })
+                body: JSON.stringify({ message: text, context: _ctx })
             });
             const data = await res.json();
             let reply = data.success ? data.reply : "I couldn't process that right now.";

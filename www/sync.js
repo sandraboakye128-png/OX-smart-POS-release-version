@@ -65,15 +65,16 @@ let _fullSyncRunning = false;
 async function pullData() {
     if (!_reallyOnline()) {
         console.warn('⚠️ pullData skipped – offline');
-        return;
+        return { skipped: true, reason: 'offline' };
     }
     try {
         console.log('📥 Pulling data from /api/sync/all...');
         const res = await _syncFetch('/api/sync/all');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status} from /api/sync/all`);
 
         const data = await res.json();
-        const { products, batches, sales, sales_items, claims, deleted_products } = data;
+        const { products = [], batches = [], sales = [],
+                sales_items = [], claims = [], deleted_products = [] } = data;
 
         await db.transaction('rw',
             db.products, db.batches, db.sales, db.sales_items,
@@ -172,10 +173,36 @@ async function pullData() {
             }
         );
 
+        // PHASE3 — verify writes actually landed in Dexie
+        const localProducts = await db.products.count();
+        const localBatches  = await db.batches.count();
+        const localSales    = await db.sales.count();
+        const serverProducts = products.length;
+        const serverBatches  = batches.length;
+
+        if (serverProducts > 0 && localProducts === 0) {
+            throw new Error(
+                `Pull wrote 0 products despite server returning ${serverProducts} — Dexie write failed`
+            );
+        }
+        if (serverBatches > 0 && localBatches === 0) {
+            throw new Error(
+                `Pull wrote 0 batches despite server returning ${serverBatches} — Dexie write failed`
+            );
+        }
+
         localStorage.setItem('lastSyncTime', Date.now().toString());
-        console.log('✅ Pull sync completed – all data updated locally.');
+        console.log(`✅ Pull sync OK — ${localProducts} products, ${localBatches} batches, ${localSales} sales`);
+        return {
+            products: localProducts,
+            batches: localBatches,
+            sales: localSales,
+            serverProducts: serverProducts,
+            serverBatches: serverBatches,
+        };
     } catch (err) {
         console.error('❌ Pull sync error:', err);
+        throw err;   // PHASE3 — MUST propagate; caller handles
     }
 }
 
@@ -417,6 +444,22 @@ async function pushPending() {
 
     if (typeof updatePendingBadge === 'function') updatePendingBadge();
     console.log(`📤 Push completed: ${successCount} ok, ${failCount} failed, ${deadCount} dead.`);
+
+    // PHASE5 — notify other online users of successful changes
+    if (successCount > 0) {
+        try {
+            await _syncFetch('/api/sync/broadcast', {
+                method: 'POST',
+                body: JSON.stringify({
+                    summary: successCount + ' change' + (successCount === 1 ? '' : 's') + ' synced',
+                    action_count: successCount
+                })
+            });
+            console.log(`📡 Broadcast sent: ${successCount} change(s) notified`);
+        } catch (e) {
+            console.warn('[sync] broadcast failed (non-fatal):', e);
+        }
+    }
 }
 
 async function fullSync() {
@@ -428,9 +471,7 @@ async function fullSync() {
         // This means the pull returns a state that already includes our
         // changes, so the local UI and server converge on the same tick.
         await pushPending();
-        await pullData();
-        // Queue is settled — refresh badge + notification immediately
-        // instead of waiting for the next 8s interval.
+        const pullResult = await pullData();   // PHASE3 — may throw
         if (typeof updatePendingBadge === 'function') {
             try { updatePendingBadge(); } catch (e) {}
         }
@@ -438,6 +479,7 @@ async function fullSync() {
             try { refreshPendingNotifications(); } catch (e) {}
         }
         console.log('✅ Full sync completed.');
+        return pullResult;   // PHASE3 — expose count summary
     } finally { _fullSyncRunning = false; }
 }
 
