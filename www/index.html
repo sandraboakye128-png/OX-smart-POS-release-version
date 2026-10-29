@@ -376,6 +376,11 @@
 .ox-heads-up .hu-msg { font-size: 0.8rem; color: #94a3b8; line-height: 1.3; }
 @keyframes slideDown { from { transform: translateY(-120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes slideUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-120%); opacity: 0; } }
+.hu-actions { margin-top: 8px; display: flex; gap: 6px; }
+.hu-action-btn { background: rgba(0,207,207,0.2); color: #67e8f9; border: 1px solid rgba(0,207,207,0.4); padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+.hu-action-btn:hover { background: rgba(0,207,207,0.35); }
+.notif-action-btn { background: rgba(0,207,207,0.2); color: #67e8f9; border: 1px solid rgba(0,207,207,0.4); padding: 3px 8px; border-radius: 5px; font-size: 0.68rem; font-weight: 700; cursor: pointer; margin-top: 6px; font-family: inherit; }
+.notif-action-btn:hover { background: rgba(0,207,207,0.35); }
 </style>
 <div id="ox-heads-up-container"></div>
 
@@ -818,7 +823,13 @@ const Notifications = (function () {
             const isPending = (n.id === 'pending-status');
             const clickAttr = isPending ? ' onclick="openPendingOpsModal()" style="cursor:pointer"' : '';
             const hint = isPending ? '<div style="font-size:0.68rem;color:#67e8f9;margin-top:3px;">Tap to view &amp; sync &rsaquo;</div>' : '';
-            return `<div class="notif-item notif-${n.type}"${clickAttr}><div class="notif-icon">${_icon(n.type)}</div><div class="notif-body">${n.title ? `<div class="notif-title">${_esc(n.title)}</div>` : ''}${n.message ? `<div class="notif-msg">${_esc(n.message)}</div>` : ''}${hint}${progressBar}<div class="notif-time">${_timeAgo(n.timestamp)}</div></div><button class="notif-close" aria-label="Dismiss" onclick="event.stopPropagation(); Notifications.remove('${n.id}')">×</button></div>`;
+            // PHASE-D — render action button if present
+            var actionHtml = '';
+            if (n.action && n.action.callback) {
+                var _al = n.action.label || 'Action';
+                actionHtml = '<button class="notif-action-btn" onclick="event.stopPropagation(); ' + n.action.callback + '">' + _al + '</button>';
+            }
+            return `<div class="notif-item notif-${n.type}"${clickAttr}><div class="notif-icon">${_icon(n.type)}</div><div class="notif-body">${n.title ? `<div class="notif-title">${_esc(n.title)}</div>` : ''}${n.message ? `<div class="notif-msg">${_esc(n.message)}</div>` : ''}${actionHtml}${hint}${progressBar}<div class="notif-time">${_timeAgo(n.timestamp)}</div></div><button class="notif-close" aria-label="Dismiss" onclick="event.stopPropagation(); Notifications.remove('${n.id}')">×</button></div>`;
         }).join('');
     }
     function _refresh() { _renderList(); _renderBadge(); }
@@ -864,7 +875,15 @@ const Notifications = (function () {
         if (type === 'warning') icon = '⚠️';
         if (type === 'error') icon = '❌';
 
-        el.innerHTML = `<div class="hu-icon">${icon}</div><div class="hu-content"><div class="hu-title">${title}</div><div class="hu-msg">${message}</div></div>`;
+        // PHASE-D — action button support
+        var _notifObj = items.find(function(i){ return i.id === id; });
+        var _actionHtml = '';
+        if (_notifObj && _notifObj.action && _notifObj.action.callback) {
+            var _lbl = _notifObj.action.label || 'Action';
+            var _cb = _notifObj.action.callback;
+            _actionHtml = '<div class="hu-actions"><button class="hu-action-btn" onclick="event.stopPropagation();' + _cb + '">' + _lbl + '</button></div>';
+        }
+        el.innerHTML = `<div class="hu-icon">${icon}</div><div class="hu-content"><div class="hu-title">${title}</div><div class="hu-msg">${message}</div>${_actionHtml}</div>`;
         
         el.onclick = function() {
             el.classList.add('dismissing');
@@ -884,14 +903,16 @@ const Notifications = (function () {
     }
 
     function add(opts) {
-        const { type='info', title='', message='', duration=0, id=null, progress=null, persistent=true, headsUp=false } = opts || {};
-        if (id) { const existing = items.find(i => i.id === id); if (existing) return update(id, { type, title, message, progress, persistent, headsUp }); }
+        const { type='info', title='', message='', duration=0, id=null, progress=null, persistent=true, headsUp=false, action=null, silent=false } = opts || {};
+        if (id) { const existing = items.find(i => i.id === id); if (existing) return update(id, { type, title, message, progress, persistent, headsUp, action, silent }); }
         
-        const notif = { id: id || ('n_' + (nextId++) + '_' + Date.now()), type, title, message, progress, persistent: !!persistent, timestamp: Date.now(), _timer: null };
+        const notif = { id: id || ('n_' + (nextId++) + '_' + Date.now()), type, title, message, progress, persistent: !!persistent, timestamp: Date.now(), _timer: null, action: action || null };
         items.unshift(notif); _refresh(); _save();
         
-        // PHASE5 — heads-up fires on ALL notifications (not just headsUp:true)
-        try { showHeadsUp(notif.id, type, title, message); } catch (e) {}
+        // PHASE-D — heads-up fires on ALL notifications unless explicitly silent
+        if (!silent) {
+            try { showHeadsUp(notif.id, type, title, message); } catch (e) {}
+        }
 
         if (!persistent && duration > 0 && type !== 'progress') notif._timer = setTimeout(() => remove(notif.id), duration);
         return notif.id;
@@ -902,12 +923,14 @@ const Notifications = (function () {
         if (patch && patch.persistent === true && n._timer) { clearTimeout(n._timer); n._timer = null; }
         Object.assign(n, patch || {}); n.timestamp = Date.now(); _refresh(); _save();
         
-        // PHASE5 — heads-up fires on ALL updates too
-        try {
-            if (patch && (patch.type || patch.title || patch.message)) {
-                showHeadsUp(id, patch.type || n.type, patch.title || n.title, patch.message || n.message);
-            }
-        } catch (e) {}
+        // PHASE-D — heads-up respects `silent` flag
+        if (!patch || !patch.silent) {
+            try {
+                if (patch && (patch.type || patch.title || patch.message)) {
+                    showHeadsUp(id, patch.type || n.type, patch.title || n.title, patch.message || n.message);
+                }
+            } catch (e) {}
+        }
     }
 
     return { add, update, remove, clearAll, reloadForUser, showHeadsUp, info: (t,m) => add({type:'info', title:t, message:m, persistent:true}), success: (t,m) => add({type:'success', title:t, message:m, persistent:true}), warning: (t,m) => add({type:'warning', title:t, message:m, persistent:true}), error: (t,m) => add({type:'error', title:t, message:m, persistent:true}), get items() { return items; }, get unreadCount() { return items.length; } };
@@ -939,27 +962,36 @@ async function refreshPendingNotifications() {
         const all = await db.pending_ops.where('synced').equals(0).toArray();
         const mine = all.filter(op => !op.user_id || op.user_id === me);
         const count = mine.length;
+        const warnedKey = 'ox_pending_warned_' + me;
+        const wasWarned = localStorage.getItem(warnedKey) === '1';
         const existing = Notifications.items.find(i => i.id === 'pending-status');
+
         if (count > 0) {
-            const msg = `${count} offline action${count===1?'':'s'} waiting. Reconnect & sync ASAP to avoid stock conflicts with other users.`;
-            if (existing) {
-                if (!existing._warned) {
+            const msg = count + ' offline action' + (count === 1 ? '' : 's') + ' waiting. Reconnect & sync ASAP.';
+            if (!wasWarned) {
+                // PHASE-D — first time: heads-up ONCE
+                if (existing) {
                     Notifications.update('pending-status', { type: 'warning', title: 'Action Required: Sync Pending', message: msg, persistent: true, headsUp: true });
-                    existing._warned = true;
                 } else {
-                    Notifications.update('pending-status', { type: 'warning', title: 'Action Required: Sync Pending', message: msg, persistent: true });
+                    Notifications.add({ id: 'pending-status', type: 'warning', title: 'Action Required: Sync Pending', message: msg, persistent: true });
                 }
+                localStorage.setItem(warnedKey, '1');
             } else {
-                const nid = Notifications.add({ id: 'pending-status', type: 'warning', title: 'Action Required: Sync Pending', message: msg, persistent: true, headsUp: true });
+                // PHASE-D — subsequent: silent update (no spam)
+                if (existing) {
+                    Notifications.update('pending-status', { type: 'warning', title: 'Action Required: Sync Pending', message: msg, persistent: true, silent: true });
+                }
             }
         } else {
-            if (existing) {
-                if (existing._warned) {
-                    Notifications.update('pending-status', { type: 'success', title: 'Sync Complete', message: 'All actions synced successfully. Other users will now see your updates.', persistent: true, headsUp: true });
-                    setTimeout(() => Notifications.remove('pending-status'), 5000);
-                } else {
-                    Notifications.remove('pending-status');
+            if (wasWarned) {
+                // PHASE-D — sync just succeeded: show success once
+                if (existing) {
+                    Notifications.update('pending-status', { type: 'success', title: 'Sync Complete', message: 'All actions synced. Other users will now see your updates.', persistent: true, headsUp: true });
+                    setTimeout(function () { Notifications.remove('pending-status'); }, 6000);
                 }
+                localStorage.removeItem(warnedKey);
+            } else if (existing) {
+                Notifications.remove('pending-status');
             }
         }
     } catch (e) {}
@@ -996,6 +1028,33 @@ window.closePendingOpsModal = closePendingOpsModal;
 function syncFromPendingModal() { closePendingOpsModal(); if (typeof syncNow === 'function') syncNow(); }
 window.syncFromPendingModal = syncFromPendingModal;
 setInterval(refreshPendingNotifications, 8000);
+
+// PHASE-D — 2-minute reminder heads-up while pending
+var _lastSyncReminderAt = 0;
+setInterval(async function () {
+    if (typeof db === 'undefined' || !db) return;
+    try {
+        const me = (typeof _currentUserId === 'function') ? _currentUserId() : 'anon';
+        if (localStorage.getItem('ox_pending_warned_' + me) !== '1') return;
+        const n = (await db.pending_ops.where('synced').equals(0).toArray())
+            .filter(op => !op.user_id || op.user_id === me).length;
+        if (n === 0) return;
+        const now = Date.now();
+        if (now - _lastSyncReminderAt < 110000) return;
+        _lastSyncReminderAt = now;
+        try {
+            Notifications.add({
+                id: 'sync-reminder-' + now,
+                type: 'warning',
+                title: '\u23F0 Sync Reminder',
+                message: n + ' pending change' + (n === 1 ? '' : 's') + ' \u2014 tap Sync Now to upload',
+                persistent: false,
+                duration: 10000,
+                headsUp: true
+            });
+        } catch (e) {}
+    } catch (e) {}
+}, 120000);
 
 const PENDING_REMIND_INTERVAL_MS = 2 * 60 * 60 * 1000;
 let _lastPendingRemindAt = 0;
@@ -1097,30 +1156,50 @@ async function openSignup(e) {
     if (e) e.preventDefault();
     const online = await probeNetwork();
     if (!online) { showToast('Signup requires an internet connection', { error: true }); return; }
-    landingView.classList.add('hidden'); loginView.classList.add('hidden'); loadingView.classList.add('hidden'); appView.classList.remove('hidden');
-    $('viewDashboard').classList.add('hidden');
-    const container = $('viewDynamic');
-    container.classList.remove('hidden');
-    container.innerHTML = '<div class="empty">Loading signup…</div>';
+    // PHASE-A -- full-screen signup overlay (no topbar, no sidebar, no escape)
+    let _ov = document.getElementById('ox-signup-overlay');
+    if (_ov) _ov.remove();
+    _ov = document.createElement('div');
+    _ov.id = 'ox-signup-overlay';
+    _ov.style.cssText = 'position:fixed;inset:0;background:#0f172a;z-index:2147483647;overflow-y:auto;padding:20px;';
+    _ov.innerHTML = '<div style="max-width:420px;margin:40px auto;"><div style="color:#94a3b8;text-align:center;padding:40px;">Loading signup\u2026</div></div>';
+    document.body.appendChild(_ov);
+    landingView.classList.add('hidden');
+    loginView.classList.add('hidden');
+    loadingView.classList.add('hidden');
+    appView.classList.add('hidden');
     try {
         const res = await fetch('views/signup.html?_=' + Date.now(), { cache: 'no-store' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const html = await res.text();
-        container.innerHTML = '';
         const wrap = document.createElement('div');
         wrap.className = 'bundled-light';
+        wrap.style.cssText = 'max-width:480px;margin:40px auto;background:#fff;border-radius:12px;padding:16px;';
         const tmp = document.createElement('div');
         tmp.innerHTML = html;
         while (tmp.firstChild) wrap.appendChild(tmp.firstChild);
-        container.appendChild(wrap);
+        _ov.innerHTML = '';
+        _ov.appendChild(wrap);
+        const _closeOv = function () {
+            if (_ov && _ov.parentNode) _ov.parentNode.removeChild(_ov);
+            if (typeof backToLanding === 'function') backToLanding();
+        };
+        const _suBack   = wrap.querySelector('#su-back');
+        const _suCancel = wrap.querySelector('#su-cancel');
+        if (_suBack)   _suBack.onclick   = _closeOv;
+        if (_suCancel) _suCancel.onclick = _closeOv;
         wrap.querySelectorAll('script').forEach(oldScript => {
-            try { const newScript = document.createElement('script'); if (oldScript.src) newScript.src = oldScript.src; else newScript.textContent = oldScript.textContent; oldScript.parentNode.replaceChild(newScript, oldScript); }
-            catch (err) {}
+            try {
+                const newScript = document.createElement('script');
+                if (oldScript.src) newScript.src = oldScript.src;
+                else newScript.textContent = oldScript.textContent;
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            } catch (err) {}
         });
         currentView = 'signup';
-        window.scrollTo({ top: 0, behavior: 'instant' });
     } catch (err) {
         showToast('Could not load signup view', { error: true });
+        if (_ov && _ov.parentNode) _ov.parentNode.removeChild(_ov);
         if (typeof backToLanding === 'function') backToLanding();
     }
 }
@@ -1173,6 +1252,12 @@ function doLogout() {
     try { localStorage.removeItem('ox_signup_started'); } catch (e) {}
     try { sessionStorage.clear(); } catch (e) {}
     try { if (window.OX_AI) { OX_AI.chatHistory = []; OX_AI.currentChatId = Date.now(); } } catch (e) {}
+    // PHASE-D — clear pending-warn flags
+    try {
+        Object.keys(localStorage).filter(function (k) {
+            return k.startsWith('ox_pending_warned_') || k === 'ox_seen_broadcasts';
+        }).forEach(function (k) { localStorage.removeItem(k); });
+    } catch (e) {}
     try { const dr = $('menuDrawer'); const ov = $('menuOverlay'); if (dr) dr.classList.remove('open'); if (ov) ov.classList.remove('open'); } catch (e) {}
     const pw = $('loginPass'); const eye = $('passwordEye'); const uIn = $('loginUser');
     if (pw) { pw.classList.add('masked-password'); pw.value = ''; }
@@ -1250,6 +1335,36 @@ async function enterApp(knownOnline, opts) {
     if (online) { try { const s = await fetchAndCacheSettings(); if (s) applyShellSettings(s); } catch (e) {} }
     try { await ensureUserData(); } catch (e) {}
     try { if (window.OX_AI && OX_AI._refreshHistory) OX_AI._refreshHistory(); } catch (e) {}
+    // PHASE-A -- preload views in background (fetches only when online)
+    if (online) {
+        setTimeout(function () { try { preloadAllViews().catch(function() {}); } catch (e) {} }, 1500);
+    }
+    // PHASE-D -- display queued broadcasts (offline users only; online uses refreshFromServer)
+    if (!navigator.onLine && typeof db !== 'undefined' && db && db.sync_broadcasts) {
+        try {
+            const broadcasts = await db.sync_broadcasts.toArray().catch(() => []);
+            let currentUsername = '';
+            try { currentUsername = (JSON.parse(localStorage.getItem('ox_shell_user') || 'null') || {}).username || ''; } catch (e) {}
+            const seen = JSON.parse(localStorage.getItem('ox_seen_broadcasts') || '{}');
+            for (const bc of broadcasts) {
+                if (seen[bc.id]) continue;
+                seen[bc.id] = true;
+                // Skip if this is the actor
+                if (bc.meta && bc.meta.actor && currentUsername && bc.meta.actor.toLowerCase() === currentUsername.toLowerCase()) continue;
+                try {
+                    Notifications.add({
+                        id: 'srv_offline_bc_' + bc.id,
+                        type: 'warning',
+                        title: bc.title || '\uD83D\uDD04 New data from other users',
+                        message: (bc.message || '') + ' Tap Refresh to sync now.',
+                        persistent: true,
+                        action: { label: '\uD83D\uDD04 Refresh', callback: 'syncNow()' }
+                    });
+                } catch (e) {}
+            }
+            localStorage.setItem('ox_seen_broadcasts', JSON.stringify(seen));
+        } catch (e) {}
+    }
     renderMenu();
     await renderDashboard();
     refreshPendingNotifications();
@@ -1641,6 +1756,42 @@ function menuItemHtml(key) {
     });
 })();
 
+
+// PHASE-A -- cache every view's HTML into Dexie so offline nav works
+async function preloadAllViews() {
+    if (typeof db === 'undefined' || !db) return;
+    const paths = Object.values(VIEWS).map(v => v.path).filter(Boolean);
+    let cached = 0, fetched = 0, failed = 0;
+    for (const path of paths) {
+        try {
+            const cacheKey = 'view_html_' + path;
+            const hit = await db.cache.get(cacheKey).catch(() => null);
+            const age = hit && hit.value && hit.value.fetchedAt
+                ? (Date.now() - hit.value.fetchedAt)
+                : Infinity;
+            if (hit && hit.value && hit.value.html && age < 24 * 60 * 60 * 1000) {
+                cached++;
+                continue;
+            }
+            const res = await fetch(path + '?_=' + Date.now(), { cache: 'no-store' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const text = await res.text();
+            await db.cache.put({
+                key: cacheKey,
+                value: { html: text, fetchedAt: Date.now() },
+                timestamp: Date.now()
+            });
+            fetched++;
+        } catch (e) {
+            failed++;
+            console.warn('[preload] failed:', path, e && e.message);
+        }
+    }
+    console.log('[preload] cached=' + cached + ' fetched=' + fetched + ' failed=' + failed);
+    return { cached, fetched, failed };
+}
+window.preloadAllViews = preloadAllViews;
+
 async function switchView(name) {
     closeMenu();
     if (typeof window.oxShowOpening === 'function') window.oxShowOpening();
@@ -1657,7 +1808,32 @@ async function switchView(name) {
         $('viewDashboard').classList.add('hidden');
         $('viewDynamic').classList.remove('hidden');
         let html = _viewHtmlCache[v.path];
-        if (!html) { const res = await fetch(v.path, { cache: 'no-store' }); if (!res.ok) throw new Error('HTTP ' + res.status); html = await res.text(); _viewHtmlCache[v.path] = html; }
+        // PHASE-A -- try Dexie first (works offline after first sync)
+        if (!html) {
+            try {
+                const cacheKey = 'view_html_' + v.path;
+                const hit = await db.cache.get(cacheKey).catch(() => null);
+                if (hit && hit.value && hit.value.html) {
+                    html = hit.value.html;
+                    _viewHtmlCache[v.path] = html;
+                    console.log('[switchView] served from Dexie:', v.path);
+                }
+            } catch (e) { /* ignore */ }
+        }
+        if (!html) {
+            const res = await fetch(v.path, { cache: 'no-store' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            html = await res.text();
+            _viewHtmlCache[v.path] = html;
+            // Persist to Dexie for offline use
+            try {
+                await db.cache.put({
+                    key: 'view_html_' + v.path,
+                    value: { html, fetchedAt: Date.now() },
+                    timestamp: Date.now()
+                });
+            } catch (e) { /* ignore */ }
+        }
         const container = $('viewDynamic');
         container.innerHTML = '';
         const wrap = document.createElement('div');
@@ -1748,7 +1924,9 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu();
 
 <!-- notif-server-bridge -->
 <script>
+/* PHASE-A_NOTIF_GUARD — wrap whole IIFE so any DOM null can't cascade */
 (function () {
+try {
   'use strict';
   function _ready(fn) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn); else fn(); }
   _ready(function () {
@@ -1768,10 +1946,23 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu();
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
           var items = (j && j.items) || []; var onServer = {};
+          var _me = '';
+          try { _me = (JSON.parse(localStorage.getItem('ox_shell_user') || 'null') || {}).username || ''; } catch (e) {}
           items.forEach(function (it) { onServer[PREFIX + it.id] = true; });
           items.forEach(function (it) {
-            var typeMap = { purchase_added:'success', sale_reversed:'warning', preview_save:'info', inventory_import:'info', batch_updated:'warning', batch_archived:'warning', batch_restored:'success', sync_broadcast:'warning' };
-            try { N.add({ id: PREFIX + it.id, type: typeMap[it.kind] || 'info', title: it.title, message: it.message, persistent: true }); } catch (e) {}
+            var typeMap = { purchase_added:'success', sale_reversed:'warning', preview_save:'info', inventory_import:'info', batch_updated:'warning', batch_archived:'warning', batch_restored:'success', sync_broadcast:'warning' , sync_complete:'success' };
+            // PHASE-D -- skip own-actor broadcasts
+            if (it.kind === 'sync_broadcast' && it.meta && it.meta.actor && _me && it.meta.actor.toLowerCase() === _me.toLowerCase()) {
+              return;
+            }
+            try {
+              var _opts = { id: PREFIX + it.id, type: typeMap[it.kind] || 'info', title: it.title, message: it.message, persistent: true };
+              if (it.kind === 'sync_broadcast') {
+                _opts.action = { label: '\uD83D\uDD04 Refresh', callback: 'syncNow()' };
+                _opts.message = (it.message || '') + ' Tap Refresh to sync.';
+              }
+              N.add(_opts);
+            } catch (e) {}
           });
           try {
             N.items.slice().forEach(function (local) { if (typeof local.id === 'string' && local.id.indexOf(PREFIX) === 0) { if (!onServer[local.id]) { var idx = N.items.indexOf(local); if (idx >= 0) N.items.splice(idx, 1); } } });
@@ -1794,6 +1985,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu();
     if (appView && !appView.classList.contains('hidden')) setTimeout(function () { try { N.refreshFromServer(); } catch (e) {} }, 200);
     window.addEventListener('online', function () { try { N.refreshFromServer(); } catch (e) {} });
   });
+} catch (e) { console.warn('[notif-bridge] guarded error:', e && e.message); }
 })();
 </script>
 
@@ -2031,8 +2223,6 @@ if(window.visualViewport){window.visualViewport.addEventListener('resize',setVh)
 })();
 </script>
 
-<script src="/static/js/mic.js" defer></script>
-
 <!-- I18N_PRELOAD_V1 -->
 <script>
 (function(){
@@ -2100,6 +2290,9 @@ setInterval(async function() {
         box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         display: none; flex-direction: column; z-index: 999999;
         border: 1px solid #e5e7eb; overflow: hidden;
+        resize: both;
+        min-width: 300px;
+        min-height: 300px;
     }
     #ai-chat-header {
         background: #4f46e5; color: white; padding: 10px 12px;
@@ -2689,7 +2882,15 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
             hdr.style.cursor = 'grab';
             var handle = document.getElementById('ai-chat-drag-handle');
             if (handle) handle.style.cursor = 'grab';
-            if (moved) { try { localStorage.setItem(POS_KEY, JSON.stringify({ left: win.style.left, top: win.style.top })); } catch (e) {} }
+            if (moved) {
+                try {
+                    // PHASE-C -- size persistence
+                    localStorage.setItem(POS_KEY, JSON.stringify({
+                        left: win.style.left, top: win.style.top,
+                        width: win.offsetWidth, height: win.offsetHeight
+                    }));
+                } catch (e) {}
+            }
         }
 
         hdr.addEventListener('mousedown', down);
@@ -2701,12 +2902,34 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
 
         try {
             var saved = JSON.parse(localStorage.getItem(POS_KEY) || 'null');
-            if (saved && saved.left && saved.top) {
-                win.style.left = saved.left;
-                win.style.top = saved.top;
-                win.style.right = 'auto';
-                win.style.bottom = 'auto';
-                win.style.position = 'fixed';
+            if (saved) {
+                if (saved.left && saved.top) {
+                    win.style.left = saved.left;
+                    win.style.top = saved.top;
+                    win.style.right = 'auto';
+                    win.style.bottom = 'auto';
+                    win.style.position = 'fixed';
+                }
+                // PHASE-C -- size persistence
+                if (saved.width) win.style.width = saved.width + 'px';
+                if (saved.height) win.style.height = saved.height + 'px';
+            }
+        } catch (e) {}
+        // PHASE-C -- also save whenever user resizes via browser handle
+        try {
+            if (window.ResizeObserver) {
+                var _lastSize = { w: win.offsetWidth, h: win.offsetHeight };
+                var _ro = new ResizeObserver(function () {
+                    var w = win.offsetWidth, h = win.offsetHeight;
+                    if (w === _lastSize.w && h === _lastSize.h) return;
+                    _lastSize.w = w; _lastSize.h = h;
+                    try {
+                        var saved2 = JSON.parse(localStorage.getItem(POS_KEY) || 'null') || {};
+                        saved2.width = w; saved2.height = h;
+                        localStorage.setItem(POS_KEY, JSON.stringify(saved2));
+                    } catch (e) {}
+                });
+                _ro.observe(win);
             }
         } catch (e) {}
 

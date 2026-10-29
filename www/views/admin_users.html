@@ -185,6 +185,15 @@ function getStoredUser() {
 // ---------- Cache (Dexie first, localStorage fallback) ----------
 async function cacheGet() {
     if (typeof db !== 'undefined' && db) {
+        // PHASE-A.2 — primary source: synced users table
+        try {
+            const fromTable = await db.users.toArray().catch(() => []);
+            if (fromTable && fromTable.length) {
+                fromTable.sort((a, b) => (a.id || 0) - (b.id || 0));
+                console.log('[admin-users] loaded ' + fromTable.length + ' users from Dexie');
+                return fromTable;
+            }
+        } catch (e) { /* fallthrough */ }
         try {
             const row = await db.cache.get(CACHE_KEY);
             if (row && row.value) {
@@ -205,6 +214,18 @@ async function cacheGet() {
     } catch (e) { return null; }
 }
 async function cachePut(users) {
+    // PHASE-A.2 — also persist to synced users table for offline resilience
+    if (typeof db !== 'undefined' && db && Array.isArray(users)) {
+        try {
+            for (const u of users) {
+                await db.users.put({
+                    id: u.id, username: u.username, role: u.role,
+                    created_at: u.created_at,
+                    last_sync: new Date().toISOString()
+                });
+            }
+        } catch (e) { console.warn('[admin-users] db.users write failed:', e); }
+    }
     if (typeof db !== 'undefined' && db) {
         try {
             await db.cache.put({ key: CACHE_KEY, value: users, timestamp: Date.now() });

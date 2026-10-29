@@ -638,11 +638,22 @@ window.previewBackToMenu = function() {
 // ---- Load rows --------------------------------------------------------
 async function previewLoad() {
     $('pvBody').innerHTML = '<tr><td colspan="20" class="text-center py-6 text-gray-400">Loading…</td></tr>';
+    const _cacheKey = 'pv_online_' + PV.kind + '_' + PV.category;
     try {
         const _inc = (PV.kind === 'purchases') ? '?include_deleted=1' : '';
         const res = await fetch((window.RENDER_URL||'')+`/api/preview/${PV.kind}/${PV.category}${_inc}`);
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Load failed');
+        // PHASE-C -- offline fallback: cache to Dexie on success
+        try {
+            if (typeof db !== 'undefined' && db) {
+                await db.cache.put({
+                    key: _cacheKey,
+                    value: { columns: data.columns, rows: data.rows, cachedAt: Date.now() },
+                    timestamp: Date.now()
+                });
+            }
+        } catch (_ce) { console.warn('[pv] cache write failed:', _ce); }
         PV.columns = data.columns;
         PV.rows = data.rows;
         // Mark any rows the server returned with _pendingDelete flag as archived
@@ -690,7 +701,42 @@ async function previewLoad() {
         } catch (e) { /* suggestions optional */ }
         pvRenderRecentBar();
     } catch (e) {
-        $('pvBody').innerHTML = `<tr><td colspan="20" class="text-center py-6 text-red-500">${e.message}</td></tr>`;
+        console.warn('[pv] server fetch failed, trying Dexie cache:', e);
+        // PHASE-C -- offline fallback
+        try {
+            if (typeof db !== 'undefined' && db) {
+                const cached = await db.cache.get(_cacheKey);
+                if (cached && cached.value && cached.value.columns && cached.value.rows) {
+                    PV.columns = cached.value.columns;
+                    PV.rows = cached.value.rows;
+                    // Continue hydration path
+                    var _hydrated = 0;
+                    (PV.rows || []).forEach(function(r) {
+                        if (r && (r._pendingDelete === true || r._archived === true || r._archive_id || r.action === 'archived')) {
+                            r._pendingDelete = true;
+                            r._archivedThisSession = true;
+                            if (r._archive_id) r._archiveId = r._archive_id;
+                            _hydrated++;
+                        }
+                    });
+                    PV.originalRows = JSON.parse(JSON.stringify(PV.rows || []));
+                    PV.originalIds = new Set(PV.rows.map(r => String(r.batch_id || r.sale_id || '')));
+                    previewRenderHead();
+                    previewRenderBody();
+                    var _lbl = PV.category;
+                    try { if (typeof pvLabel === 'function') _lbl = pvLabel(PV.category); } catch (_e2) {}
+                    $('pvTitle').textContent = (PV.kind === 'purchases' ? '📦' : '💰') + ' ' + _lbl + ' (offline)';
+                    $('pvCount').textContent = PV.rows.length + ' rows';
+                    $('pvStatus').textContent = '📡 Offline — showing cached data. Sync when online for latest.';
+                    try { pvRenderRecentBar(); } catch (_e3) {}
+                    return;
+                }
+            }
+            // No cache
+            throw new Error('No offline cache for this view. Please sync when online.');
+        } catch (fallbackErr) {
+            $('pvBody').innerHTML = '<tr><td colspan="20" class="text-center py-6 text-red-500">' + (fallbackErr.message || e.message) + '</td></tr>';
+        }
     }
 }
 

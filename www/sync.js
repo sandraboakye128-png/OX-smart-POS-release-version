@@ -76,9 +76,17 @@ async function pullData() {
         const { products = [], batches = [], sales = [],
                 sales_items = [], claims = [], deleted_products = [] } = data;
 
+        // PHASE-A.1 — also destructure the new tables so the write loops
+        // below don't throw ReferenceError (which would roll back the
+        // entire transaction and blank the dashboard).
+        const users = data.users || [];
+        const user_logs = data.user_logs || [];
+        const sync_broadcasts = data.sync_broadcasts || [];
+
         await db.transaction('rw',
             db.products, db.batches, db.sales, db.sales_items,
             db.claims, db.deleted_products,
+            db.users, db.user_logs, db.sync_broadcasts,
             async () => {
                 for (const p of products) {
                     await db.products.put({
@@ -141,6 +149,37 @@ async function pullData() {
                         last_sync: new Date().toISOString()
                     });
                 }
+
+
+                // PHASE-A -- users, user_logs, sync broadcasts
+                for (const u of users) {
+                    await db.users.put({
+                        id: u.id, username: u.username, role: u.role,
+                        created_at: u.created_at,
+                        last_sync: new Date().toISOString()
+                    });
+                }
+                for (const lg of user_logs) {
+                    await db.user_logs.put({
+                        id: lg.id, user_id: lg.user_id,
+                        username: lg.username || '', action: lg.action,
+                        ip_address: lg.ip_address, user_agent: lg.user_agent,
+                        timestamp: lg.timestamp,
+                        last_sync: new Date().toISOString()
+                    });
+                }
+                // Reset broadcasts cache, then insert current set
+                try {
+                    await db.sync_broadcasts.clear();
+                    for (const bc of sync_broadcasts) {
+                        await db.sync_broadcasts.put({
+                            id: bc.id, kind: bc.kind, title: bc.title,
+                            message: bc.message || '', meta: bc.meta || {},
+                            created_at: bc.created_at,
+                            last_sync: new Date().toISOString()
+                        });
+                    }
+                } catch (e) { console.warn('[sync] broadcasts write failed:', e); }
 
                 // ══════════════════════════════════════════════════════
                 //  Apply server-side deletions to local batches.

@@ -476,6 +476,10 @@ function clRenderClaims(claims) {
         const sold      = Math.max(original - physical, 0);
         const isPending = String(claim.id || '').startsWith('temp_');
         const clsStatus = claim.status === 'resolved' ? 'resolved' : 'active';
+        // PHASE-B.2 — precompute badge HTML (nested quotes broke the parser)
+        const pendingBadge = isPending
+            ? '<span class="cl-badge" style="background:#fef3c7;color:#92400e;">' + $t('claims.badge_pending','\u23F3 Pending') + '</span>'
+            : '';
 
         return `
             <div class="cl-claim-card ${clsStatus}">
@@ -485,7 +489,7 @@ function clRenderClaims(claims) {
                             <h3 class="font-bold text-base text-indigo-700 truncate">${escapeHtml(claim.product_name)}</h3>
                             ${clStatusBadge(claim.status)}
                             ${clIssueBadge(claim.issue_type)}
-                            ${isPending ? '<span class="cl-badge" style="background:#fef3c7;color:#92400e;">${$t('claims.badge_pending','⏳ Pending')}</span>' : ''}
+                            ${pendingBadge}
                         </div>
                         <p class="text-xs text-gray-600 mt-1">
                             ${$t('claims.brand','Brand:')} ${escapeHtml(claim.brand || '')} · ${$t('claims.category','Category:')} ${escapeHtml(claim.category || '')}
@@ -1157,4 +1161,6 @@ if (document.readyState === 'loading') {
 } else {
     clInit();
 }
+
+})();
 </script>

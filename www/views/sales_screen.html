@@ -950,7 +950,7 @@ function confirmSaleBatchSelection() {
         cost_price: neededQty > 0 ? (totalCost / neededQty) : (currentProductForBatch.cost_price || 0)
     });
 
-    cart.push({
+    saleCart.push({
         product: productWithCorrectCost, qty: neededQty, discount: discount,
         selectedBatches: selected, subtotal: subtotal, final: finalTotal,
         isFallback: false, totalCost: totalCost, hasFaulty: faultySelected

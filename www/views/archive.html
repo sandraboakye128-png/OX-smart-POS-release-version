@@ -228,6 +228,46 @@ async function arCacheGet() {
             if (row && row.value) return row.value;
         } catch (e) { /* ignore */ }
     }
+    // PHASE-A.2 — build archive items from synced Dexie tables
+    if (typeof db !== 'undefined' && db) {
+        try {
+            const [products, deleted] = await Promise.all([
+                db.products.toArray().catch(() => []),
+                db.deleted_products.toArray().catch(() => [])
+            ]);
+            if (products.length || deleted.length) {
+                const items = [];
+                for (const p of products) {
+                    items.push({
+                        id: null, name: p.name, brand: p.brand || '',
+                        category: p.category || '',
+                        cost: p.cost_price || 0, price: p.selling_price || 0,
+                        stock: p.stock || 0, discount: p.discount || 0,
+                        action: 'ACTIVE', date: '', source: 'active',
+                        is_permanent: false, batch_id: null,
+                        product_id: p.id, claims: [], has_claims: false, total_claimed: 0
+                    });
+                }
+                for (const d of deleted) {
+                    const act = String(d.action || '').toUpperCase();
+                    items.push({
+                        id: d.id, name: d.name, brand: d.brand || '',
+                        category: d.category || '',
+                        cost: d.cost_price || 0, price: d.selling_price || 0,
+                        stock: d.stock || 0, discount: d.discount || 0,
+                        action: act || 'DELETED',
+                        date: d.deleted_at || '', source: d.source || 'product',
+                        is_permanent: act === 'PERMANENTLY DELETED',
+                        batch_id: d.batch_id, batch_quantity: d.batch_quantity,
+                        batch_remaining: d.batch_remaining, product_id: d.product_id,
+                        claims: [], has_claims: false, total_claimed: 0
+                    });
+                }
+                console.log('[archive] Dexie fallback: ' + items.length + ' items');
+                return { items: items, savedAt: Date.now(), _fromDexie: true };
+            }
+        } catch (e) { /* fallthrough */ }
+    }
     try {
         const raw = localStorage.getItem(CACHE_KEY);
         if (!raw) return null;

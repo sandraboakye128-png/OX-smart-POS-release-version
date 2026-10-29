@@ -87,7 +87,7 @@
 
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=106')
+            navigator.serviceWorker.register('/sw.js?v=107')
                 .then(() => console.log('✅ Service Worker registered (v100)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
@@ -836,11 +836,20 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
             if (type === 'warning') icon = '\u26A0\uFE0F';
             if (type === 'error')   icon = '\u274C';
 
+            var _notifObjB = null;
+            try { _notifObjB = items.find(function(i){ return i.id === id; }); } catch (e) {}
+            var _actionHtmlB = '';
+            if (_notifObjB && _notifObjB.action && _notifObjB.action.callback) {
+                var _lblB = _notifObjB.action.label || 'Action';
+                var _cbB = _notifObjB.action.callback;
+                _actionHtmlB = '<div class="hu-actions"><button class="hu-action-btn" onclick="event.stopPropagation();' + _cbB + '">' + _lblB + '</button></div>';
+            }
             el.innerHTML =
                 '<div class="hu-icon">' + icon + '</div>' +
                 '<div class="hu-content">' +
                     '<div class="hu-title">' + _esc(title) + '</div>' +
                     '<div class="hu-msg">' + _esc(message) + '</div>' +
+                    _actionHtmlB +
                 '</div>';
 
             el.onclick = function() {
@@ -872,11 +881,17 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
             list.innerHTML = items.map(n => {
                 const progressBar = (n.progress !== null && n.progress !== undefined) ? `<div class="notif-progress"><div class="notif-progress-fill" style="width:${Math.max(0, Math.min(100, n.progress))}%"></div></div>` : '';
                 const persistentClass = n.persistent ? ' persistent' : '';
+                var actionHtmlB = '';
+                if (n.action && n.action.callback) {
+                    var _alB = n.action.label || 'Action';
+                    actionHtmlB = '<button class="notif-action-btn" onclick="event.stopPropagation(); ' + n.action.callback + '">' + _alB + '</button>';
+                }
                 return `<div class="notif-item notif-${n.type}${persistentClass}" data-id="${n.id}">
                     <div class="notif-icon">${_icon(n.type)}</div>
                     <div class="notif-body">
                         ${n.title ? `<div class="notif-title">${_esc(n.title)}</div>` : ''}
                         ${n.message ? `<div class="notif-msg">${_esc(n.message)}</div>` : ''}
+                        ${actionHtmlB}
                         ${progressBar}
                         <div class="notif-time">${_timeAgo(n.timestamp)}</div>
                     </div>
@@ -887,16 +902,18 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
         function _refresh() { _renderList(); _renderBadge(); }
 
         function add(opts) {
-            const { type = 'info', title = '', message = '', duration = 0, id = null, progress = null, persistent = true } = opts || {};
+            const { type = 'info', title = '', message = '', duration = 0, id = null, progress = null, persistent = true, action = null, silent = false } = opts || {};
             if (id) {
                 const existing = items.find(i => i.id === id);
-                if (existing) return update(id, { type, title, message, progress, persistent });
+                if (existing) return update(id, { type, title, message, progress, persistent, action, silent });
             }
-            const notif = { id: id || ('n_' + (nextId++) + '_' + Date.now()), type, title, message, progress, persistent: !!persistent, timestamp: Date.now(), _timer: null };
+            const notif = { id: id || ('n_' + (nextId++) + '_' + Date.now()), type, title, message, progress, persistent: !!persistent, timestamp: Date.now(), _timer: null, action: action || null };
             items.unshift(notif);
             ringBell();
             _refresh(); _save();
-            try { showHeadsUp(notif.id, type, title, message); } catch (e) {}
+            if (!silent) {
+                try { showHeadsUp(notif.id, type, title, message); } catch (e) {}
+            }
             if (!persistent && duration > 0 && type !== 'progress') notif._timer = setTimeout(() => remove(notif.id), duration);
             return notif.id;
         }
@@ -907,11 +924,13 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
             Object.assign(n, patch || {});
             n.timestamp = Date.now();
             _refresh(); _save();
-            try {
-                if (patch && (patch.type || patch.title || patch.message)) {
-                    showHeadsUp(id, patch.type || n.type, patch.title || n.title, patch.message || n.message);
-                }
-            } catch (e) {}
+            if (!patch || !patch.silent) {
+                try {
+                    if (patch && (patch.type || patch.title || patch.message)) {
+                        showHeadsUp(id, patch.type || n.type, patch.title || n.title, patch.message || n.message);
+                    }
+                } catch (e) {}
+            }
         }
         function remove(id) {
             const idx = items.findIndex(i => i.id === id);
@@ -1237,11 +1256,22 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
         items.forEach(function (it) { onServer[PREFIX + it.id] = true; });
         var existingIds = {};
         try { N.items.forEach(function (x) { existingIds[x.id] = true; }); } catch (e) {}
+        var _meB = '';
+        try { _meB = (JSON.parse(localStorage.getItem('ox_user') || 'null') || {}).username || ''; } catch (e) {}
         items.forEach(function (it) {
           var nid = PREFIX + it.id;
           if (existingIds[nid]) return;
+          // PHASE-D -- skip own-actor broadcasts
+          if (it.kind === 'sync_broadcast' && it.meta && it.meta.actor && _meB && it.meta.actor.toLowerCase() === _meB.toLowerCase()) {
+              return;
+          }
           try {
-            N.add({ id: nid, type: KIND_TYPE[it.kind] || 'info', title: it.title || '', message: it.message || '', persistent: true, silent: false });
+            var _optsB = { id: nid, type: KIND_TYPE[it.kind] || 'info', title: it.title || '', message: it.message || '', persistent: true, silent: false };
+            if (it.kind === 'sync_broadcast') {
+                _optsB.action = { label: '\uD83D\uDD04 Refresh', callback: "window.location.reload()" };
+                _optsB.message = (it.message || '') + ' Tap Refresh to see the new data.';
+            }
+            N.add(_optsB);
             try {
               var arr = N.items;
               for (var i = 0; i < arr.length; i++) { if (arr[i].id === nid) { var ts = Date.parse(it.created_at); if (!isNaN(ts)) arr[i].timestamp = ts; break; } }
@@ -2060,8 +2090,10 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
             if (handle) handle.style.cursor = 'grab';
             if (moved) {
                 try {
+                    // PHASE-C -- size persistence
                     localStorage.setItem(POS_KEY, JSON.stringify({
-                        left: win.style.left, top: win.style.top
+                        left: win.style.left, top: win.style.top,
+                        width: win.offsetWidth, height: win.offsetHeight
                     }));
                 } catch (e) {}
             }
@@ -2077,12 +2109,34 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
         // Restore saved position
         try {
             var saved = JSON.parse(localStorage.getItem(POS_KEY) || 'null');
-            if (saved && saved.left && saved.top) {
-                win.style.left   = saved.left;
-                win.style.top    = saved.top;
-                win.style.right  = 'auto';
-                win.style.bottom = 'auto';
-                win.style.position = 'fixed';
+            if (saved) {
+                if (saved.left && saved.top) {
+                    win.style.left   = saved.left;
+                    win.style.top    = saved.top;
+                    win.style.right  = 'auto';
+                    win.style.bottom = 'auto';
+                    win.style.position = 'fixed';
+                }
+                // PHASE-C -- size persistence
+                if (saved.width) win.style.width = saved.width + 'px';
+                if (saved.height) win.style.height = saved.height + 'px';
+            }
+        } catch (e) {}
+        // PHASE-C -- ResizeObserver saves when user drags corner
+        try {
+            if (window.ResizeObserver) {
+                var _lastSizeB = { w: win.offsetWidth, h: win.offsetHeight };
+                var _roB = new ResizeObserver(function () {
+                    var w = win.offsetWidth, h = win.offsetHeight;
+                    if (w === _lastSizeB.w && h === _lastSizeB.h) return;
+                    _lastSizeB.w = w; _lastSizeB.h = h;
+                    try {
+                        var savedB = JSON.parse(localStorage.getItem(POS_KEY) || 'null') || {};
+                        savedB.width = w; savedB.height = h;
+                        localStorage.setItem(POS_KEY, JSON.stringify(savedB));
+                    } catch (e) {}
+                });
+                _roB.observe(win);
             }
         } catch (e) {}
 
@@ -2461,6 +2515,11 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
 .ox-heads-up .hu-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 2px; color: #f1f5f9; }
 .ox-heads-up .hu-msg { font-size: 0.8rem; color: #94a3b8; line-height: 1.35; }
 @keyframes oxHUSlideDown { from { transform: translateY(-140%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.hu-actions { margin-top: 8px; display: flex; gap: 6px; }
+.hu-action-btn { background: rgba(0,207,207,0.2); color: #67e8f9; border: 1px solid rgba(0,207,207,0.4); padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+.hu-action-btn:hover { background: rgba(0,207,207,0.35); }
+.notif-action-btn { background: rgba(0,207,207,0.2); color: #67e8f9; border: 1px solid rgba(0,207,207,0.4); padding: 3px 8px; border-radius: 5px; font-size: 0.68rem; font-weight: 700; cursor: pointer; margin-top: 6px; font-family: inherit; }
+.notif-action-btn:hover { background: rgba(0,207,207,0.35); }
 @keyframes oxHUSlideUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-140%); opacity: 0; } }
 </style>
 

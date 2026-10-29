@@ -70,6 +70,16 @@ db.version(4).stores({
     pending_ops: '++id, operation, table, record_id, user_id, scope, timestamp, attempts, synced'
 });
 
+
+// ------------------------------------------------------------------
+// v5 -- Phase A: offline views for users, user_logs, sync broadcasts
+// ------------------------------------------------------------------
+db.version(5).stores({
+    users:           'id, username, role, created_at',
+    user_logs:       'id, user_id, username, action, timestamp',
+    sync_broadcasts: 'id, kind, title, meta, created_at'
+});
+
 window.db = db;
 
 // Best-effort persistence request — Android WebView will otherwise

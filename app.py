@@ -189,7 +189,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "temporary-dev-key")
 
 # ✅ App version / environment — exposed to templates + /settings page
-app.config['APP_VERSION'] = '10.5.1'  # v10.5.1 — Phases 1-5 release
+app.config['APP_VERSION'] = '10.5.2'  # v10.5.1 — Phases 1-5 release
 
 # ============================================================
 #  GEMINI AI CLIENT
@@ -4080,13 +4080,59 @@ def api_sync_all():
             for r in deleted
         ]
 
+        # PHASE-A -- users, user_logs, sync broadcasts (for offline views)
+        users_list = []
+        try:
+            _AUTH = _auth_users_table()
+            cursor.execute(f"SELECT id, username, role, created_at FROM {_AUTH} ORDER BY id")
+            for r in cursor.fetchall():
+                users_list.append({
+                    "id": r[0], "username": r[1], "role": r[2],
+                    "created_at": r[3].isoformat() if hasattr(r[3], 'isoformat') else (str(r[3]) if r[3] else None),
+                })
+        except Exception as _e:
+            print(f"[sync-all] users: {_e}")
+
+        user_logs_list = []
+        try:
+            cursor.execute("SELECT id, user_id, username, action, ip_address, user_agent, timestamp FROM user_logs ORDER BY timestamp DESC LIMIT 500")
+            for r in cursor.fetchall():
+                user_logs_list.append({
+                    "id": r[0], "user_id": r[1], "username": r[2] or "",
+                    "action": r[3], "ip_address": r[4], "user_agent": r[5],
+                    "timestamp": r[6].isoformat() if hasattr(r[6], 'isoformat') else (str(r[6]) if r[6] else None),
+                })
+        except Exception as _e:
+            print(f"[sync-all] user_logs: {_e}")
+
+        sync_broadcasts_list = []
+        try:
+            cursor.execute("SELECT id, kind, title, message, meta, created_at FROM notifications WHERE dismissed_at IS NULL AND user_id IS NULL ORDER BY created_at DESC LIMIT 20")
+            for r in cursor.fetchall():
+                _meta = {}
+                if r[4]:
+                    try:
+                        _meta = json.loads(r[4]) if isinstance(r[4], str) else r[4]
+                    except Exception:
+                        _meta = {}
+                sync_broadcasts_list.append({
+                    "id": r[0], "kind": r[1], "title": r[2], "message": r[3] or "",
+                    "meta": _meta,
+                    "created_at": r[5].isoformat() if hasattr(r[5], 'isoformat') else (str(r[5]) if r[5] else None),
+                })
+        except Exception as _e:
+            print(f"[sync-all] broadcasts: {_e}")
+
         return jsonify({
             "products": product_list,
             "batches": batch_list,
             "sales": sales_list,
             "sales_items": sales_items_list,
             "claims": claims_list,
-            "deleted_products": deleted_list
+            "deleted_products": deleted_list,
+            "users": users_list,
+            "user_logs": user_logs_list,
+            "sync_broadcasts": sync_broadcasts_list
         })
 
     except Exception as e:
