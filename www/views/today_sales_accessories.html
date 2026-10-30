@@ -992,6 +992,29 @@ async function tsConfirmReverse() {
                 }
             }
 
+            // PHASE 3.2-FINAL — Notify user when reverse is queued offline
+            if (queued) {
+                try {
+                    if (typeof window.Notifications !== 'undefined' && window.Notifications.add) {
+                        window.Notifications.add({
+                            id: 'queue-rev-' + saleIdForMsg,
+                            type: 'warning',
+                            title: '↺ Reverse Queued',
+                            message: 'Sale #' + saleIdForMsg + ' reverse saved offline. Will sync when online.',
+                            persistent: true,
+                            headsUp: true
+                        });
+                    }
+                    if (typeof window.refreshPendingNotifications === 'function') {
+                        window.refreshPendingNotifications();
+                    }
+                    if (typeof window.updatePendingBadge === 'function') {
+                        window.updatePendingBadge();
+                    }
+                } catch (e) { console.warn('[today-sales] queued-notify failed:', e); }
+                try { tsCloseReverseModal(); } catch (e) {}
+            }
+
             if (!queued) {
                 toast('Could not queue reversal — try again', true);
                 return;

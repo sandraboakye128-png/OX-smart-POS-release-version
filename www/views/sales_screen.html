@@ -1336,6 +1336,18 @@ async function executeSaleWithPayment(paymentMethod, chequeNum) {
             }
         }
 
+        // PHASE 2.1 — Deduct stock locally
+        for (const it of pendingSaleCallback.cart) {
+            for (const sb of (it.selectedBatches || [])) {
+                try {
+                    const b = await db.batches.get(sb.batch_id);
+                    if (b) {
+                        const newRem = Math.max((b.remaining_quantity || 0) - sb.qty, 0);
+                        await db.batches.update(sb.batch_id, { remaining_quantity: newRem });
+                    }
+                } catch (e) { console.warn('[sale] local stock deduct failed:', e); }
+            }
+        }
         // Verify the insert succeeded — log for debugging.
         try {
             const verifyCount = await db.sales_items

@@ -189,7 +189,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "temporary-dev-key")
 
 # ✅ App version / environment — exposed to templates + /settings page
-app.config['APP_VERSION'] = '10.5.2'  # v10.5.1 — Phases 1-5 release
+app.config['APP_VERSION'] = '10.5.3'  # v10.5.1 — Phases 1-5 release
 
 # ============================================================
 #  GEMINI AI CLIENT
@@ -3980,11 +3980,14 @@ def api_sync_all():
         ]
 
         # 3. Sales (only non‑reversed)
+        # PHASE 1.5 — Join users to get the actual username
         cursor.execute("""
-            SELECT id, date, subtotal, discount, total, profit,
-                   reversed, payment_method, cheque_number, user_id
-            FROM sales
-            WHERE reversed = 0
+            SELECT s.id, s.date, s.subtotal, s.discount, s.total, s.profit,
+                   s.reversed, s.payment_method, s.cheque_number, s.user_id,
+                   COALESCE(u.username, 'Unknown') AS username
+            FROM sales s
+            LEFT JOIN users u ON s.user_id = u.id
+            WHERE s.reversed = 0
         """)
         sales = cursor.fetchall()
         sales_list = [
@@ -3998,7 +4001,8 @@ def api_sync_all():
                 "reversed": r[6],
                 "payment_method": r[7] or 'cash',
                 "cheque_number": r[8],
-                "user_id": r[9]
+                "user_id": r[9],
+                "username": r[10]
             }
             for r in sales
         ]
@@ -6205,12 +6209,21 @@ def _build_inventory_context_block(ctx):
         lines.append('== LIVE SYSTEM SNAPSHOT ==')
         lines.append('Total products: ' + str(summary.get('total_products', 0)))
         lines.append('Total batches: ' + str(summary.get('total_batches', 0)))
-        lines.append('Sales (non-reversed): ' + str(summary.get('total_sales', 0)))
-        try:
-            lines.append('Total revenue: GHS ' + format(float(summary.get('total_revenue', 0)), '.2f'))
-            lines.append('Total profit: GHS ' + format(float(summary.get('total_profit', 0)), '.2f'))
-        except Exception:
-            pass
+        lines.append('Total sales (all time): ' + str(summary.get('total_sales', 0)))
+        lines.append('Total revenue (all time): GHS ' + format(float(summary.get('total_revenue', 0)), '.2f'))
+        lines.append('--- TODAY ---')
+        lines.append('Sales today: ' + str(summary.get('today_sales_count', 0)))
+        lines.append('Revenue today: GHS ' + format(float(summary.get('today_revenue', 0)), '.2f'))
+        lines.append('Profit today: GHS ' + format(float(summary.get('today_profit', 0)), '.2f'))
+        lines.append('Purchases today: ' + str(summary.get('today_purchases_count', 0)))
+        lines.append('Claims today: ' + str(summary.get('today_claims_count', 0)))
+        _today_items = summary.get('today_items', [])
+        if _today_items:
+            _ti_str = ', '.join([str(i.get('name')) + ' (' + str(i.get('qty')) + ')' for i in _today_items])
+            lines.append('Items sold today: ' + _ti_str)
+        else:
+            lines.append('Items sold today: none yet')
+        lines.append('-----------')
 
     products = ctx.get('products') or []
     if products:
@@ -6252,7 +6265,6 @@ def _build_inventory_context_block(ctx):
             lines.append(str(i) + '. ' + str(ts.get('name','?')) + ': ' + str(ts.get('qty',0)) + ' units')
 
     return '\n'.join(lines)
-
 
 @app.route('/api/ai/chat', methods=['POST'])
 def ai_chat():

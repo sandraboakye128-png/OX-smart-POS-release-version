@@ -116,9 +116,25 @@ async function pullData() {
                         discount: s.discount, total: s.total, profit: s.profit,
                         reversed: s.reversed, payment_method: s.payment_method || 'cash',
                         cheque_number: s.cheque_number || null, user_id: s.user_id,
+                        username: s.username || 'Unknown', // PHASE 1.5.2
                         last_sync: new Date().toISOString()
                     });
                 }
+                // PHASE 1.5.2 — Cleanup orphaned local sales
+                try {
+                    const allLocalSales = await db.sales.filter(s => String(s.id).startsWith('local_')).toArray();
+                    for (const ls of allLocalSales) {
+                        const matchedServer = sales.find(ss => 
+                            Math.abs(ss.total - ls.total) < 0.01 && 
+                            ss.date === ls.date
+                        );
+                        if (matchedServer) {
+                            await db.sales.delete(ls.id);
+                            console.log('[sync] Cleaned up duplicate local sale:', ls.id);
+                        }
+                    }
+                } catch (e) { console.warn('[sync] dedup failed:', e); }
+
                 for (const si of sales_items) {
                     await db.sales_items.put({
                         id: si.id, sale_id: si.sale_id, product_id: si.product_id,
@@ -256,6 +272,15 @@ async function savePendingOperation(table, operation, record_id, payload) {
         });
         console.log(`💾 Pending op saved: ${table} ${operation} (${record_id})`);
         if (typeof updatePendingBadge === 'function') updatePendingBadge();
+        if (typeof Notifications !== 'undefined' && Notifications.add) {
+            let title = 'Action Queued', msg = '';
+            if (table === 'sales') { title = '🛒 Sale Queued'; msg = 'Your sale is saved locally.'; }
+            else if (table === 'batches') { title = '📦 Purchase Queued'; msg = 'Your purchase is saved locally.'; }
+            else if (table === 'claims') { title = '⚠️ Claim Queued'; msg = 'Your claim is saved locally.'; }
+            if (title !== 'Action Queued') {
+                Notifications.add({ id: 'queued-' + record_id, type: 'success', title: title, message: msg + ' Will sync when online.', persistent: true, headsUp: true });
+            }
+        }
     } catch (err) { console.error('❌ Failed to save pending operation:', err); }
 }
 
@@ -436,6 +461,17 @@ async function pushPending() {
             // An offline-created claim has a temp id. If the user also
             // deleted/updated it offline, that queued op still holds the
             // temp id. Rewrite it once the create succeeds so it lands.
+            if (op.table === 'sales' && wasCreate && serverId) {
+                const tempId = op.record_id;
+                try {
+                    const tempSale = await db.sales.get(tempId);
+                    if (tempSale) {
+                        await db.sales.delete(tempId);
+                        await db.sales.put(Object.assign({}, tempSale, { id: serverId, pending: 0 }));
+                        console.log(`🔁 Swapped sale ${tempId} → ${serverId}`);
+                    }
+                } catch (e) { console.warn('[sync] sale id swap failed:', e); }
+            }
             if (op.table === 'claims' && wasCreate && serverId) {
                 const tempIdStr   = String(op.record_id);
                 const serverIdStr = String(serverId);

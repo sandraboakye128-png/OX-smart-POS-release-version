@@ -640,6 +640,9 @@ async function previewLoad() {
     $('pvBody').innerHTML = '<tr><td colspan="20" class="text-center py-6 text-gray-400">Loading…</td></tr>';
     const _cacheKey = 'pv_online_' + PV.kind + '_' + PV.category;
     try {
+        if (!navigator.onLine) {
+            throw new Error('Offline mode');
+        }
         const _inc = (PV.kind === 'purchases') ? '?include_deleted=1' : '';
         const res = await fetch((window.RENDER_URL||'')+`/api/preview/${PV.kind}/${PV.category}${_inc}`);
         const data = await res.json();

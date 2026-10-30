@@ -87,7 +87,7 @@
 
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js?v=107')
+            navigator.serviceWorker.register('/sw.js?v=108')
                 .then(() => console.log('✅ Service Worker registered (v100)'))
                 .catch(err => console.log('❌ SW registration failed:', err));
         }
@@ -1241,7 +1241,7 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
   var PREFIX = 'srv_';
   var KIND_TYPE = { purchase_added:'success', batch_updated:'warning', batch_archived:'warning', batch_restored:'success', sale_completed:'success', sale_reversed:'warning', sale_imported:'info', preview_save:'info', inventory_import:'info', product_added:'success', claim_created:'warning', claim_resolved:'success', user_created:'info', user_deleted:'warning', role_changed:'info', login_failed:'warning', sync_broadcast:'warning' };
   function _N() { return window.Notifications; }
-  var NOTIF_REFRESH_MS = 30000;
+  var NOTIF_REFRESH_MS = 10000;
   var _lastNotifAt = 0;
   function refresh(opts) {
     opts = opts || {};
@@ -1270,6 +1270,7 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
             if (it.kind === 'sync_broadcast') {
                 _optsB.action = { label: '\uD83D\uDD04 Refresh', callback: "window.location.reload()" };
                 _optsB.message = (it.message || '') + ' Tap Refresh to see the new data.';
+                    _optsB.headsUp = true;
             }
             N.add(_optsB);
             try {
@@ -2523,5 +2524,21 @@ document.addEventListener('DOMContentLoaded', () => OX_AI.init());
 @keyframes oxHUSlideUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-140%); opacity: 0; } }
 </style>
 
+
+<script>
+// PHASE-GATE-TRACKER
+(function() {
+    const u = JSON.parse(localStorage.getItem('ox_user') || localStorage.getItem('ox_shell_user') || 'null');
+    const uname = u ? String(u.username || '').toLowerCase() : '';
+    if (uname !== 'oxbee') {
+        const btn = document.getElementById('ox-tracker-btn');
+        const min = document.getElementById('ox-tracker-min');
+        if (btn) btn.remove();
+        if (min) min.remove();
+        const style = document.getElementById('ox-tracker-pulse-style');
+        if (style) style.remove();
+    }
+})();
+</script>
 </body>
 </html>

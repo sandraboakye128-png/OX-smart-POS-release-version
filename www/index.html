@@ -732,6 +732,7 @@ const landingView = $('landingView');
 const loginView   = $('loginView');
 const loadingView = $('loadingView');
 const appView     = $('appView');
+window._safeAppView = function() { return appView || document.getElementById('appView'); };
 const loginBtn    = $('loginBtn');
 const loginError  = $('loginError');
 
@@ -1044,12 +1045,11 @@ setInterval(async function () {
         _lastSyncReminderAt = now;
         try {
             Notifications.add({
-                id: 'sync-reminder-' + now,
+                id: 'sync-reminder-persistent',
                 type: 'warning',
                 title: '\u23F0 Sync Reminder',
                 message: n + ' pending change' + (n === 1 ? '' : 's') + ' \u2014 tap Sync Now to upload',
-                persistent: false,
-                duration: 10000,
+                persistent: true,
                 headsUp: true
             });
         } catch (e) {}
@@ -1979,7 +1979,12 @@ try {
     var appView = document.getElementById('appView');
     if (appView && typeof MutationObserver !== 'undefined') {
       var lastVisible = !appView.classList.contains('hidden');
-      var obs = new MutationObserver(function () { var nowVisible = !appView.classList.contains('hidden'); if (nowVisible && !lastVisible) { setTimeout(function () { try { N.refreshFromServer(); } catch (e) {} }, 100); } lastVisible = nowVisible; });
+      var obs = new MutationObserver(function () { 
+          if (!appView) return;
+          var nowVisible = !appView.classList.contains('hidden'); 
+          if (nowVisible && !lastVisible) { setTimeout(function () { try { N.refreshFromServer(); } catch (e) {} }, 100); } 
+          lastVisible = nowVisible; 
+      });
       obs.observe(appView, { attributes: true, attributeFilter: ['class'] });
     }
     if (appView && !appView.classList.contains('hidden')) setTimeout(function () { try { N.refreshFromServer(); } catch (e) {} }, 200);
@@ -2404,14 +2409,37 @@ window.calcPress = calcPress;
 async function _buildAIContext() {
     if (typeof db === 'undefined' || !db) return null;
     try {
-        const [products, batches, sales, sales_items] = await Promise.all([
+        const [products, batches, sales, sales_items, claims] = await Promise.all([
             db.products.toArray().catch(() => []),
             db.batches.toArray().catch(() => []),
             db.sales.toArray().catch(() => []),
-            db.sales_items.toArray().catch(() => [])
+            db.sales_items.toArray().catch(() => []),
+            db.claims.toArray().catch(() => [])
         ]);
 
         const activeSales = sales.filter(s => !s.reversed);
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const isToday = (d) => String(d || '').startsWith(todayStr);
+        
+        // Today's Sales
+        const todaySales = activeSales.filter(s => isToday(s.date));
+        const todayRevenue = todaySales.reduce((sum, s) => sum + parseFloat(s.total || 0), 0);
+        const todayProfit = todaySales.reduce((sum, s) => sum + parseFloat(s.profit || 0), 0);
+        
+        // Today's Items
+        const todayItems = {};
+        sales_items.forEach(si => {
+            const parentSale = activeSales.find(s => s.id === si.sale_id);
+            if (parentSale && isToday(parentSale.date)) {
+                const pid = si.product_id;
+                todayItems[pid] = (todayItems[pid] || 0) + parseInt(si.quantity || 0, 10);
+            }
+        });
+
+        // Today's Purchases & Claims
+        const todayPurchases = batches.filter(b => isToday(b.date) && (b.action === 'added' || b.action === 'added_from_excel' || b.action === 'added_from_import'));
+        const todayClaims = claims.filter(c => isToday(c.created_at));
+
         const totalRevenue = activeSales.reduce((sum, s) => sum + parseFloat(s.total || 0), 0);
         const totalProfit = activeSales.reduce((sum, s) => sum + parseFloat(s.profit || 0), 0);
 
@@ -2458,7 +2486,16 @@ async function _buildAIContext() {
                 total_batches: batches.length,
                 total_sales: activeSales.length,
                 total_revenue: totalRevenue,
-                total_profit: totalProfit
+                total_profit: totalProfit,
+                today_sales_count: todaySales.length,
+                today_revenue: todayRevenue,
+                today_profit: todayProfit,
+                today_purchases_count: todayPurchases.length,
+                today_claims_count: todayClaims.length,
+                today_items: Object.keys(todayItems).map(pid => {
+                    const p = products.find(x => String(x.id) === String(pid));
+                    return { name: p ? p.name : 'Unknown', qty: todayItems[pid] };
+                })
             },
             products: slimProducts,
             batch_aggregates: batchAggregates,
@@ -3318,5 +3355,19 @@ document.addEventListener('focusin', function(e) {
 });
 </script>
 
+
+<script>
+// PHASE-GATE-TRACKER
+(function() {
+    const u = JSON.parse(localStorage.getItem('ox_shell_user') || localStorage.getItem('ox_user') || 'null');
+    const uname = u ? String(u.username || '').toLowerCase() : '';
+    if (uname !== 'oxbee') {
+        const btn = document.getElementById('ox-tracker-btn');
+        const min = document.getElementById('ox-tracker-min');
+        if (btn) btn.remove();
+        if (min) min.remove();
+    }
+})();
+</script>
 </body>
 </html>
