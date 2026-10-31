@@ -1067,7 +1067,7 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
             await pushPending();
             if (showProgress) Notifications.update(SYNC_ID, { type: 'progress', title: 'Pulling latest data', message: 'Finishing up…', progress: 92 });
             if (typeof updatePendingBadge === 'function') updatePendingBadge();
-            setLastSync();
+            setLastSync(); try { window.dispatchEvent(new CustomEvent("ox:data-synced")); } catch (e) {}
             if (showProgress) Notifications.update(SYNC_ID, { type: 'success', title: 'Sync complete', message: 'All data is up to date. Tap ✕ to dismiss.', progress: 100, persistent: true });
             return true;
         } catch (err) {
@@ -1311,6 +1311,20 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
     if (document.getElementById('notifBell')) refresh();
   });
   window.addEventListener('online', function () { hookUI(); refresh(); });
+  // PHASE 5C — re-render current view after any sync completes
+  try {
+    window.addEventListener("ox:data-synced", function () {
+      try {
+        var p = window.location.pathname;
+        if (p === "/" || p === "/dashboard") { if (typeof loadDashboard === "function") loadDashboard(); }
+        else if (p.indexOf("/sales") === 0) { if (typeof loadProducts === "function") loadProducts(); }
+        else if (p.indexOf("/purchases") === 0) { if (typeof loadPurchases === "function") loadPurchases(true); }
+        else if (p.indexOf("/today-sales") === 0) { if (typeof loadSalesData === "function") loadSalesData(); }
+        else if (p.indexOf("/claims") === 0) { if (typeof loadClaims === "function") loadClaims(); }
+        else if (p.indexOf("/products") === 0) { if (typeof loadProducts === "function") loadProducts(true); }
+      } catch (e) {}
+    });
+  } catch (e) {}
 })();
 </script>
 

@@ -565,7 +565,7 @@ async function fullSync() {
         if (typeof refreshPendingNotifications === 'function') {
             try { refreshPendingNotifications(); } catch (e) {}
         }
-        console.log('✅ Full sync completed.');
+        console.log('✅ Full sync completed.'); try { window.dispatchEvent(new CustomEvent("ox:data-synced")); } catch (e) {}
         return pullResult;   // PHASE3 — expose count summary
     } finally { _fullSyncRunning = false; }
 }

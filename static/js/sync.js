@@ -463,7 +463,7 @@ async function fullSync() {
         await pullData();
         // Then push any local changes
         await pushPending();
-        console.log('✅ Full sync completed.');
+        console.log('✅ Full sync completed.'); try { window.dispatchEvent(new CustomEvent("ox:data-synced")); } catch (e) {}
     } finally {
         _fullSyncRunning = false;
     }
