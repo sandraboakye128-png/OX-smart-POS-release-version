@@ -77,3 +77,23 @@ window.db = db;
 if (navigator.storage && navigator.storage.persist) {
     navigator.storage.persist().catch(() => {});
 }
+
+// ------------------------------------------------------------------
+// SELF-HEAL V1 — force open and recover from VersionError
+// If the on-device IndexedDB is a NEWER schema than this build
+// (e.g. user upgraded APK, then we rolled back a deploy),
+// Dexie throws VersionError on open() and every subsequent query
+// fails with DatabaseClosedError. We wipe the stale DB once and
+// reload — after that, the new schema is used cleanly.
+// ------------------------------------------------------------------
+db.open().catch(function (err) {
+    var name = (err && err.name) || '';
+    console.error('[db] open failed:', name, err && err.message);
+    if (name === 'VersionError' || name === 'InvalidStateError') {
+        console.warn('[db] SELF-HEAL V1: wiping stale IndexedDB and reloading');
+        try { indexedDB.deleteDatabase('OxSmartOfflineDB'); } catch (e) {}
+        setTimeout(function () {
+            try { window.location.reload(); } catch (e) {}
+        }, 400);
+    }
+});

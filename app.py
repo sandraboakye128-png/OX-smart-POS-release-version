@@ -211,10 +211,10 @@ except Exception as _ai_err:
 # IS_PRODUCTION is resolved. Default is 'development'.
 app.config['APP_ENV'] = 'production' if (os.getenv("FLASK_ENV") == "production" or os.getenv("RENDER")) else 'development'
 
-# ✅ Add session lifetime (7 days)
+# ✅ Session lifetime (24h) - aligned with _enforce_session_expiry
 from datetime import timedelta
-app.permanent_session_lifetime = timedelta(days=7)
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+app.permanent_session_lifetime = timedelta(hours=24)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 
 # ✅ Auto-detect production (Render) vs local dev
@@ -379,7 +379,10 @@ def _enforce_session_expiry():
 
 @app.route('/sw.js')
 def service_worker():
-    return send_from_directory('static', 'sw.js')
+    resp = send_from_directory('static', 'sw.js')
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Service-Worker-Allowed'] = '/'
+    return resp
 
 # ===================== CLAIM SERVICES (imported after app created) =====================
 from services.claim_service import (
