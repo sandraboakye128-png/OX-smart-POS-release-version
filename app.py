@@ -189,7 +189,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "temporary-dev-key")
 
 # ✅ App version / environment — exposed to templates + /settings page
-app.config['APP_VERSION'] = '10.5.3'  # v10.5.3 — Full offline-first release
+app.config['APP_VERSION'] = '10.5.5'  # v10.5.3 — Full offline-first release
 
 # ============================================================
 #  GEMINI AI CLIENT
