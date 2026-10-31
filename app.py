@@ -761,6 +761,13 @@ def api_create_claim():
             description=data.get('description', ''),
             quantity=int(data['quantity'])
         )
+        try:
+            add_notification("claim_created", "[!] Claim #" + str(claim_id),
+                str(data.get("product_name", "")) + " | qty " + str(data.get("quantity", 0)) + " | " + str(data.get("issue_type", "")),
+                {"claim_id": claim_id, "product_id": data.get("product_id"), "batch_id": data.get("batch_id")},
+                user_id=session.get("user_id"))
+        except Exception as _ne:
+            print(f"[claim_created-notify] {_ne}")
         return jsonify({'success': True, 'claim_id': claim_id})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -2051,7 +2058,7 @@ def api_add_product():
             discount=float(data.get('discount', 0)),
             selling_price=float(data['selling_price'])
         )
-        return jsonify({'success': True, 'batch_id': batch_id})
+        _add_product_resp = jsonify({'success': True, 'batch_id': batch_id})
 
         # PRODUCT ADD NOTIFICATION
         try:
@@ -2064,6 +2071,7 @@ def api_add_product():
             )
         except Exception as _ne:
             print(f"[product_added-notify] {_ne}")
+        return _add_product_resp
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 400
