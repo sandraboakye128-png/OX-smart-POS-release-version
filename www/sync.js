@@ -117,6 +117,7 @@ async function pullData() {
                         reversed: s.reversed, payment_method: s.payment_method || 'cash',
                         cheque_number: s.cheque_number || null, user_id: s.user_id,
                         username: s.username || 'Unknown', // PHASE 1.5.2
+                        sync_id: s.sync_id || null,
                         last_sync: new Date().toISOString()
                     });
                 }
