@@ -1233,7 +1233,8 @@ async function executeSaleWithPayment(paymentMethod, chequeNum) {
         sale_datetime: pendingSaleCallback.saleDatetime,
         selected_batches: selectedBatches,
         payment_method: paymentMethod,
-        cheque_number: chequeNum
+        cheque_number: chequeNum,
+        sync_id: 'sid_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10),
     };
 
     // Compute total for local receipt
