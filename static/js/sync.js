@@ -89,9 +89,34 @@ async function pullData() {
                     payment_method: s.payment_method || 'cash',
                     cheque_number: s.cheque_number || null,
                     user_id: s.user_id,
+                    username: s.username || 'Unknown',
+                    sync_id: s.sync_id || null,
                     last_sync: new Date().toISOString()
                 });
             }
+            // PHASE 2B.3a — Cleanup orphaned local sales (sync_id match)
+            // Handles both 'local_' and 'temp_' prefixes (both are in the wild).
+            try {
+                const allLocalSales = await db.sales.filter(s => {
+                    const sid = String(s.id);
+                    return sid.startsWith('local_') || sid.startsWith('temp_') || !/^[0-9]+$/.test(sid);
+                }).toArray();
+                for (const ls of allLocalSales) {
+                    let matchedServer = null;
+                    if (ls.sync_id) {
+                        matchedServer = sales.find(ss => ss.sync_id && ss.sync_id === ls.sync_id);
+                    }
+                    if (!matchedServer && !ls.sync_id) {
+                        matchedServer = sales.find(ss =>
+                            Math.abs((ss.total || 0) - (ls.total || 0)) < 0.01
+                        );
+                    }
+                    if (matchedServer) {
+                        await db.sales.delete(ls.id);
+                        console.log('[sync] Cleaned up duplicate local sale:', ls.id, '-> server', matchedServer.id);
+                    }
+                }
+            } catch (e) { console.warn('[sync] dedup failed:', e); }
 
             // 4. Upsert sales_items
             for (const si of sales_items) {
