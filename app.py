@@ -3987,7 +3987,7 @@ def api_sync_all():
         cursor.execute("""
             SELECT s.id, s.date, s.subtotal, s.discount, s.total, s.profit,
                    s.reversed, s.payment_method, s.cheque_number, s.user_id,
-                   COALESCE(u.username, 'Unknown') AS username
+                   COALESCE(u.username, 'Unknown') AS username, s.sync_id
             FROM sales s
             LEFT JOIN users u ON s.user_id = u.id
             WHERE s.reversed = 0
@@ -4005,7 +4005,8 @@ def api_sync_all():
                 "payment_method": r[7] or 'cash',
                 "cheque_number": r[8],
                 "user_id": r[9],
-                "username": r[10]
+                "username": r[10],
+                "sync_id": r[11] if len(r) > 11 else None
             }
             for r in sales
         ]
@@ -6609,6 +6610,98 @@ def _strip_sensitive_for_non_admin(response):
         pass
     return response
 # ───── end non-admin sensitive-field strip ─────
+
+
+
+# ===================== Phase 2 — Sale sync_id idempotency =====================
+def init_sales_sync_id():
+    """Add sales.sync_id column + index for offline sale idempotency."""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        try:
+            cur.execute("ALTER TABLE sales ADD COLUMN sync_id TEXT")
+            conn.commit()
+        except Exception:
+            try: conn.rollback()
+            except Exception: pass
+        try:
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_sales_sync_id ON sales(sync_id)")
+            conn.commit()
+        except Exception:
+            try: conn.rollback()
+            except Exception: pass
+        print("OK sales.sync_id ready.")
+    except Exception as e:
+        print("WARN init_sales_sync_id: " + str(e))
+    finally:
+        try: conn.close()
+        except Exception: pass
+
+
+@app.before_request
+def _sales_sync_id_dedup_guard():
+    """Phase 2: short-circuit a replayed offline sale POST by sync_id."""
+    if request.path == '/api/sales/complete' and request.method == 'POST':
+        if 'user_id' not in session:
+            return None
+        data = request.get_json(silent=True) or {}
+        sync_id = (data.get('sync_id') or '').strip() if data.get('sync_id') else ''
+        if sync_id:
+            try:
+                _c = get_connection()
+                _cur = _c.cursor()
+                _cur.execute("SELECT id FROM sales WHERE sync_id = %s", (sync_id,))
+                _existing = _cur.fetchone()
+                _c.close()
+                if _existing:
+                    print("[sales-dedup] sync_id=" + sync_id + " already -> sale " + str(_existing[0]))
+                    return jsonify({
+                        'success': True,
+                        'sale_id': _existing[0],
+                        'already_synced': True,
+                        'total': 0,
+                        'date': None,
+                        'receipt_text': 'Already synced',
+                        'receipt_file': None,
+                        'payment_method': data.get('payment_method', 'cash'),
+                        'cheque_number': data.get('cheque_number'),
+                    })
+            except Exception as _e:
+                print("[sales-dedup] check failed: " + str(_e))
+    return None
+
+
+@app.after_request
+def _sales_sync_id_stamp(response):
+    """Phase 2: stamp sync_id onto the newly created sale row."""
+    try:
+        if request.path == '/api/sales/complete' and request.method == 'POST':
+            if response.status_code == 200:
+                try:
+                    data = request.get_json(silent=True) or {}
+                    body = response.get_json(silent=True) or {}
+                except Exception:
+                    return response
+                sync_id = (data.get('sync_id') or '').strip() if data.get('sync_id') else ''
+                if sync_id and not body.get('already_synced'):
+                    new_sale_id = body.get('sale_id')
+                    if new_sale_id:
+                        try:
+                            _c = get_connection()
+                            _cur = _c.cursor()
+                            _cur.execute("UPDATE sales SET sync_id = %s WHERE id = %s",
+                                         (sync_id, new_sale_id))
+                            _c.commit()
+                            _c.close()
+                        except Exception as _e:
+                            print("[sales-stamp] " + str(_e))
+    except Exception:
+        pass
+    return response
+
+
+init_sales_sync_id()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
