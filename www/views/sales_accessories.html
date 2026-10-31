@@ -1249,13 +1249,13 @@ async function executeSaleWithPayment(paymentMethod, chequeNum) {
     let queued = false;
     try {
         if (typeof savePendingOperation === 'function') {
-            await savePendingOperation('sales', 'add', 'temp_' + Date.now(), payload);
+            await savePendingOperation('sales', 'add', (payload && payload.sync_id) || ('temp_' + Date.now()), payload);
             queued = true;
         } else if (typeof db !== 'undefined' && db) {
             await db.pending_ops.add({
                 table: 'sales',
                 operation: 'add',
-                record_id: 'temp_' + Date.now(),
+                record_id: (payload && payload.sync_id) || ('temp_' + Date.now()),
                 payload: payload,
                 timestamp: new Date().toISOString(),
                 attempts: 0,
@@ -1275,7 +1275,7 @@ async function executeSaleWithPayment(paymentMethod, chequeNum) {
     //      sale IMMEDIATELY — no waiting on sync.
     // ─────────────────────────────────────────────────────────
     try {
-        const localSaleId = 'local_' + Date.now();
+        const localSaleId = (payload && payload.sync_id) || ('local_' + Date.now());
         let totalDiscount = 0, totalCost = 0;
         pendingSaleCallback.cart.forEach(it => {
             totalDiscount += (it.discount || 0);
@@ -1308,6 +1308,7 @@ async function executeSaleWithPayment(paymentMethod, chequeNum) {
 
         await db.sales.add({
             id: localSaleId,
+            sync_id: localSaleId,
             date: payload.sale_datetime,
             subtotal: grand + totalDiscount,
             discount: totalDiscount,
