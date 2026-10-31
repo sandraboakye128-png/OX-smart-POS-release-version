@@ -1143,7 +1143,8 @@
             sale_datetime: pendingSaleCallback.saleDatetime, 
             selected_batches: selectedBatches,
             payment_method: paymentMethod,
-            cheque_number: chequeNum
+            cheque_number: chequeNum,
+            sync_id: 'sid_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10),
         };
         
         console.log("📅 Sale datetime from form:", pendingSaleCallback.saleDatetime);
