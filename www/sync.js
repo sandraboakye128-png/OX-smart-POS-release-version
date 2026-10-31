@@ -120,17 +120,28 @@ async function pullData() {
                         last_sync: new Date().toISOString()
                     });
                 }
-                // PHASE 1.5.2 — Cleanup orphaned local sales
+                // PHASE 2B.1 — Cleanup orphaned local sales (sync_id match)
+                // Handles both 'local_' and 'temp_' prefixes (both are in the wild).
+                // Matches by sync_id deterministically, falls back to fuzzy match
+                // only for old rows that predate the sync_id column.
                 try {
-                    const allLocalSales = await db.sales.filter(s => String(s.id).startsWith('local_')).toArray();
+                    const allLocalSales = await db.sales.filter(s => {
+                        const sid = String(s.id);
+                        return sid.startsWith('local_') || sid.startsWith('temp_') || !/^\d+$/.test(sid);
+                    }).toArray();
                     for (const ls of allLocalSales) {
-                        const matchedServer = sales.find(ss => 
-                            Math.abs(ss.total - ls.total) < 0.01 && 
-                            ss.date === ls.date
-                        );
+                        let matchedServer = null;
+                        if (ls.sync_id) {
+                            matchedServer = sales.find(ss => ss.sync_id && ss.sync_id === ls.sync_id);
+                        }
+                        if (!matchedServer && !ls.sync_id) {
+                            matchedServer = sales.find(ss =>
+                                Math.abs((ss.total || 0) - (ls.total || 0)) < 0.01
+                            );
+                        }
                         if (matchedServer) {
                             await db.sales.delete(ls.id);
-                            console.log('[sync] Cleaned up duplicate local sale:', ls.id);
+                            console.log('[sync] Cleaned up duplicate local sale:', ls.id, '-> server', matchedServer.id);
                         }
                     }
                 } catch (e) { console.warn('[sync] dedup failed:', e); }
