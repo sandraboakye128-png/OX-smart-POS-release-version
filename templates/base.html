@@ -1268,7 +1268,7 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
           try {
             var _optsB = { id: nid, type: KIND_TYPE[it.kind] || 'info', title: it.title || '', message: it.message || '', persistent: true, silent: false };
             if (it.kind === 'sync_broadcast') {
-                _optsB.action = { label: '\uD83D\uDD04 Refresh', callback: "window.location.reload()" };
+                _optsB.action = { label: '\uD83D\uDD04 Refresh', callback: "window.fullSync ? window.fullSync() : window.location.reload()" };
                 _optsB.message = (it.message || '') + ' Tap Refresh to see the new data.';
                     _optsB.headsUp = true;
             }
@@ -1303,6 +1303,7 @@ window.addEventListener('load', function() { document.body.classList.add('app-lo
     N.clearAll = function () { var r = origClear.apply(this, arguments); clearRemote(); return r; };
   }
   window.ServerNotifs = { refresh: refresh, dismiss: dismissRemote, clearAll: clearRemote, PREFIX: PREFIX };
+  setInterval(function () { try { refresh({ force: true }); } catch (e) {} }, 8000);
   document.addEventListener('DOMContentLoaded', function () {
     var _pub = ['/login', '/signup'];
     if (_pub.some(function(p){ return window.location.pathname.indexOf(p) === 0; })) return;
