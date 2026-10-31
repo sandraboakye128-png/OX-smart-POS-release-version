@@ -787,7 +787,7 @@ const Notifications = (function () {
     let nextId = 1;
     function _save() {
         try {
-            const toSave = items.map(n => ({ id: n.id, type: n.type, title: n.title, message: n.message, progress: n.progress, persistent: n.persistent, timestamp: n.timestamp }));
+            const toSave = items.map(n => ({ id: n.id, type: n.type, title: n.title, message: n.message, progress: n.progress, persistent: n.persistent, timestamp: n.timestamp, action: n.action || null }));
             localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, savedAt: Date.now(), items: toSave }));
         } catch (e) {}
     }
@@ -796,7 +796,7 @@ const Notifications = (function () {
             const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return;
             const data = JSON.parse(raw);
             if (!data || data.version !== 1 || !Array.isArray(data.items)) return;
-            for (const n of data.items) items.push({ id: n.id, type: n.type, title: n.title, message: n.message, progress: n.progress, persistent: n.persistent !== false, timestamp: n.timestamp || Date.now(), _timer: null });
+            for (const n of data.items) items.push({ id: n.id, type: n.type, title: n.title, message: n.message, progress: n.progress, persistent: n.persistent !== false, timestamp: n.timestamp || Date.now(), action: n.action || null, _timer: null });
             for (const it of items) { const m = /^n_(\d+)_/.exec(it.id || ''); if (m) nextId = Math.max(nextId, parseInt(m[1], 10) + 1); }
         } catch (e) {}
     }
@@ -835,9 +835,9 @@ const Notifications = (function () {
     }
     function _refresh() { _renderList(); _renderBadge(); }
     function add(opts) {
-        const { type='info', title='', message='', duration=0, id=null, progress=null, persistent=true } = opts || {};
-        if (id) { const existing = items.find(i => i.id === id); if (existing) return update(id, { type, title, message, progress, persistent }); }
-        const notif = { id: id || ('n_' + (nextId++) + '_' + Date.now()), type, title, message, progress, persistent: !!persistent, timestamp: Date.now(), _timer: null };
+        const { type='info', title='', message='', duration=0, id=null, progress=null, persistent=true, action=null } = opts || {};
+        if (id) { const existing = items.find(i => i.id === id); if (existing) return update(id, { type, title, message, progress, persistent, action }); }
+        const notif = { id: id || ('n_' + (nextId++) + '_' + Date.now()), type, title, message, progress, persistent: !!persistent, action: action || null, timestamp: Date.now(), _timer: null };
         items.unshift(notif); _refresh(); _save();
         if (!persistent && duration > 0 && type !== 'progress') notif._timer = setTimeout(() => remove(notif.id), duration);
         return notif.id;
@@ -998,6 +998,26 @@ async function refreshPendingNotifications() {
     } catch (e) {}
 }
 window.refreshPendingNotifications = refreshPendingNotifications;
+async function pollServerNotifications() {
+    try {
+        if (!navigator.onLine) return;
+        if (typeof _syncFetch !== `function`) return;
+        const res = await _syncFetch(`/api/notifications`);
+        if (!res || !res.ok) return;
+        const data = await res.json();
+        if (!data || !data.success) return;
+        for (const item of (data.items || [])) {
+            const nid = `srv_` + item.id;
+            if (Notifications.items.find(n => n.id === nid)) continue;
+            const isSync = item.kind === `sync_broadcast`;
+            const action = isSync ? { label: `Sync Now`, callback: `window.fullSync()` } : null;
+            const ntype = isSync ? `pending` : `info`;
+            const _no = { id: nid, type: ntype, title: item.title || ``, message: item.message || ``, persistent: true, action: action };
+            Notifications.add(_no);
+        }
+    } catch (e) {}
+}
+window.pollServerNotifications = pollServerNotifications;
 
 async function openPendingOpsModal() {
     const modal = $('pendingOpsModal'); const list = $('pendingOpsList');
@@ -1028,7 +1048,7 @@ function closePendingOpsModal() { const modal = $('pendingOpsModal'); if (modal)
 window.closePendingOpsModal = closePendingOpsModal;
 function syncFromPendingModal() { closePendingOpsModal(); if (typeof syncNow === 'function') syncNow(); }
 window.syncFromPendingModal = syncFromPendingModal;
-setInterval(refreshPendingNotifications, 8000);
+setInterval(function() { refreshPendingNotifications(); if (typeof pollServerNotifications === "function") pollServerNotifications(); }, 8000);
 
 // PHASE-D — 2-minute reminder heads-up while pending
 var _lastSyncReminderAt = 0;
