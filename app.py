@@ -189,7 +189,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "temporary-dev-key")
 
 # ✅ App version / environment — exposed to templates + /settings page
-app.config['APP_VERSION'] = '10.5.5'  # v10.5.3 — Full offline-first release
+app.config['APP_VERSION'] = '10.5.6'  # v10.5.6 — Landing page + offline-first release
 
 # ============================================================
 #  GEMINI AI CLIENT
@@ -544,6 +544,12 @@ def admin_required(f):
     return decorated_function
 
 # ===================== PUBLIC ROUTES =====================
+@app.route("/landing")
+def landing():
+    if 'user_id' in session:
+        return redirect('/')
+    return render_template("landing.html")
+
 @app.route("/login")
 def login():
     if request.args.get('logged_out') == '1':
@@ -582,7 +588,7 @@ def dashboard():
                 qs = '?web_session=' + str(ws)
         except Exception:
             pass
-        return redirect('/login' + qs)
+        return redirect('/landing' + qs)
     # Dashboard is admin-only in the sidebar but accessible to any
     # logged-in user via direct URL — keep the existing behavior.
     return render_template("dashboard.html")

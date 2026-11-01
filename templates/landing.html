@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>OX Smart POS</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#00CFCF">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --bg-card: #1e293b;
+            --bg-hover: #273449;
+            --border: #334155;
+            --border-soft: #1e293b;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --text-faint: #64748b;
+            --accent: #00CFCF;
+            --indigo: #a5b4fc;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { min-height: 100%; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 15px;
+            line-height: 1.45;
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: 24px;
+        }
+        .landing-box {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 40px 26px 32px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+            border: 1px solid var(--border-soft);
+            text-align: center;
+        }
+        .landing-logo {
+            width: 72px;
+            height: 72px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #00CFCF, #0891b2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            margin: 0 auto 20px;
+            box-shadow: 0 10px 28px rgba(0,207,207,0.35);
+        }
+        .landing-box h1 {
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: var(--indigo);
+            text-align: center;
+            margin-bottom: 6px;
+        }
+        .landing-box .landing-sub {
+            color: var(--text-dim);
+            font-size: 0.875rem;
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .landing-btn {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+            padding: 16px 18px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            color: var(--text);
+            cursor: pointer;
+            text-align: left;
+            transition: border-color 0.15s, background 0.15s, transform 0.1s;
+            margin-bottom: 12px;
+            font-family: inherit;
+            font-size: inherit;
+        }
+        .landing-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+        .landing-btn:active { transform: scale(0.99); }
+        .landing-btn-offline {
+            border-color: rgba(0,207,207,0.45);
+            background: linear-gradient(135deg, rgba(0,207,207,0.10), rgba(0,207,207,0.02));
+        }
+        .landing-btn-offline:hover {
+            background: linear-gradient(135deg, rgba(0,207,207,0.18), rgba(0,207,207,0.04));
+        }
+        .landing-btn-icon {
+            font-size: 26px;
+            line-height: 1;
+            width: 48px;
+            height: 48px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-hover);
+            border-radius: 12px;
+        }
+        .landing-btn-offline .landing-btn-icon { background: rgba(0,207,207,0.16); }
+        .landing-btn-text { flex: 1; min-width: 0; }
+        .landing-btn-title {
+            display: block;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 2px;
+        }
+        .landing-btn-desc {
+            display: block;
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            line-height: 1.4;
+        }
+        .landing-hint {
+            color: var(--text-faint);
+            font-size: 0.72rem;
+            text-align: center;
+            margin-top: 18px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="landing-box">
+        <div class="landing-logo">🧾</div>
+        <h1>OX Smart POS</h1>
+        <p class="landing-sub">Choose how to use the app</p>
+        <button class="landing-btn landing-btn-offline" onclick="goOffline()" type="button">
+            <span class="landing-btn-icon">📴</span>
+            <span class="landing-btn-text">
+                <span class="landing-btn-title">Use App Offline</span>
+                <span class="landing-btn-desc">Works without internet · sales sync later</span>
+            </span>
+        </button>
+        <button class="landing-btn" onclick="goOnline()" type="button">
+            <span class="landing-btn-icon">🌐</span>
+            <span class="landing-btn-text">
+                <span class="landing-btn-title">Use Full Internet-Based App</span>
+                <span class="landing-btn-desc">Full web app in your browser · needs internet</span>
+            </span>
+        </button>
+        <div class="landing-hint">Tip: offline mode keeps working when internet drops.</div>
+    </div>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js?v=111').catch(function(){});
+        }
+        function goOffline() {
+            window.location.href = '/offline/?autologin=1';
+        }
+        function goOnline() {
+            var p = new URLSearchParams(window.location.search);
+            var ws = p.get('web_session');
+            var qs = ws ? '?web_session=' + encodeURIComponent(ws) : '';
+            window.location.href = '/login' + qs;
+        }
+    </script>
+</body>
+</html>
