@@ -45,10 +45,14 @@
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             gap: 14px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
             animation: oxSplashFadeIn 0.4s ease;
         }
         .ox-splash.fade-out {
             animation: oxSplashFadeOut 0.7s ease forwards;
+            pointer-events: none;
         }
         .ox-splash-logo {
             width: 96px; height: 96px; border-radius: 24px;
@@ -70,14 +74,26 @@
             text-transform: uppercase;
             margin-top: 2px;
         }
+        .ox-splash-hint {
+            margin-top: 40px;
+            font-size: 0.75rem;
+            color: #64748b;
+            letter-spacing: 1px;
+            font-weight: 500;
+            animation: oxSplashHintPulse 2s ease-in-out infinite;
+        }
         @keyframes oxSplashFadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes oxSplashFadeOut { from { opacity: 1; } to { opacity: 0; } }
         @keyframes oxSplashPulse {
             0%, 100% { transform: scale(1); box-shadow: 0 16px 48px rgba(0,207,207,0.5); }
             50% { transform: scale(1.05); box-shadow: 0 20px 60px rgba(0,207,207,0.7); }
         }
+        @keyframes oxSplashHintPulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.9; }
+        }
 
-        /* ===== LANDING (hidden until splash fades) ===== */
+        /* ===== LANDING (hidden while splash is up) ===== */
         .landing-box.ox-hidden { display: none; }
         .landing-box {
             background: var(--bg-card);
@@ -153,14 +169,15 @@
     </style>
 </head>
 <body>
-    <!-- SPLASH SCREEN (mimics APK native splash) -->
+    <!-- SPLASH SCREEN (stays until user taps; recurs every 3 min) -->
     <div id="oxSplash" class="ox-splash">
         <div class="ox-splash-logo">🧾</div>
         <h1 class="ox-splash-title">OX Smart POS</h1>
         <div class="ox-splash-subtitle">Inventory &amp; POS System</div>
+        <div class="ox-splash-hint">Tap anywhere to continue</div>
     </div>
 
-    <!-- LANDING (hidden until splash fades) -->
+    <!-- LANDING (hidden while splash is up) -->
     <div class="landing-box ox-hidden" id="oxLandingBox">
         <div class="landing-logo">🧾</div>
         <h1>OX Smart POS</h1>
@@ -194,18 +211,44 @@
             var qs = ws ? '?web_session=' + encodeURIComponent(ws) : '';
             window.location.href = '/login' + qs;
         }
-        // Splash sequence: show for 1.8s, fade 0.5s, then reveal landing
+        // Splash: stays until user taps/clicks/keys, then recurs every 3 minutes
         (function splashSequence() {
             var splash = document.getElementById('oxSplash');
             var landing = document.getElementById('oxLandingBox');
             if (!splash || !landing) return;
-            setTimeout(function() {
+
+            var CYCLE_MS = 180000; // 3 minutes
+            var dismissed = false;
+            var fadeTimer = null;
+
+            function dismiss() {
+                if (dismissed) return;
+                dismissed = true;
                 splash.classList.add('fade-out');
-                setTimeout(function() {
-                    splash.remove();
+                fadeTimer = setTimeout(function() {
+                    splash.style.display = 'none';
                     landing.classList.remove('ox-hidden');
                 }, 700);
-            }, 3500);
+            }
+
+            function showSplash() {
+                clearTimeout(fadeTimer);
+                dismissed = false;
+                // Reset visual state
+                splash.classList.remove('fade-out');
+                splash.style.display = '';
+                // Force reflow so fade-in animation re-triggers
+                void splash.offsetWidth;
+                // Hide landing so splash is clean on top
+                landing.classList.add('ox-hidden');
+            }
+
+            splash.addEventListener('click', dismiss);
+            splash.addEventListener('touchstart', dismiss, { passive: true });
+            document.addEventListener('keydown', dismiss);
+
+            // Recurring cycle: every 3 min, splash returns
+            setInterval(showSplash, CYCLE_MS);
         })();
     </script>
 </body>
