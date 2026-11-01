@@ -31,12 +31,71 @@
             line-height: 1.45;
             -webkit-font-smoothing: antialiased;
             padding-bottom: env(safe-area-inset-bottom);
-            opacity: 0;
-            transition: opacity 0.8s ease-in-out;
         }
-        body.app-loaded { opacity: 1; }
 
-        /* LANDING VIEW — matches shell www/index.html */
+        /* ===== SPLASH — mimics native APK splash exactly ===== */
+        #oxSplashScreen {
+            position: fixed;
+            inset: 0;
+            background: #0f172a;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            transition: opacity 0.5s ease;
+        }
+        #oxSplashScreen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #oxSplashScreen img.ox-splash-img {
+            width: 220px;
+            max-width: 65vw;
+            height: auto;
+            margin-bottom: 6px;
+            animation: oxSplashFloat 2.4s ease-in-out infinite;
+        }
+        #oxSplashScreen h1 {
+            font-size: 2.1rem;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        #oxSplashScreen .tagline {
+            font-size: 1rem;
+            color: #94a3b8;
+            letter-spacing: 0.4px;
+            text-align: center;
+            margin-top: 6px;
+        }
+        #oxSplashScreen .tap-hint {
+            position: absolute;
+            bottom: 48px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.72rem;
+            color: #64748b;
+            letter-spacing: 1.2px;
+            animation: oxHintPulse 2s ease-in-out infinite;
+            white-space: nowrap;
+        }
+        @keyframes oxSplashFloat {
+            0%, 100% { transform: translateY(0); }
+            50%      { transform: translateY(-6px); }
+        }
+        @keyframes oxHintPulse {
+            0%, 100% { opacity: 0.4; }
+            50%      { opacity: 0.9; }
+        }
+
+        /* ===== LANDING VIEW (matches shell) ===== */
         #landingView {
             display: flex;
             align-items: center;
@@ -45,6 +104,7 @@
             height: 100dvh;
             padding: 24px;
         }
+        #landingView.hidden { display: none; }
         .landing-box {
             background: var(--bg-card);
             border-radius: 20px;
@@ -97,10 +157,7 @@
             font-family: inherit;
             font-size: inherit;
         }
-        .landing-btn:hover {
-            border-color: var(--accent);
-            transform: translateY(-1px);
-        }
+        .landing-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
         .landing-btn:active { transform: scale(0.99); }
         .landing-btn-offline {
             border-color: rgba(0,207,207,0.45);
@@ -146,8 +203,16 @@
     </style>
 </head>
 <body>
-    <!-- LANDING VIEW (matches shell www/index.html) -->
-    <div id="landingView">
+    <!-- SPLASH SCREEN — mimics native APK splash -->
+    <div id="oxSplashScreen">
+        <img class="ox-splash-img" src="/static/icons/splash.png" alt="OX Smart POS" onerror="this.style.display='none'">
+        <h1>OX Smart POS</h1>
+        <div class="tagline">Inventory Management</div>
+        <div class="tap-hint">Tap anywhere to continue</div>
+    </div>
+
+    <!-- LANDING VIEW -->
+    <div id="landingView" class="hidden">
         <div class="landing-box">
             <div class="landing-logo">🧾</div>
             <h1>OX Smart POS</h1>
@@ -182,9 +247,25 @@
             var qs = ws ? '?web_session=' + encodeURIComponent(ws) : '';
             window.location.href = '/login' + qs;
         }
-        window.addEventListener('load', function() {
-            setTimeout(function() { document.body.classList.add('app-loaded'); }, 100);
-        });
+        // Splash stays until user taps/clicks/presses a key, then fades to landing
+        (function splashSequence() {
+            var splash = document.getElementById('oxSplashScreen');
+            var landing = document.getElementById('landingView');
+            if (!splash || !landing) return;
+            var dismissed = false;
+            function dismiss() {
+                if (dismissed) return;
+                dismissed = true;
+                splash.classList.add('fade-out');
+                setTimeout(function() {
+                    splash.style.display = 'none';
+                    landing.classList.remove('hidden');
+                }, 500);
+            }
+            splash.addEventListener('click', dismiss);
+            splash.addEventListener('touchstart', dismiss, { passive: true });
+            document.addEventListener('keydown', dismiss);
+        })();
     </script>
 </body>
 </html>
