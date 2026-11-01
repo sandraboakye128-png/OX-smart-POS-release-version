@@ -30,71 +30,21 @@
             font-size: 15px;
             line-height: 1.45;
             -webkit-font-smoothing: antialiased;
+            padding-bottom: env(safe-area-inset-bottom);
+            opacity: 0;
+            transition: opacity 0.8s ease-in-out;
+        }
+        body.app-loaded { opacity: 1; }
+
+        /* LANDING VIEW — matches shell www/index.html */
+        #landingView {
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            min-height: 100dvh;
+            height: 100dvh;
             padding: 24px;
         }
-
-        /* ===== SPLASH SCREEN ===== */
-        .ox-splash {
-            position: fixed; inset: 0; z-index: 99999;
-            background: #0f172a;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            gap: 14px;
-            cursor: pointer;
-            user-select: none;
-            -webkit-user-select: none;
-            animation: oxSplashFadeIn 0.4s ease;
-        }
-        .ox-splash.fade-out {
-            animation: oxSplashFadeOut 0.7s ease forwards;
-            pointer-events: none;
-        }
-        .ox-splash-logo {
-            width: 96px; height: 96px; border-radius: 24px;
-            background: linear-gradient(135deg, #00CFCF, #0891b2);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 52px;
-            box-shadow: 0 16px 48px rgba(0,207,207,0.5);
-            animation: oxSplashPulse 1.6s ease-in-out infinite;
-            margin-bottom: 8px;
-        }
-        .ox-splash-title {
-            font-size: 1.6rem; font-weight: 800;
-            color: #a5b4fc; letter-spacing: 0.5px;
-        }
-        .ox-splash-subtitle {
-            font-size: 0.72rem; font-weight: 700;
-            color: #64748b;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            margin-top: 2px;
-        }
-        .ox-splash-hint {
-            margin-top: 40px;
-            font-size: 0.75rem;
-            color: #64748b;
-            letter-spacing: 1px;
-            font-weight: 500;
-            animation: oxSplashHintPulse 2s ease-in-out infinite;
-        }
-        @keyframes oxSplashFadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes oxSplashFadeOut { from { opacity: 1; } to { opacity: 0; } }
-        @keyframes oxSplashPulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 16px 48px rgba(0,207,207,0.5); }
-            50% { transform: scale(1.05); box-shadow: 0 20px 60px rgba(0,207,207,0.7); }
-        }
-        @keyframes oxSplashHintPulse {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 0.9; }
-        }
-
-        /* ===== LANDING (hidden while splash is up) ===== */
-        .landing-box.ox-hidden { display: none; }
         .landing-box {
             background: var(--bg-card);
             border-radius: 20px;
@@ -104,40 +54,53 @@
             box-shadow: 0 24px 64px rgba(0,0,0,0.55);
             border: 1px solid var(--border-soft);
             text-align: center;
-            animation: oxLandingFadeIn 0.5s ease;
-        }
-        @keyframes oxLandingFadeIn {
-            from { opacity: 0; transform: translateY(12px); }
-            to { opacity: 1; transform: translateY(0); }
         }
         .landing-logo {
-            width: 72px; height: 72px; border-radius: 20px;
+            width: 72px;
+            height: 72px;
+            border-radius: 20px;
             background: linear-gradient(135deg, #00CFCF, #0891b2);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 36px; margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            margin: 0 auto 20px;
             box-shadow: 0 10px 28px rgba(0,207,207,0.35);
         }
         .landing-box h1 {
-            font-size: 1.55rem; font-weight: 700; color: var(--indigo);
-            text-align: center; margin-bottom: 6px;
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: var(--indigo);
+            text-align: center;
+            margin-bottom: 6px;
         }
         .landing-box .landing-sub {
-            color: var(--text-dim); font-size: 0.875rem;
-            text-align: center; margin-bottom: 28px;
+            color: var(--text-dim);
+            font-size: 0.875rem;
+            text-align: center;
+            margin-bottom: 28px;
         }
         .landing-btn {
-            display: flex; align-items: center; gap: 14px;
-            width: 100%; padding: 16px 18px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+            padding: 16px 18px;
             background: var(--bg);
             border: 1px solid var(--border);
             border-radius: 14px;
             color: var(--text);
-            cursor: pointer; text-align: left;
+            cursor: pointer;
+            text-align: left;
             transition: border-color 0.15s, background 0.15s, transform 0.1s;
             margin-bottom: 12px;
-            font-family: inherit; font-size: inherit;
+            font-family: inherit;
+            font-size: inherit;
         }
-        .landing-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+        .landing-btn:hover {
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
         .landing-btn:active { transform: scale(0.99); }
         .landing-btn-offline {
             border-color: rgba(0,207,207,0.45);
@@ -147,56 +110,64 @@
             background: linear-gradient(135deg, rgba(0,207,207,0.18), rgba(0,207,207,0.04));
         }
         .landing-btn-icon {
-            font-size: 26px; line-height: 1;
-            width: 48px; height: 48px; flex-shrink: 0;
-            display: flex; align-items: center; justify-content: center;
-            background: var(--bg-hover); border-radius: 12px;
+            font-size: 26px;
+            line-height: 1;
+            width: 48px;
+            height: 48px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-hover);
+            border-radius: 12px;
         }
         .landing-btn-offline .landing-btn-icon { background: rgba(0,207,207,0.16); }
         .landing-btn-text { flex: 1; min-width: 0; }
         .landing-btn-title {
-            display: block; font-size: 1rem; font-weight: 700;
-            color: var(--text); margin-bottom: 2px;
+            display: block;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 2px;
         }
         .landing-btn-desc {
-            display: block; font-size: 0.72rem; color: var(--text-dim);
+            display: block;
+            font-size: 0.72rem;
+            color: var(--text-dim);
             line-height: 1.4;
         }
         .landing-hint {
-            color: var(--text-faint); font-size: 0.72rem;
-            text-align: center; margin-top: 18px; line-height: 1.5;
+            color: var(--text-faint);
+            font-size: 0.72rem;
+            text-align: center;
+            margin-top: 18px;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
-    <!-- SPLASH SCREEN (stays until user taps; recurs every 3 min) -->
-    <div id="oxSplash" class="ox-splash">
-        <div class="ox-splash-logo">🧾</div>
-        <h1 class="ox-splash-title">OX Smart POS</h1>
-        <div class="ox-splash-subtitle">Inventory &amp; POS System</div>
-        <div class="ox-splash-hint">Tap anywhere to continue</div>
-    </div>
-
-    <!-- LANDING (hidden while splash is up) -->
-    <div class="landing-box ox-hidden" id="oxLandingBox">
-        <div class="landing-logo">🧾</div>
-        <h1>OX Smart POS</h1>
-        <p class="landing-sub">Choose how to use the app</p>
-        <button class="landing-btn landing-btn-offline" onclick="goOffline()" type="button">
-            <span class="landing-btn-icon">📴</span>
-            <span class="landing-btn-text">
-                <span class="landing-btn-title">Use App Offline</span>
-                <span class="landing-btn-desc">Works without internet · sales sync later</span>
-            </span>
-        </button>
-        <button class="landing-btn" onclick="goOnline()" type="button">
-            <span class="landing-btn-icon">🌐</span>
-            <span class="landing-btn-text">
-                <span class="landing-btn-title">Use Full Internet-Based App</span>
-                <span class="landing-btn-desc">Full web app in your browser · needs internet</span>
-            </span>
-        </button>
-        <div class="landing-hint">Tip: offline mode keeps working when internet drops.</div>
+    <!-- LANDING VIEW (matches shell www/index.html) -->
+    <div id="landingView">
+        <div class="landing-box">
+            <div class="landing-logo">🧾</div>
+            <h1>OX Smart POS</h1>
+            <p class="landing-sub">Choose how to use the app</p>
+            <button class="landing-btn landing-btn-offline" onclick="goOffline()" type="button">
+                <span class="landing-btn-icon">📴</span>
+                <span class="landing-btn-text">
+                    <span class="landing-btn-title">Use App Offline</span>
+                    <span class="landing-btn-desc">Works without internet · sales sync later</span>
+                </span>
+            </button>
+            <button class="landing-btn" onclick="goOnline()" type="button">
+                <span class="landing-btn-icon">🌐</span>
+                <span class="landing-btn-text">
+                    <span class="landing-btn-title">Use Full Internet-Based App</span>
+                    <span class="landing-btn-desc">Full web app in your browser · needs internet</span>
+                </span>
+            </button>
+            <div class="landing-hint">Tip: offline mode keeps working when internet drops.</div>
+        </div>
     </div>
     <script>
         if ('serviceWorker' in navigator) {
@@ -211,45 +182,9 @@
             var qs = ws ? '?web_session=' + encodeURIComponent(ws) : '';
             window.location.href = '/login' + qs;
         }
-        // Splash: stays until user taps/clicks/keys, then recurs every 3 minutes
-        (function splashSequence() {
-            var splash = document.getElementById('oxSplash');
-            var landing = document.getElementById('oxLandingBox');
-            if (!splash || !landing) return;
-
-            var CYCLE_MS = 180000; // 3 minutes
-            var dismissed = false;
-            var fadeTimer = null;
-
-            function dismiss() {
-                if (dismissed) return;
-                dismissed = true;
-                splash.classList.add('fade-out');
-                fadeTimer = setTimeout(function() {
-                    splash.style.display = 'none';
-                    landing.classList.remove('ox-hidden');
-                }, 700);
-            }
-
-            function showSplash() {
-                clearTimeout(fadeTimer);
-                dismissed = false;
-                // Reset visual state
-                splash.classList.remove('fade-out');
-                splash.style.display = '';
-                // Force reflow so fade-in animation re-triggers
-                void splash.offsetWidth;
-                // Hide landing so splash is clean on top
-                landing.classList.add('ox-hidden');
-            }
-
-            splash.addEventListener('click', dismiss);
-            splash.addEventListener('touchstart', dismiss, { passive: true });
-            document.addEventListener('keydown', dismiss);
-
-            // Recurring cycle: every 3 min, splash returns
-            setInterval(showSplash, CYCLE_MS);
-        })();
+        window.addEventListener('load', function() {
+            setTimeout(function() { document.body.classList.add('app-loaded'); }, 100);
+        });
     </script>
 </body>
 </html>
