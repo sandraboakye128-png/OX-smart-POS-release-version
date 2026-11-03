@@ -14,7 +14,7 @@
 // ============================================================
 
 // ⚠️ INCREMENT ON EVERY SW LOGIC CHANGE
-const CACHE_NAME = 'oxsmart-v111';
+const CACHE_NAME = 'oxsmart-v112';
 
 const PRECACHE_ASSETS = [
   '/static/css/style.css',

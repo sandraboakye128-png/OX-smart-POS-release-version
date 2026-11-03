@@ -712,9 +712,9 @@
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() { _insertSections(); _load(); });
+        document.addEventListener('DOMContentLoaded', function() { _load(); });
     } else {
-        _insertSections(); _load();
+        _load();
     }
     // Try again shortly in case another script also mutates the DOM
     setTimeout(_insertSections, 500);
