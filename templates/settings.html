@@ -524,8 +524,6 @@
         return { admin: isAdmin, oxbee: isOxbee, username: username };
     }
 
-    
-
     function _buildSections() {
         var R = _role();
         // ── Section: CATEGORY LABELS ──
@@ -585,9 +583,10 @@
         s = document.createElement('div');
         s.id = 'appSettingsStatus';
         s.className = 'hidden mb-4 p-3 rounded-lg text-sm';
-        var firstSec = document.querySelector('h2');
-        if (firstSec && firstSec.parentNode) {
-            firstSec.parentNode.parentNode.insertBefore(s, firstSec.parentNode);
+        // Target the scrollable container safely
+        var container = document.querySelector('.main-content .space-y-6') || document.querySelector('.main-content');
+        if (container) {
+            container.insertBefore(s, container.firstChild);
         } else {
             document.body.insertBefore(s, document.body.firstChild);
         }
@@ -612,23 +611,40 @@
             return;
         }
         if (document.getElementById('secAppCategory')) return;
-        var anchors = document.querySelectorAll('h2, h3');
+
+        // 1. Target the main scrollable container
+        var container = document.querySelector('.main-content .space-y-6') || document.querySelector('.main-content');
+        if (!container) {
+            console.warn('[appSettings] Could not find scrollable container');
+            return;
+        }
+
+        var blocks = _buildSections();
+        var anchors = container.querySelectorAll('h2, h3');
         var sessionHeader = null;
+        
         anchors.forEach(function(h) {
             if (!sessionHeader && /session/i.test(h.textContent || '')) sessionHeader = h;
         });
-        var blocks = _buildSections();
+
         var insertBefore = null;
         if (sessionHeader) {
-            insertBefore = sessionHeader.closest('.bg-white, .bg-gray-50, section, div') || sessionHeader.parentNode;
+            // Find the closest structural parent block within the container
+            insertBefore = sessionHeader.closest('.mb-2') || sessionHeader.closest('.bg-white') || sessionHeader.parentNode;
+            // Ensure the parent is still the container, not body
+            if (insertBefore && insertBefore.parentNode !== container) {
+                insertBefore = sessionHeader.parentNode;
+            }
         }
-        var parent = (insertBefore && insertBefore.parentNode) || document.body;
-        if (insertBefore) {
-            parent.insertBefore(blocks.receipt, insertBefore);
-            parent.insertBefore(blocks.cat, insertBefore);
+
+        // 2. Insert strictly into the container, NEVER document.body
+        if (insertBefore && container.contains(insertBefore)) {
+            container.insertBefore(blocks.receipt, insertBefore);
+            container.insertBefore(blocks.cat, insertBefore);
         } else {
-            parent.appendChild(blocks.cat);
-            parent.appendChild(blocks.receipt);
+            // Fallback: append to the very bottom of the settings container
+            container.appendChild(blocks.cat);
+            container.appendChild(blocks.receipt);
         }
         _wire();
     }
